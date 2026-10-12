@@ -54,7 +54,7 @@ const RecipeIdFromString = DigitsString.pipe(
 )
 
 /** `"12,34"` becomes the IDs 12 and 34. */
-const RecipeIdsFromString = Schema.String.pipe(
+export const RecipeIdsFromString = Schema.String.pipe(
   Schema.decodeTo(
     Schema.Array(RecipeIdFromString).pipe(Schema.check(Schema.isNonEmpty())),
     SchemaTransformation.transform<ReadonlyArray<string>, string>({

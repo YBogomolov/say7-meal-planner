@@ -119,8 +119,9 @@ Input: `data/raw/<id>.html` (UTF-8 text; the file still contains the original `<
 | `categories` | `{ id: number, slug: string, name: string }[]` | only the block "Категории рецепта" of this recipe; not the site menu |
 | `ingredientGroups` | `{ title: string \| null, items: string[] }[]` | the block after the heading "Ингредиенты". Keep each line as written (cleaned text). A group title exists if the page splits ingredients into parts (for example "Для теста:"). |
 | `steps` | string[] | step texts under "Приготовление", in order, without image URLs |
-| `servingsText` | string \| null | the first sentence in intro or steps that contains "порци" |
-| `servings` | `{ min: number, max: number } \| null` | numbers from `servingsText` ("6–8 порций" → 6..8; "4 порции" → 4..4) |
+| `yieldText` | string \| null | text of the `.p-yield` element, cleaned ("8–10 порций", "100–110 штук") |
+| `servingsText` | string \| null | sources in this order: (1) `yieldText` if it contains "порци"; (2) the first intro sentence that contains "порци"; (3) the first step sentence that contains "порци" |
+| `servings` | `{ min: number, max: number } \| null` | numbers from `servingsText` ("6–8 порций" → 6..8; "4 порции" → 4..4). A yield in pieces ("штук") does not give `servings`. |
 | `durations` | `{ minMinutes: number, maxMinutes: number, text: string }[]` | time mentions in steps: "30 минут", "1,5 часа", "40–50 минут", "2-3 часа", "1 час 20 минут". `text` is the matched fragment. |
 | `longWait` | boolean | true if the steps mention a wait of 6 hours or more, overnight ("на ночь", "в течение ночи") or a day ("сутки") |
 | `addedAt` | string \| null | "Рецепт добавлен: DD.MM.YYYY" → `YYYY-MM-DD` |

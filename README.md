@@ -3,8 +3,9 @@
 This project plans lunches and dinners for one week from the recipes of https://www.say7.info.
 The full design is in `docs/SPEC.md`.
 
-This README covers phase P1: the scraper.
+This README covers phase P1 (the scraper) and phase P2 (the parser).
 The scraper downloads every recipe page to the local disk.
+The parser reads the downloaded pages and writes one JSON file for each recipe.
 
 ## Setup on macOS
 
@@ -156,6 +157,148 @@ Programs must read the files as UTF-8.
 - If a refetch fails and an older copy with status `ok` exists, the scraper keeps the older entry and file.
 - If `index.json` is not valid, the scraper stops and does not overwrite the file.
 
+## Parse the recipes
+
+Run the scraper first. The parser reads the files in `data/raw/`.
+
+```sh
+npm run parse
+```
+
+The parser reads `data/raw/index.json`.
+It parses each page with status `ok`.
+A full run takes a few seconds.
+
+The parser prints one line for each page:
+
+```text
+[3/1690] 1590 ok
+[4/1690] 61 ok (warnings: no_servings, no_durations)
+[5/1690] 12 failed no_steps (The page has no step under the heading "Приготовление")
+```
+
+At the end the parser prints the totals and the number of warnings of each kind:
+
+```text
+done: parsed 1689, failed 1, with warnings 340
+warnings: no_servings 210, no_durations 130
+```
+
+The parser reads only `data/raw/`.
+It never changes the files there.
+It does not use the network.
+The scraper can run at the same time.
+
+### Parser flags
+
+Put the flags after `--`, for example `npm run parse -- --ids 56,1590`.
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--ids <id,id,...>` | all | Parse only these recipe IDs. |
+| `--data-dir <path>` | `data` | Directory of the downloaded data. |
+| `-h`, `--help` | | Print the list of flags. |
+
+Exit codes: `0` when all pages are parsed, `1` when a page failed or a fatal error occurred, `2` for a wrong flag.
+A fatal error is a missing or invalid `index.json`, or a file that the parser cannot write.
+
+The parser also runs without `npm`, on Node.js v22.18 or higher:
+
+```sh
+node src/parser/cli.ts --ids 1590
+```
+
+### Parsed data
+
+```text
+data/parsed/<id>.json    one file for each parsed recipe
+data/parsed/_report.json totals, failed pages and warnings of the last run
+```
+
+Each run writes a file to a temporary name first, then renames it.
+A stop in the middle of a run never leaves a half-written file.
+The next run removes the temporary files that remain.
+If a page fails now, the parser removes the file of an earlier run for this page.
+A run with `--ids` does not change the files of the other recipes.
+It replaces `_report.json`, so the report then covers only the pages of that run.
+
+A recipe file has these fields:
+
+| Field | Meaning |
+|-------|---------|
+| `parserVersion` | Version of the file format. Now `1`. |
+| `id`, `url`, `title` | ID, canonical URL and name of the recipe. |
+| `intro` | Paragraphs of the description before the ingredient list. Quotations are not included. |
+| `categories` | The categories of the block "Категории рецепта": `id`, `slug`, `name`. |
+| `ingredientGroups` | Groups of ingredient lines. `title` is `null` when the page has one list without parts. |
+| `steps` | Text of each step. A line break in a step is `\n`. |
+| `yieldText` | Text of the element `.p-yield`, for example `8–10 порций` or `100–110 штук`. `null` when the page has none. |
+| `servingsText` | Text that names the portions. The source is the first of: `yieldText` (if it contains "порци"), a sentence of the intro with "порци", a sentence of the steps with "порци". Otherwise `null`. |
+| `servings` | `min` and `max` from `servingsText`. `null` when the parser reads no number. A yield in pieces (`штук`, `котлет`) gives no `servings`. |
+| `durations` | Times in the steps, in minutes: `minMinutes`, `maxMinutes`, `text`. |
+| `longWait` | `true` when a step names a wait of 6 hours or more, a night or a day. |
+| `addedAt` | Date of the recipe as `YYYY-MM-DD`, or `null`. |
+| `commentsCount` | Number of comments, or `null`. |
+| `similarIds` | IDs in the block "Похожие". |
+| `sourceSha256` | SHA-256 of the UTF-8 text of the page. |
+
+The text in the file is clean:
+a non-breaking space is a space, a non-breaking hyphen is `-`, and white space is collapsed.
+Image URLs are not included.
+
+### Failed pages and warnings
+
+A page fails when it has no title, no canonical URL, a canonical URL with another ID, no ingredient line or no step.
+`_report.json` lists each failed page with its ID, a reason and a message.
+The reason is `no_title`, `no_url`, `id_mismatch`, `no_ingredients`, `no_steps`, `invalid_output` or `unreadable` (the file cannot be read).
+
+A page with missing optional data passes.
+The report counts it as a warning and lists the IDs for each kind:
+
+| Warning | Meaning |
+|---------|---------|
+| `no_intro` | The page has no description. |
+| `no_servings` | No source for `servingsText`: the yield has no "порци", and no sentence of the intro or the steps has it. |
+| `servings_unparsed` | `servingsText` exists, but it has no number of servings. |
+| `no_durations` | No time in the steps. |
+| `no_added_date` | The page has no date of addition. |
+| `no_comments_count` | The page has no "Комментарии (N)" heading. |
+| `no_categories` | The page has no category. |
+| `categories_from_breadcrumb` | The page has no block "Категории рецепта". The categories come from the breadcrumb at the top of the page. |
+| `no_similar` | The page has no block "Похожие". |
+
+`_report.json` has this form:
+
+```json
+{
+  "version": 1,
+  "parserVersion": 1,
+  "generatedAt": "2026-10-12T14:20:00.000Z",
+  "totals": { "processed": 34, "ok": 34, "failed": 0, "withWarnings": 11 },
+  "failed": [],
+  "warningCounts": { "no_intro": 0, "no_servings": 7, "…": 0 },
+  "warningIds": { "no_intro": [], "no_servings": [246, 275, "…"], "…": [] }
+}
+```
+
+### Test pages
+
+The golden tests of the parser read 34 real pages from `test/fixtures/real/`.
+This directory is git-ignored, because the site forbids the re-publication of its pages.
+The list of IDs is in `test/fixtures/real-ids.json`.
+
+Copy the pages from `data/raw/` to the test directory:
+
+```sh
+npm run fixtures:refresh
+```
+
+Use the flag `--data-dir <path>` to read from another data directory.
+The command prints the IDs that `data/raw/` does not have, and exits with code 1.
+
+If a page file is absent, the golden test for this page is skipped.
+The test output names the file.
+
 ## Development
 
 | Command | Action |
@@ -163,13 +306,22 @@ Programs must read the files as UTF-8.
 | `npm run typecheck` | Check the types with `tsc --noEmit`. |
 | `npm test` | Run the tests with Vitest. |
 | `npm run scrape -- <flags>` | Run the scraper. |
+| `npm run parse -- <flags>` | Run the parser. |
+| `npm run fixtures:refresh` | Copy the test pages from `data/raw/` to `test/fixtures/real/`. |
 
 Source layout:
 
 ```text
-src/domain/    Effect Schemas: RecipeId, SitemapEntry, RawIndexEntry, RawIndex
+src/domain/    Effect Schemas: RecipeId, SitemapEntry, RawIndexEntry, RawIndex,
+               ParsedRecipe, ParseError, ParseReport
 src/scraper/   sitemap.ts, robots.ts, charset.ts, plan.ts, outcome.ts   pure functions
                http.ts, pacer.ts, store.ts                              services (HTTP, delay, files)
                run.ts, cli-options.ts, layers.ts, cli.ts                 program and entry point
-test/          unit tests, and end-to-end tests against a local HTTP server
+src/parser/    text.ts, servings.ts, durations.ts, dates.ts, dom.ts      pure functions
+               extract.ts, parse.ts (parseRecipe), plan.ts, report.ts     pure functions
+               store.ts                                                    service (files)
+               run.ts, cli-options.ts, layers.ts, cli.ts                   program and entry point
+               fixtures.ts, fixtures-cli.ts                                copy of the test pages
+test/          unit tests, golden tests of the 34 real pages,
+               and end-to-end tests against a local HTTP server and a temporary data directory
 ```

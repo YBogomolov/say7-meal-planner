@@ -10,11 +10,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "scrape": "tsx src/scraper/cli.ts"
+    "scrape": "tsx src/scraper/cli.ts",
+    "parse": "tsx src/parser/cli.ts",
+    "fixtures:refresh": "tsx src/parser/fixtures-cli.ts"
   },
   "dependencies": {
     "@effect/platform-node": "4.0.3",
-    "effect": "4.0.3"
+    "effect": "4.0.3",
+    "parse5": "8.0.1"
   },
   "devDependencies": {
     "@effect/vitest": "4.0.3",
