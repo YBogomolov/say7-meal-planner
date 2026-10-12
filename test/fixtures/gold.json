@@ -1,0 +1,362 @@
+[
+  {
+    "id": 38,
+    "title": "Жареная рыба под маринадом",
+    "dishType": ["main"],
+    "mealFit": ["needs_side","full_meal"],
+    "proteinFamilies": ["fish"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":6,"max":8,"tolerance":0},
+    "activeMinutes": {"min":50,"max":100},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"1 кг рыбы (у меня судак)","item":["рыба","судак"],"category":["fish"],"pantry":false},
+      {"raw":"300 г моркови","item":["морковь"],"category":["vegetable"],"pantry":false},
+      {"raw":"мука","item":["мука"],"category":["grain","other"],"pantry":true}
+    ],
+    "note": "Marinade chill is 3-4 h, so longWait is false. Active time: fry in batches, then cook the marinade."
+  },
+  {
+    "id": 61,
+    "title": "Греческий салат",
+    "dishType": ["salad"],
+    "mealFit": ["side_only","not_a_meal"],
+    "proteinFamilies": [],
+    "vegetarian": true,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":7,"max":8,"tolerance":0},
+    "activeMinutes": {"min":10,"max":30},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"200 г феты (или брынзы)","item":["фета","брынза"],"category":["dairy"],"pantry":false},
+      {"raw":"500 г помидоров","item":["помидоры","томаты"],"category":["vegetable"],"pantry":false},
+      {"raw":"5 ст.л. оливкового или подсолнечного масла","item":["оливковое масло","подсолнечное масло","растительное масло"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Salad, side only. No meat, so vegetarian."
+  },
+  {
+    "id": 246,
+    "title": "Сырный суп",
+    "dishType": ["soup"],
+    "mealFit": ["full_meal"],
+    "proteinFamilies": ["chicken"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":8,"max":12,"tolerance":2},
+    "activeMinutes": {"min":20,"max":45},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"500 г куриного филе","item":["куриное филе"],"category":["poultry"],"pantry":false},
+      {"raw":"150 г риса","item":["рис"],"category":["grain"],"pantry":false},
+      {"raw":"соль","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "No servings on page. Estimate from the 4 L pot: 3 L water, about 350 ml a portion."
+  },
+  {
+    "id": 935,
+    "title": "Пельмени",
+    "dishType": ["main"],
+    "mealFit": ["full_meal"],
+    "proteinFamilies": ["pork","beef"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":5,"max":8,"tolerance":2},
+    "activeMinutes": {"min":75,"max":150},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"350 г свинины","item":["свинина"],"category":["meat"],"pantry":false},
+      {"raw":"500–550 г муки","item":["мука"],"category":["grain","other"],"pantry":true},
+      {"raw":"1 ч.л. соли","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "No servings on page: 100-110 pieces, about 15-20 a portion. Dough rest is 40-45 min."
+  },
+  {
+    "id": 1057,
+    "title": "Ростбиф",
+    "dishType": ["main"],
+    "mealFit": ["needs_side"],
+    "proteinFamilies": ["beef"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":6,"max":8,"tolerance":0},
+    "activeMinutes": {"min":15,"max":35},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"1 кг говядины (мраморной)","item":["говядина"],"category":["meat"],"pantry":false},
+      {"raw":"5–7 горошин черного перца","item":["черный перец","перец черный горошком"],"category":["spice"],"pantry":true},
+      {"raw":"3 ст.л. растительного масла","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Rest after baking is 20-30 min, so longWait is false. The author names vegetables as the side."
+  },
+  {
+    "id": 1171,
+    "title": "Креветки в кисло-сладком соусе",
+    "dishType": ["main"],
+    "mealFit": ["needs_side"],
+    "proteinFamilies": ["seafood"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":4,"max":6,"tolerance":0},
+    "activeMinutes": {"min":10,"max":30},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"350 г креветок (неочищенных)","item":["креветки"],"category":["seafood"],"pantry":false},
+      {"raw":"2–3 зубчика чеснока","item":["чеснок"],"category":["vegetable","spice"],"pantry":false},
+      {"raw":"соль","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "The author names rice as the side. Ginger and pepper only: heat 0-1."
+  },
+  {
+    "id": 1282,
+    "title": "Свинина гармошка с томатами, сыром, грибами и луком",
+    "dishType": ["main"],
+    "mealFit": ["full_meal","needs_side"],
+    "proteinFamilies": ["pork"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":6,"max":8,"tolerance":0},
+    "activeMinutes": {"min":25,"max":50},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"1 кг свинины (в идеале — корейки)","item":["свинина"],"category":["meat"],"pantry":false},
+      {"raw":"150 г помидоров","item":["помидоры","томаты"],"category":["vegetable"],"pantry":false},
+      {"raw":"соль","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "The author says no side is needed, but names potato or rice. Bake 1.5-2 h is not active time."
+  },
+  {
+    "id": 1321,
+    "title": "Спагетти с морепродуктами в сливочном соусе",
+    "dishType": ["main"],
+    "mealFit": ["full_meal"],
+    "proteinFamilies": ["seafood"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":6,"max":8,"tolerance":0},
+    "activeMinutes": {"min":15,"max":35},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"300 г морепродуктов","item":["морепродукты","морской коктейль"],"category":["seafood","frozen"],"pantry":false},
+      {"raw":"200 г спагетти","item":["спагетти"],"category":["pasta"],"pantry":false},
+      {"raw":"соль","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "Pasta dish. The page states 6-8 portions for 200 g of spaghetti; gold follows the page."
+  },
+  {
+    "id": 1429,
+    "title": "Куриная печень с грибами в сметанно-горчичном соусе",
+    "dishType": ["main"],
+    "mealFit": ["needs_side"],
+    "proteinFamilies": ["chicken"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":6,"max":8,"tolerance":0},
+    "activeMinutes": {"min":20,"max":40},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"500 г куриной печени","item":["куриная печень","печень куриная"],"category":["poultry","meat"],"pantry":false},
+      {"raw":"150 г лука","item":["лук репчатый","лук"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Offal goes to its animal: chicken. The author names rice or potato as the side."
+  },
+  {
+    "id": 1434,
+    "title": "Салат «Кобб»",
+    "dishType": ["salad"],
+    "mealFit": ["full_meal","side_only"],
+    "proteinFamilies": ["chicken","pork"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":6,"max":8,"tolerance":0},
+    "activeMinutes": {"min":30,"max":60},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"300 г куриного филе","item":["куриное филе"],"category":["poultry"],"pantry":false},
+      {"raw":"250 г помидоров","item":["помидоры","томаты"],"category":["vegetable"],"pantry":false},
+      {"raw":"70 мл растительного масла","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Bacon counts as pork. The author calls the salad hearty, so full_meal or side_only."
+  },
+  {
+    "id": 1587,
+    "title": "Цыплята, запеченные с оливками и томатами",
+    "dishType": ["main"],
+    "mealFit": ["full_meal","needs_side"],
+    "proteinFamilies": ["chicken"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":3,"max":4,"tolerance":0},
+    "activeMinutes": {"min":15,"max":35},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"700 г цыплят","item":["цыплята","цыпленок","курица"],"category":["poultry"],"pantry":false},
+      {"raw":"150 г помидоров","item":["помидоры","томаты"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Marinade 2-3 h, so longWait is false. Vegetables bake with the chicken."
+  },
+  {
+    "id": 1601,
+    "title": "Картофель по-деревенски",
+    "dishType": ["side"],
+    "mealFit": ["side_only","full_meal"],
+    "proteinFamilies": [],
+    "vegetarian": true,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":8,"max":10,"tolerance":0},
+    "activeMinutes": {"min":10,"max":30},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"1 кг картофеля","item":["картофель"],"category":["vegetable"],"pantry":false},
+      {"raw":"1 ч.л. сушеных трав (прованские, итальянской кухни и т.д.)","item":["сушеные травы","прованские травы","итальянские травы"],"category":["spice","herb"],"pantry":true},
+      {"raw":"4 ст.л. растительного масла","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "The author: good as a side, also alone. Page category is main dishes, gold type is side."
+  },
+  {
+    "id": 1623,
+    "title": "Рыба в картофельной корочке",
+    "dishType": ["main"],
+    "mealFit": ["needs_side"],
+    "proteinFamilies": ["fish"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":4,"max":6,"tolerance":0},
+    "activeMinutes": {"min":25,"max":50},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"500 г рыбы (филе)","item":["рыба","филе рыбы","рыбное филе"],"category":["fish"],"pantry":false},
+      {"raw":"500 г картофеля","item":["картофель"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "The author names a vegetable salad as the side."
+  },
+  {
+    "id": 1635,
+    "title": "Чашушули",
+    "dishType": ["main"],
+    "mealFit": ["full_meal","needs_side"],
+    "proteinFamilies": ["beef"],
+    "vegetarian": false,
+    "heat": {"min":1,"max":2},
+    "servings": {"min":8,"max":10,"tolerance":0},
+    "activeMinutes": {"min":30,"max":60},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"1 кг говядины","item":["говядина"],"category":["meat"],"pantry":false},
+      {"raw":"500 г болгарского перца","item":["болгарский перец","перец болгарский"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Spicy dish. Paprika is hot or sweet by choice, no chilli: heat 1-2. Veal counts as beef. Served with flatbread."
+  },
+  {
+    "id": 1653,
+    "title": "Шкмерули",
+    "dishType": ["main"],
+    "mealFit": ["needs_side","full_meal"],
+    "proteinFamilies": ["chicken"],
+    "vegetarian": false,
+    "heat": {"min":1,"max":2},
+    "servings": {"min":4,"max":6,"tolerance":0},
+    "activeMinutes": {"min":30,"max":70},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"курица (весом 1–1.5 кг)","item":["курица"],"category":["poultry"],"pantry":false},
+      {"raw":"6–7 зубчиков чеснока","item":["чеснок"],"category":["vegetable","spice"],"pantry":false},
+      {"raw":"соль","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "Spicy dish: 1/4 tsp hot red pepper and 6-7 garlic cloves, heat 1-2. Served with flatbread."
+  },
+  {
+    "id": 1676,
+    "title": "Куриное филе с лисичками в сливочном соусе",
+    "dishType": ["main"],
+    "mealFit": ["full_meal","needs_side"],
+    "proteinFamilies": ["chicken"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":4,"max":5,"tolerance":0},
+    "activeMinutes": {"min":25,"max":50},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"500 г куриного филе","item":["куриное филе"],"category":["poultry"],"pantry":false},
+      {"raw":"паста (любая, по вкусу, но в идеале фетучине)","item":["паста","макароны","фетучине"],"category":["pasta"],"pantry":false},
+      {"raw":"соль","item":["соль"],"category":["spice","other"],"pantry":true}
+    ],
+    "note": "Pasta is an ingredient line, so full_meal. Pasta has no quantity on the page."
+  },
+  {
+    "id": 1679,
+    "title": "Котлеты из куриного филе с беконом",
+    "dishType": ["main"],
+    "mealFit": ["needs_side"],
+    "proteinFamilies": ["chicken","pork"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":4,"max":8,"tolerance":1},
+    "activeMinutes": {"min":25,"max":55},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"600 г куриного филе","item":["куриное филе"],"category":["poultry"],"pantry":false},
+      {"raw":"150 г лука","item":["лук репчатый","лук"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "No servings on page: 10 cutlets of 100 g, 1-2 cutlets a portion. Bacon counts as pork. The author names potato, pasta or rice."
+  },
+  {
+    "id": 1688,
+    "title": "Фасолада",
+    "dishType": ["soup"],
+    "mealFit": ["full_meal"],
+    "proteinFamilies": [],
+    "vegetarian": true,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":8,"max":12,"tolerance":2},
+    "activeMinutes": {"min":20,"max":45},
+    "longWait": true,
+    "keyLines": [
+      {"raw":"450 г фасоли","item":["фасоль"],"category":["legume"],"pantry":false},
+      {"raw":"200 г моркови","item":["морковь"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "No servings on page: 4 L pot. Beans soak 6-8 h, so longWait is true. Canned beans are only an option."
+  },
+  {
+    "id": 1701,
+    "title": "Шакшука",
+    "dishType": ["main","snack"],
+    "mealFit": ["full_meal","needs_side"],
+    "proteinFamilies": [],
+    "vegetarian": true,
+    "heat": {"min":1,"max":2},
+    "servings": {"min":2,"max":3,"tolerance":0},
+    "activeMinutes": {"min":20,"max":40},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"3–4 яйца","item":["яйцо","яйца"],"category":["eggs"],"pantry":false},
+      {"raw":"400 г помидоров","item":["помидоры","томаты"],"category":["vegetable"],"pantry":false},
+      {"raw":"растительное масло","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
+    ],
+    "note": "Page category is snacks; the dish is a light main with eggs. Chilli is optional: heat 1-2."
+  },
+  {
+    "id": 1731,
+    "title": "Кальмары маринованные",
+    "dishType": ["snack"],
+    "mealFit": ["not_a_meal","side_only"],
+    "proteinFamilies": ["seafood"],
+    "vegetarian": false,
+    "heat": {"min":0,"max":1},
+    "servings": {"min":4,"max":6,"tolerance":0},
+    "activeMinutes": {"min":10,"max":30},
+    "longWait": false,
+    "keyLines": [
+      {"raw":"500 г кальмаров (чищенных)","item":["кальмары","кальмар"],"category":["seafood"],"pantry":false},
+      {"raw":"100 мл растительного масла","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true},
+      {"raw":"10 г сахара","item":["сахар"],"category":["sweet"],"pantry":true}
+    ],
+    "note": "Cold appetiser. Chill is 2-3 h, so longWait is false. No vegetable or grain line on the page."
+  }
+]
