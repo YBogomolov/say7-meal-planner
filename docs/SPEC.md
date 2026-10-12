@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
+Status: P1 done. P2 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
 
 ## 1. Goal
 
@@ -104,13 +104,42 @@ Later phases (draft, agents of P1 do not implement):
 11. Tests cover: sitemap parsing, URL filter, robots matcher, fetch decision (pure function), charset decoding, retry behaviour, and an end-to-end run against a local HTTP server that serves windows-1251 pages.
 12. `README.md` explains setup and the scrape commands for macOS.
 
-### P2 — parser (after real pages are available)
+### P2 — parser
 
-ParsedRecipe for every cached page. Golden tests on real pages, which include old (ID < 300) and new (ID > 1600) templates. Selectors come only from real files.
+Input: `data/raw/<id>.html` (UTF-8 text; the file still contains the original `<meta charset="windows-1251">`). Output: `data/parsed/<id>.json` and `data/parsed/_report.json`.
+
+`ParsedRecipe` (Effect Schema, version field `parserVersion: 1`):
+
+| Field | Type | Source and rule |
+|-------|------|-----------------|
+| `id` | RecipeId | file name; must equal the ID in the canonical URL |
+| `url` | string | `<link rel="canonical">` or `og:url` |
+| `title` | string | `<h1>`. Decode HTML entities. `&nbsp;` → space. `&#8209;` (non-breaking hyphen) → `-`. Collapse whitespace. |
+| `intro` | string[] | paragraphs of the description before the ingredient list |
+| `categories` | `{ id: number, slug: string, name: string }[]` | only the block "Категории рецепта" of this recipe; not the site menu |
+| `ingredientGroups` | `{ title: string \| null, items: string[] }[]` | the block after the heading "Ингредиенты". Keep each line as written (cleaned text). A group title exists if the page splits ingredients into parts (for example "Для теста:"). |
+| `steps` | string[] | step texts under "Приготовление", in order, without image URLs |
+| `servingsText` | string \| null | the first sentence in intro or steps that contains "порци" |
+| `servings` | `{ min: number, max: number } \| null` | numbers from `servingsText` ("6–8 порций" → 6..8; "4 порции" → 4..4) |
+| `durations` | `{ minMinutes: number, maxMinutes: number, text: string }[]` | time mentions in steps: "30 минут", "1,5 часа", "40–50 минут", "2-3 часа", "1 час 20 минут". `text` is the matched fragment. |
+| `longWait` | boolean | true if the steps mention a wait of 6 hours or more, overnight ("на ночь", "в течение ночи") or a day ("сутки") |
+| `addedAt` | string \| null | "Рецепт добавлен: DD.MM.YYYY" → `YYYY-MM-DD` |
+| `commentsCount` | number \| null | "Комментарии (N)" |
+| `similarIds` | RecipeId[] | the block "Похожие" of this recipe only |
+| `sourceSha256` | string | sha256 of the UTF-8 file bytes |
+
+Rules:
+
+1. The parser is a pure function `parseRecipe(html: string, id: RecipeId): Result<ParsedRecipe, ParseError>` plus a CLI `npm run parse` that processes all `ok` entries of `data/raw/index.json`.
+2. A page fails with a tagged `ParseError` if it has no title, no ingredient line or no step. A page with missing optional data (servings, durations, date) passes; the report lists it as a warning.
+3. `_report.json`: totals (ok, failed, with warnings), the list of failed IDs with the reason, warning counts per kind.
+4. Real fixture pages are in `test/fixtures/real/` (git-ignored, copyrighted). Golden tests skip with a clear message if a file is absent. Golden assertions in committed test code contain only short facts: title, counts, 1–2 ingredient lines, servings, categories.
+5. `npm run fixtures:refresh` copies the fixture IDs listed in `test/fixtures/real-ids.json` (committed) from `data/raw/` to `test/fixtures/real/`.
+6. Acceptance on the full cache: ≥ 99 % of `ok` pages parse without `ParseError`. The coordinator runs this check on the user's machine.
 
 ### P3 — enrichment
 
-Method is open (LLM API key or batch processing with subagents). Decision before P3 starts.
+Decision: the Anthropic Messages API with the user's key (`ANTHROPIC_API_KEY`). The enrichment runs on the user's Mac. Details follow before P3 starts.
 
 ### P4 — index and plan tools
 

@@ -11,6 +11,6 @@
 9. Do not add native addons that compile at install time. The code runs on macOS; development is on Linux.
 10. Pin exact dependency versions in `package.json`. Commit `package-lock.json`.
 11. Before you finish, run `npm run typecheck` and `npm test`. Both must pass.
-12. Do not put fetched recipe content into git. `data/` is git-ignored.
+12. Do not put fetched recipe content into git. `data/` and `test/fixtures/real/` are git-ignored. Committed tests contain only short facts from pages (titles, counts, 1–2 ingredient lines).
 13. Do not run `git commit`, `git push` or commands that rewrite history. The coordinator commits.
 14. Final report: files changed, commands run and their results, open questions, known limitations. Keep it short.
