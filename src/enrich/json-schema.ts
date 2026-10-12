@@ -4,6 +4,7 @@
  * The API accepts only a subset of JSON Schema (spec A4):
  * every object has `additionalProperties: false`, all properties are required, "no value" is `null`,
  * and there is no `minimum`, `maximum`, `minLength` or `maxLength`.
+ * A node with `enum` or `const` has a single `type`. A nullable enum uses `anyOf` (see `nullableEnumOf`).
  * The ranges are checked by the Effect Schema `Enrichment` after the response (src/domain/enriched-recipe.ts).
  *
  * The enum values are written out here on purpose, so that a test can compare them with the Effect Schema.
@@ -13,7 +14,16 @@
 
 const enumOf = (...values: ReadonlyArray<string>) => ({ type: "string", enum: values }) as const
 
-const array = (items: object) => ({ type: "array", items }) as const
+/**
+ * A value that is one of `values` or `null`.
+ * The API rejects `enum` together with a type array (`{"type": ["string", "null"], "enum": [..., null]}`),
+ * so the enum stays in a typed branch and `null` is a branch of its own.
+ * The Effect Schema side is `Schema.NullOr(Schema.Literals(values))`, so the decoded type has `null` as well.
+ */
+const nullableEnumOf = (...values: ReadonlyArray<string>) =>
+  ({ anyOf: [enumOf(...values), { type: "null" }] }) as const
+
+const array = <const Items extends object>(items: Items) => ({ type: "array", items }) as const
 
 /** An object schema in which every property is required and no other property is allowed. */
 const object = <const Properties extends Readonly<Record<string, object>>>(properties: Properties) => ({
@@ -52,10 +62,7 @@ const INGREDIENT_ITEM = object({
   ),
   pantry: { type: "boolean" },
   quantity: { type: ["number", "null"] },
-  unit: {
-    type: ["string", "null"],
-    enum: ["g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack", null]
-  },
+  unit: nullableEnumOf("g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack"),
   grams: { type: ["number", "null"] },
   optional: { type: "boolean" }
 })
@@ -194,6 +201,13 @@ export const checkApiSchema = (schema: unknown): ApiSchemaCheck => {
     }
     if (type !== undefined && typeof type !== "string" && !(Array.isArray(type) && type.every((t) => typeof t === "string"))) {
       violations.push(`${path}: "type" must be a string or an array of strings`)
+    }
+
+    if (Array.isArray(type) && ("enum" in node || "const" in node)) {
+      const keyword = "enum" in node ? "enum" : "const"
+      violations.push(
+        `${path}: "${keyword}" must not be combined with a type array; use "anyOf" with a typed branch that has "${keyword}" and a branch {"type":"null"}`
+      )
     }
 
     const isObject = type === "object" || (Array.isArray(type) && type.includes("object")) || "properties" in node

@@ -44,6 +44,30 @@ describe("walkA4 (the check of this test file)", () => {
     assert.lengthOf(walkA4(object({ a: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] } })).problems, 1)
   })
 
+  it("fails on enum or const together with a type array, at any depth", () => {
+    assert.deepStrictEqual(walkA4(object({ a: { type: ["string", "null"], enum: ["x", null] } })).problems, [
+      "$.a: enum together with a type array"
+    ])
+    assert.deepStrictEqual(walkA4(object({ a: { type: ["string", "null"], const: "x" } })).problems, [
+      "$.a: const together with a type array"
+    ])
+    assert.lengthOf(
+      walkA4(object({ a: { type: "array", items: { type: ["string", "null"], enum: ["x", null] } } })).problems,
+      1
+    )
+    assert.lengthOf(
+      walkA4(object({ a: { anyOf: [{ type: ["string", "null"], enum: ["x", null] }, { type: "integer" }] } })).problems,
+      1
+    )
+  })
+
+  it("accepts a nullable enum in the anyOf form and counts it as 1 union property", () => {
+    const walk = walkA4(object({ a: { anyOf: [{ type: "string", enum: ["x", "y"] }, { type: "null" }] } }))
+    assert.deepStrictEqual(walk.problems, [])
+    assert.strictEqual(walk.unionProperties, 1)
+    assert.strictEqual(walk.properties, 1)
+  })
+
   it("fails on minItems above 1", () => {
     const walk = walkA4(object({ a: { type: "array", items: { type: "string" }, minItems: 2 } }))
     assert.deepStrictEqual(walk.problems, ["$.a: minItems must be 0 or 1"])
@@ -107,6 +131,23 @@ describe("the JSON Schema that goes to the API obeys spec A4", () => {
 
   it("has no forbidden keyword, and every object has additionalProperties false", () => {
     assert.deepStrictEqual(walkA4(sent).problems, [])
+  })
+
+  it("has no node with enum or const together with a type array", () => {
+    const nodes: Array<string> = []
+    const find = (node: unknown, path: string): void => {
+      if (Array.isArray(node)) {
+        node.forEach((child, index) => find(child, `${path}[${index}]`))
+      } else if (typeof node === "object" && node !== null) {
+        const record = Object.fromEntries(Object.entries(node))
+        if (Array.isArray(record["type"]) && ("enum" in record || "const" in record)) {
+          nodes.push(path)
+        }
+        for (const [key, child] of Object.entries(record)) find(child, `${path}.${key}`)
+      }
+    }
+    find(sent, "$")
+    assert.deepStrictEqual(nodes, [])
   })
 
   it("has no optional property: all properties are required, and no value is null", () => {

@@ -29,6 +29,33 @@ describe("the JSON Schema for output_config.format", () => {
     assert.strictEqual(check.nullableProperties, 6)
   })
 
+  it("writes the nullable unit as anyOf with a typed enum and a null branch, not as enum with a type array", () => {
+    const unit = ENRICHMENT_JSON_SCHEMA.properties.ingredients.items.properties.unit
+    assert.deepStrictEqual(unit, {
+      anyOf: [
+        { type: "string", enum: ["g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack"] },
+        { type: "null" }
+      ]
+    })
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(unit)), unit)
+  })
+
+  it("has no node with enum or const together with a type array", () => {
+    const offenders: Array<string> = []
+    const find = (node: unknown, path: string): void => {
+      if (Array.isArray(node)) {
+        node.forEach((child, index) => find(child, `${path}[${index}]`))
+      } else if (isRecord(node)) {
+        if (Array.isArray(node["type"]) && ("enum" in node || "const" in node)) {
+          offenders.push(path)
+        }
+        for (const [key, child] of Object.entries(node)) find(child, `${path}.${key}`)
+      }
+    }
+    find(ENRICHMENT_JSON_SCHEMA, "$")
+    assert.deepStrictEqual(offenders, [])
+  })
+
   it("has no optional property", () => {
     assert.strictEqual(check.optionalProperties, 0)
     assert.isAtMost(check.optionalProperties, MAX_OPTIONAL_PROPERTIES)
@@ -65,6 +92,27 @@ describe("checkApiSchema", () => {
   ])("rejects %s", (name, property) => {
     const violations = violationsOf(object({ a: property }))
     assert.isTrue(violations.some((text) => text.includes(`"${name.split(" ")[0]}"`)), violations.join("; "))
+  })
+
+  it("rejects enum or const together with a type array (the API answers HTTP 400)", () => {
+    assert.deepStrictEqual(violationsOf(object({ a: { type: ["string", "null"], enum: ["a", null] } })), [
+      '$.a: "enum" must not be combined with a type array; use "anyOf" with a typed branch that has "enum" and a branch {"type":"null"}'
+    ])
+    assert.deepStrictEqual(violationsOf(object({ a: { type: ["string", "null"], const: "a" } })), [
+      '$.a: "const" must not be combined with a type array; use "anyOf" with a typed branch that has "const" and a branch {"type":"null"}'
+    ])
+    assert.lengthOf(violationsOf(object({ list: { type: "array", items: { type: ["string", "null"], enum: ["a", null] } } })), 1)
+    assert.lengthOf(violationsOf(object({ either: { anyOf: [{ type: ["string", "null"], enum: ["a", null] }] } })), 1)
+  })
+
+  it("accepts a nullable enum in the anyOf form and a type array without enum, and counts each as 1 nullable property", () => {
+    const nullableEnum = { anyOf: [{ type: "string", enum: ["a", "b"] }, { type: "null" }] }
+    const result = checkApiSchema(object({ a: nullableEnum, b: { type: ["number", "null"] }, c: { type: "string", enum: ["x"] } }))
+    assert.deepStrictEqual(result.violations, [])
+    assert.strictEqual(result.nullableProperties, 2)
+    assert.strictEqual(result.optionalProperties, 0)
+    assert.strictEqual(result.properties, 3)
+    assert.strictEqual(result.objects, 1)
   })
 
   it("rejects minItems above 1 and accepts 0 and 1", () => {

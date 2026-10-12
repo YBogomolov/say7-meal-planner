@@ -98,6 +98,39 @@ describe("validateRequests", () => {
     assert.deepStrictEqual(problems, ['output schema: $: an object needs "additionalProperties": false'])
   })
 
+  it("rejects an enum together with a type array (the old unit schema, HTTP 400 at the API) once", () => {
+    const [first, second] = built(2)
+    const oldUnit = { type: ["string", "null"], enum: ["g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack", null] }
+    const wrong = (item: BuiltRequest | undefined): BuiltRequest => {
+      const request = must(item, "request")
+      const ingredients = ENRICHMENT_JSON_SCHEMA.properties.ingredients
+      const schema = {
+        ...ENRICHMENT_JSON_SCHEMA,
+        properties: {
+          ...ENRICHMENT_JSON_SCHEMA.properties,
+          ingredients: {
+            ...ingredients,
+            items: { ...ingredients.items, properties: { ...ingredients.items.properties, unit: oldUnit } }
+          }
+        }
+      }
+      return { ...request, params: { ...request.params, output_config: { format: { type: "json_schema", schema } } } }
+    }
+    const problems = validateRequests([wrong(first), wrong(second)])
+    assert.lengthOf(problems, 1)
+    assert.match(
+      must(problems[0], "problem"),
+      /^output schema: \$\.ingredients\[\]\.unit: "enum" must not be combined with a type array/
+    )
+    const summary = { ...summariseDryRun({
+      files: 1, unreadable: 0, outOfScope: 0, inScope: recipes(1), limit: Option.none(),
+      models: ["claude-haiku-5-5"], sync: true, retryFailed: false
+    }), problems }
+    const text = formatDryRun(summary).join("\n")
+    assert.include(text, "validation: 1 problems")
+    assert.notInclude(text, "no problem")
+  })
+
   it("rejects a bad or repeated custom_id (spec A5)", () => {
     const request = must(built(1)[0], "request")
     assert.isTrue(validateRequests(changed({ customId: "recipe 1" })).some((problem) => problem.includes("custom_id")))

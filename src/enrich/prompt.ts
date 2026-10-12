@@ -8,7 +8,7 @@ import type { ModelInput } from "./input.ts"
  * Change it whenever the text of `SYSTEM_PROMPT` or the schema in json-schema.ts changes.
  * A test pins the text to the version, so a change without a new version fails.
  */
-export const PROMPT_VERSION = 1
+export const PROMPT_VERSION = 2
 
 /** A small recipe that this project invents. It is not a page of say7.info. */
 export const EXAMPLE_INPUT: ModelInput = {

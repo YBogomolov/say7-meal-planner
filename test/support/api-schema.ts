@@ -5,6 +5,8 @@
  * Spec A4: every object has `additionalProperties: false`; no `minimum`/`maximum`, no `minLength`/`maxLength`;
  * `minItems` only 0 or 1; no recursion; at most 16 properties with `anyOf` or a type array; at most 24 optional properties.
  * The list below adds the keywords that the structured outputs of the API do not support either.
+ * The API also rejects a node that has `enum` or `const` together with a type array
+ * ("Enum value 'g' does not match declared type '['string', 'null']'"). A nullable enum needs `anyOf`.
  */
 export const A4_FORBIDDEN_KEYWORDS: ReadonlyArray<string> = [
   "minimum",
@@ -69,6 +71,13 @@ export const walkA4 = (schema: unknown): A4Walk => {
     }
 
     const type = node["type"]
+    if (Array.isArray(type)) {
+      for (const keyword of ["enum", "const"]) {
+        if (keyword in node) {
+          problems.push(`${path}: ${keyword} together with a type array`)
+        }
+      }
+    }
     if (type === "object" || (Array.isArray(type) && type.includes("object")) || "properties" in node) {
       objects += 1
       if (node["additionalProperties"] !== false) {

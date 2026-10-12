@@ -9,12 +9,14 @@ import { ENRICHMENT_JSON_SCHEMA } from "../src/enrich/json-schema.ts"
 import { EXAMPLE_INPUT, EXAMPLE_OUTPUT, PROMPT_VERSION, retryMessage, SYSTEM_PROMPT } from "../src/enrich/prompt.ts"
 
 /**
- * The fingerprint of the system prompt and the JSON Schema for PROMPT_VERSION 1.
+ * The fingerprint of the system prompt and the JSON Schema of each PROMPT_VERSION.
+ * Version 2: the nullable `unit` enum uses `anyOf`, because the API rejects `enum` together with a type array.
  * If this test fails: change PROMPT_VERSION in src/enrich/prompt.ts, then copy the new value here.
  * A new version makes every stored file stale (spec A8), which is the intent.
  */
 const FINGERPRINTS: Readonly<Record<number, string>> = {
-  1: "20b2176f355b1321c2f6c129818044ff01083d1f1da60393c940c75c9e1c4f8b"
+  1: "20b2176f355b1321c2f6c129818044ff01083d1f1da60393c940c75c9e1c4f8b",
+  2: "82c8e2a030f42faa307426a419889e36df455e7b2deb2b0ec823bfcfff93f404"
 }
 
 describe("PROMPT_VERSION", () => {
