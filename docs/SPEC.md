@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1, P2 done (P2 accepted on the full cache: 1578/1578 pages, 0 failures). P3 implemented; the pilot (P3.5.3) is pending. P4 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
+Status: P1, P2, P4 done. P3 implemented, pilot done (default model: claude-haiku-5-5, see docs/HANDOFF.md R1), full run pending. P5, P6 pending. Remaining work: docs/HANDOFF.md.
 
 ## 1. Goal
 
@@ -160,7 +160,7 @@ A recipe is in scope if its `categories` contain at least 1 of these IDs: 40 (В
 | A3 | Request JSON output with `output_config.format` (`type: "json_schema"`). Do not use the deprecated `output_format`. |
 | A4 | The API JSON Schema subset: every object has `additionalProperties: false`; no `minimum`/`maximum`, no `minLength`/`maxLength`; `minItems` only 0 or 1; no recursion; ≤ 16 properties with `anyOf` or type arrays; ≤ 24 optional properties. Make all properties required; express "no value" as `null`. Do not combine `enum` or `const` with a type array (the API returns HTTP 400); write a nullable enum as `anyOf: [{type, enum}, {type: "null"}]`. Enforce numeric ranges in the Effect Schema decoder after the response. |
 | A5 | Modes: batch (Message Batches API, default for runs over 20 recipes) and sync (`--sync`, concurrency 4, for small runs). Batch mode stores the batch ID in `data/enriched/_batch.json`, so a new run can resume polling. |
-| A6 | Model: flag `--model`. Supported: `claude-haiku-5-5`, `claude-sonnet-5-5`. The default model is chosen after the evaluation (P3.5). Until then, the flag is required. |
+| A6 | Model: flag `--model`. Supported: `claude-haiku-5-5`, `claude-sonnet-5-5`. Default: `claude-haiku-5-5` (evaluation 2026-10-12: 338/340 vs 339/340 for Sonnet, cost 1/19). |
 | A7 | Prompt caching: put the system prompt first and mark it with `cache_control`. |
 | A12 | Thinking (official docs, 2026-10-12): Haiku 5.5 gets `thinking: {type: "disabled"}`. Sonnet 5.5 rejects `disabled` with HTTP 400 and gets `thinking: {type: "between_tools"}`. Do not send an effort value. The minimum cacheable prompt is 512 tokens for both models. |
 | A8 | Cache: skip a recipe if `data/enriched/<id>.json` has the same `inputHash`. `inputHash` = sha256 of (canonical JSON of the recipe input + `promptVersion` + model). |
