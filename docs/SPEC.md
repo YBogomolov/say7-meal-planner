@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1, P2 done (P2 accepted on the full cache: 1578/1578 pages, 0 failures). P3 implemented; the pilot (P3.5.3) is pending. Owner of this file: the coordinator. Coding agents do not edit it.
+Status: P1, P2 done (P2 accepted on the full cache: 1578/1578 pages, 0 failures). P3 implemented; the pilot (P3.5.3) is pending. P4 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
 
 ## 1. Goal
 
@@ -48,10 +48,13 @@ sitemap.xml ──► P1 scrape ──► data/raw/<id>.html + data/raw/index.js
                               P3 enrich ──► data/enriched/<id>.json (EnrichedRecipe, LLM, cached by content hash)
                                    │
                                    ▼
-                              P4 index ──► data/recipes.db (node:sqlite, FTS5)
+                              P4 catalogue (in memory) + plan rules + shopping list
+                                   │         ▲
+                                   ▼         │ config/household.json, config/item-aliases.json
+                              P5 MCP server (stdio) ──► Claude Desktop / Claude Code
                                    │
                                    ▼
-                              P5 MCP server (stdio) ──► Claude Desktop / Claude Code
+                              data/plans/<weekStart>.json (saved plans, history)
 ```
 
 Principle: the LLM selects dishes. Deterministic code counts ingredients, sums quantities and checks constraints. The LLM does not calculate the shopping list.
@@ -60,7 +63,7 @@ Principle: the LLM selects dishes. Deterministic code counts ingredients, sums q
 
 | ID | Constraint |
 |----|------------|
-| T1 | Node.js ≥ 22.13 (P4 uses the built-in `node:sqlite`). Package manager: npm. Commit `package-lock.json`. |
+| T1 | Node.js ≥ 22.13. Package manager: npm. Commit `package-lock.json`. No database: the catalogue (about 1100 recipes) is loaded into memory. |
 | T2 | TypeScript, strict mode, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. ESM only. |
 | T3 | Effect (latest stable major, currently 4.x). Use Effect Schema to decode all external data (HTTP responses, files, CLI arguments). |
 | T4 | No native addons that compile at install time. Packages with prebuilt per-platform binaries (esbuild, rollup, TypeScript native) are permitted. Development happens on Linux. The user runs the code on macOS after `npm install`. |
@@ -216,12 +219,105 @@ Ingredient item:
 4. Unit tests use a fake API service. No test calls the real API.
 5. Acceptance: on the full scope, ≥ 98 % of recipes have a valid enrichment after `--retry-failed`.
 
-### P4 — index and plan tools
+### P4 — catalogue, plan rules, shopping list
 
-SQLite + FTS5. Pure functions `evaluatePlan(plan)` and `shoppingList(plan)`.
+Input: `data/parsed/<id>.json`, `data/enriched/<id>.json`, `config/household.json`, `config/item-aliases.json`, `data/plans/*.json`. All functions in P4 are pure, except the loaders. P5 calls them.
+
+#### P4.1 Household config (`config/household.json`, committed)
+
+| Key | Default | Rule |
+|-----|---------|------|
+| `persons` | 3 | H1 |
+| `days` | 7 | H1 |
+| `meals` | `["lunch", "dinner"]` | H1 |
+| `sessions` | `[{ "id": "A", "dayOffset": 0 }, { "id": "B", "dayOffset": 4 }]` | H2. Day 0 is the first day of the plan week (the shopping and session A day, default Saturday). Session B is on day 4 (Wednesday). |
+| `shoppingDayOffset` | 0 | H3 |
+| `maxDaysPerDish` | 3 | H4 |
+| `maxHeat` | 2 | H5. Heat 3 is an error. Heat 2 is a warning. |
+| `activeMinutesPerSession` | 150 | H6. More is a warning. |
+| `longWaitHoursMax` | 12 | H6. More is an error. Any long wait is a warning. |
+| `equipment` | `["hob", "oven", "microwave", "air_fryer", "food_processor", "blender", "immersion_blender", "mixer"]` | H7. Other equipment is an error (`special`, `grill`, `slow_cooker`, `deep_fryer`). |
+| `fridgeDaysCap` | 4 | H8 |
+| `rawProteinFridgeDays` | 2 | H8 |
+| `maxProteinFamilies` | 2 | H9. More is an error. 2 is a warning. |
+| `recentWeeks` | 4 | A recipe from a plan of the last 4 weeks is a warning. |
+
+Decode the file with Effect Schema. A missing file uses the defaults.
+
+#### P4.2 Catalogue
+
+1. `loadCatalogue(dataDir)` joins ParsedRecipe and EnrichedRecipe by ID. A recipe is in the catalogue if both files decode and `mealFit` is not `not_a_meal`. The loader returns the catalogue and a list of skipped IDs with the reason.
+2. `CatalogueEntry` contains: id, url, title, primary category, commentsCount, and the full `enrichment`. It does not contain intro or step texts. `getRecipeDetails(id)` reads them from ParsedRecipe on demand (for P5 `get_recipe`).
+3. Item normalisation: `normaliseItem(item, aliases)` → lower case, `ё` → `е`, trim, collapse spaces, then the alias map (`config/item-aliases.json`: `{ "<variant>": "<canonical>" }`, committed, starts empty). Use the normalised name everywhere in P4.
+4. `searchRecipes(catalogue, query)` filters and sorts. Filters (all optional): `text` (each word of 4+ letters matches by prefix of 4+ letters against title words and normalised items; shorter words must match fully), `proteinFamilies` (any of), `vegetarian`, `dishTypes`, `mealFits`, `maxActiveMinutes`, `maxTotalMinutes`, `maxHeat`, `maxDifficulty`, `requiresOnly` (equipment subset), `includesItems` (all of), `excludeIds`, `limit` (default 20, max 100). Sort: `popular` (commentsCount desc, default) or `fewest_items` (non-pantry, non-optional item count asc). The result row is compact: id, title, url, dishType, mealFit, proteinFamilies, vegetarian, servings, activeMinutes, totalMinutes, longWaitHours, heat, difficulty, fridgeDays, freezable, reheats, sideHint, `buyItems` (normalised non-pantry items), commentsCount.
+5. `itemsReport(catalogue)` lists each normalised item with the number of recipes and the raw variants. CLI `npm run items:report` writes `data/items-report.json`. The coordinator uses it to fill the alias map.
+
+#### P4.3 Plan model (`WeekPlan`, Effect Schema)
+
+```
+WeekPlan {
+  weekStart: "YYYY-MM-DD"            // day 0
+  cooking: [{ session: "A" | "B", recipeId, scale }]   // scale ∈ {0.5, 1, 1.5, 2, 2.5, 3}
+  meals:   [{ day: 0..6, meal: "lunch" | "dinner", recipeIds: RecipeId[] }]   // 1–3 dishes per slot
+  notes: string | null
+}
+```
+
+A dish in `meals` must be in `cooking`. A recipe is cooked once per week (one cooking entry per recipe ID).
+
+#### P4.4 `evaluatePlan(plan, catalogue, household, history)` → `PlanEvaluation`
+
+Result: `ok: boolean` (no errors), `errors[]`, `warnings[]` (each: `code`, `message` in Russian, related IDs, days), and `metrics`.
+
+Rules (E = error, W = warning):
+
+| Code | Level | Rule |
+|------|-------|------|
+| `unknown_recipe` | E | ID is not in the catalogue. |
+| `not_cooked` | E | A dish in `meals` has no `cooking` entry. |
+| `cooked_not_eaten` | W | A cooked dish is in no meal. |
+| `slot_missing` | E | A slot (day × meal) has no dish. Every slot of `days × meals` must exist once. |
+| `slot_not_a_meal` | E | A slot has no `full_meal` dish, and no `needs_side` dish together with a `side` or `side_only` dish. |
+| `eaten_before_cooked` | E | A dish is eaten on a day before its session day. |
+| `portions_short` | E | Portions eaten (persons × number of slots with the dish) > `servings.max × scale`. |
+| `portions_tight` | W | Portions eaten > `servings.min × scale`. |
+| `portions_left` | W | Portions left > persons × 2 (food waste). |
+| `too_many_days` | E | The dish is eaten on more than `maxDaysPerDish` distinct days. |
+| `same_day_twice` | W | The same dish at lunch and dinner on the same day. |
+| `not_fresh` | E | Day eaten − session day > min(`fridgeDays`, `fridgeDaysCap`). |
+| `heat` | E/W | heat > `maxHeat` is E; heat = `maxHeat` is W. |
+| `equipment` | E | Equipment outside `household.equipment`. |
+| `active_time` | W | Sum of `activeMinutes × scale-factor` per session > `activeMinutesPerSession` (scale-factor 1 for scale ≤ 1.5, 1.25 above). |
+| `long_wait` | E/W | `longWaitHours` > `longWaitHoursMax` is E; any value > 0 is W (plan the wait). |
+| `protein_families` | E/W | Distinct families of all cooked dishes > `maxProteinFamilies` is E; = 2 is W. |
+| `recent_repeat` | W | Recipe in a saved plan of the last `recentWeeks` weeks. |
+
+Metrics: `buyItemCount` (number of distinct normalised non-pantry, non-optional items: the main objective), `pantryItemCount`, `proteinFamilies`, `dishCount`, `portions` per dish (made min/max, eaten, left), `activeMinutes` per session, `slotsCovered`.
+
+#### P4.5 `shoppingList(plan, catalogue, household)` → `ShoppingList`
+
+1. Take every ingredient of every cooked dish. Multiply `quantity` and `grams` by `scale`.
+2. Group by normalised item. Sum `grams` if every line of the group has grams. Else sum `quantity` per unit (convert `tbsp` → 15 ml, `tsp` → 5 ml when the unit is the only data). Keep the per-unit sums and a flag `approximate` if units mix.
+3. Sections: `buy` (non-pantry, non-optional), `optional` (non-pantry, optional), `check_at_home` (pantry). Inside `buy`, group by `category` in a fixed shop order: vegetable, herb, fruit, poultry, meat, fish, seafood, dairy, eggs, bakery, grain, pasta, legume, canned, frozen, sauce, nuts, sweet, spice, oil, other.
+4. Each item lists the recipe IDs that use it.
+5. Actions: for each item with category poultry, meat, fish or seafood that a session uses more than `rawProteinFridgeDays` after the shopping day, add the action "заморозить в день покупки, разморозить в холодильнике накануне сессии <id>". This rule is a heuristic: cured or smoked products get the same note.
+6. `renderShoppingList(list)` → Markdown in Russian, with metric units (g, kg above 1000 g, ml, l above 1000 ml, шт.).
+
+#### P4.6 Plan files
+
+1. `savePlan(plan)` validates the plan (decode only, rules are not required to pass) and writes `data/plans/<weekStart>.json` atomically. `loadHistory()` reads all plans.
+2. CLI `npm run plan:check -- <file>` prints the evaluation and the Markdown shopping list.
+
+#### P4.7 Acceptance
+
+Tests use a synthetic catalogue (invented recipes and items). Each rule in P4.4 has at least 1 test that triggers it and 1 that does not. The shopping list aggregation has tests for gram sums, mixed units, scale and the freeze action. A golden test renders a complete synthetic week.
 
 ### P5 — MCP server
 
-Tools: `search_recipes`, `get_recipe`, `evaluate_plan`, `shopping_list`, `save_plan`, `plan_history`.
+1. Stdio MCP server, official TypeScript SDK `@modelcontextprotocol/sdk` (verify the API in `node_modules`). Command `npm run mcp`. Logs go to stderr only.
+2. The tool input schemas come from Effect Schema (one source of truth). Tool results are compact JSON text.
+3. Tools: `search_recipes` (P4.2.4), `get_recipe` (catalogue entry + ingredient lines + steps, for one ID), `evaluate_plan` (P4.4), `shopping_list` (P4.5, JSON and Markdown), `save_plan` (P4.6), `plan_history` (last n plans: weekStart, recipe IDs and titles), `household` (the config).
+4. A prompt resource `plan_week` explains the planning method to the LLM: pick 1 protein family (2 at most), pick 2–3 dishes per session, check with `evaluate_plan`, lower `buyItemCount`, fix all errors, then call `shopping_list` and `save_plan`. The final menu shows titles and links only.
+5. README: setup for Claude Desktop (`claude_desktop_config.json` with absolute paths to node and the project) and for Claude Code (`claude mcp add`).
 
 ### P6 — first weekly menu
