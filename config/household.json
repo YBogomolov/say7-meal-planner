@@ -1,0 +1,19 @@
+{
+  "persons": 3,
+  "days": 7,
+  "meals": ["lunch", "dinner"],
+  "sessions": [
+    { "id": "A", "dayOffset": 0 },
+    { "id": "B", "dayOffset": 4 }
+  ],
+  "shoppingDayOffset": 0,
+  "maxDaysPerDish": 3,
+  "maxHeat": 2,
+  "activeMinutesPerSession": 150,
+  "longWaitHoursMax": 12,
+  "equipment": ["hob", "oven", "microwave", "air_fryer", "food_processor", "blender", "immersion_blender", "mixer"],
+  "fridgeDaysCap": 4,
+  "rawProteinFridgeDays": 2,
+  "maxProteinFamilies": 2,
+  "recentWeeks": 4
+}

@@ -3,7 +3,7 @@
 This project plans lunches and dinners for one week from the recipes of https://www.say7.info.
 The full design is in `docs/SPEC.md`.
 
-This README covers phase P1 (the scraper), phase P2 (the parser) and phase P3 (the enrichment).
+This README covers phase P1 (the scraper), phase P2 (the parser), phase P3 (the enrichment) and the commands of phase P4 (the plan rules and the shopping list).
 The scraper downloads every recipe page to the local disk.
 The parser reads the downloaded pages and writes one JSON file for each recipe.
 The enrichment asks the Anthropic API for structured facts about each recipe.
@@ -511,6 +511,8 @@ Each run writes a file to a temporary name first, then renames it, so a stop nev
 | `npm run parse -- <flags>` | Run the parser. |
 | `npm run enrich -- <flags>` | Run the enrichment (`--dry-run` needs no key). |
 | `npm run enrich:eval -- <flags>` | Score the enrichments of the gold recipes. |
+| `npm run items:report -- <flags>` | Write `data/items-report.json`: the normalised ingredient names of the catalogue, to build `config/item-aliases.json`. |
+| `npm run plan:check -- <plan.json> <flags>` | Check a week plan against the rules of the household, then print the shopping list in Markdown. Exit code 1 if the plan has errors. |
 | `npm run fixtures:refresh` | Copy the test pages from `data/raw/` to `test/fixtures/real/`. |
 
 Source layout:
@@ -532,6 +534,11 @@ src/enrich/    scope.ts, input.ts, plan.ts, prompt.ts, json-schema.ts, decode.ts
                api.ts (Llm), store.ts, env.ts                                         services (Anthropic API, files, .env)
                run.ts, layers.ts, cli-options.ts, cli.ts                              program and entry point
                eval-run.ts, eval-cli-options.ts, eval-cli.ts                          evaluation against the gold set
+src/planner/   catalogue.ts (loadCatalogue), items.ts, search.ts, evaluate.ts (evaluatePlan), shopping.ts, shopping-render.ts   pure functions
+               decimal.ts, labels.ts, plan-model.ts, report.ts, cli-options.ts                                                  pure functions
+               config.ts, plans.ts, atomic.ts, layers.ts                                                                        services (config, saved plans, files)
+               plan-cli.ts, items-cli.ts                                                                                        entry points
+config/        household.json (the household settings), item-aliases.json (item name -> canonical name)
 test/          unit tests, golden tests of the 34 real pages,
                and end-to-end tests against a local HTTP server and a temporary data directory.
                The enrichment tests use a fake API: a fake service, or a local server on 127.0.0.1. No test calls the real API.

@@ -14,7 +14,9 @@
     "parse": "tsx src/parser/cli.ts",
     "enrich": "tsx src/enrich/cli.ts",
     "enrich:eval": "tsx src/enrich/eval-cli.ts",
-    "fixtures:refresh": "tsx src/parser/fixtures-cli.ts"
+    "fixtures:refresh": "tsx src/parser/fixtures-cli.ts",
+    "items:report": "tsx src/planner/items-cli.ts",
+    "plan:check": "tsx src/planner/plan-cli.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
