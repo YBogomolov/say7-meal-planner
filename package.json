@@ -1,0 +1,26 @@
+{
+  "name": "say7-meal-planner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Weekly meal planner built on say7.info recipes (personal, non-commercial use).",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "scrape": "tsx src/scraper/cli.ts"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.3",
+    "effect": "4.0.3"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.3",
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.4"
+  }
+}
