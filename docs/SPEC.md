@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1 done. P2 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
+Status: P1, P2 done. P3 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
 
 ## 1. Goal
 
@@ -140,7 +140,80 @@ Rules:
 
 ### P3 — enrichment
 
-Decision: the Anthropic Messages API with the user's key (`ANTHROPIC_API_KEY`). The enrichment runs on the user's Mac. Details follow before P3 starts.
+Decision: the Anthropic Messages API with the user's key. The enrichment runs on the user's Mac.
+
+Input: `data/parsed/<id>.json`. Output: `data/enriched/<id>.json` and `data/enriched/_report.json`.
+
+#### P3.1 Scope
+
+A recipe is in scope if its `categories` contain at least 1 of these IDs: 40 (Вторые блюда), 38 (Салаты), 41 (Закуски и бутерброды), 47 (Первые блюда), 44 (Рыба и морепродукты), 48 (Несладкая выпечка), 50 (Блины, оладьи, сырники). Other recipes (desserts, cakes, sweet bakes) are out of scope. On the first 868 parsed pages, 576 are in scope.
+
+#### P3.2 API usage
+
+| ID | Rule |
+|----|------|
+| A1 | Read the key from the environment variable `ANTHROPIC_API_KEY`. Do not log the key. Do not write it to a file. Support an optional git-ignored `.env` file. |
+| A2 | Use the official SDK `@anthropic-ai/sdk` inside an Effect service. Verify all SDK types in `node_modules/@anthropic-ai/sdk`. |
+| A3 | Request JSON output with `output_config.format` (`type: "json_schema"`). Do not use the deprecated `output_format`. |
+| A4 | The API JSON Schema subset: every object has `additionalProperties: false`; no `minimum`/`maximum`, no `minLength`/`maxLength`; `minItems` only 0 or 1; no recursion; ≤ 16 properties with `anyOf` or type arrays; ≤ 24 optional properties. Make all properties required; express "no value" as `null`. Enforce numeric ranges in the Effect Schema decoder after the response. |
+| A5 | Modes: batch (Message Batches API, default for runs over 20 recipes) and sync (`--sync`, concurrency 4, for small runs). Batch mode stores the batch ID in `data/enriched/_batch.json`, so a new run can resume polling. |
+| A6 | Model: flag `--model`. Supported: `claude-haiku-5-5`, `claude-sonnet-5-5`. The default model is chosen after the evaluation (P3.5). Until then, the flag is required. |
+| A7 | Prompt caching: put the system prompt first and mark it with `cache_control`. |
+| A8 | Cache: skip a recipe if `data/enriched/<id>.json` has the same `inputHash`. `inputHash` = sha256 of (canonical JSON of the recipe input + `promptVersion` + model). |
+| A9 | A response that fails the schema decoder, or has `stop_reason` `max_tokens` or `refusal`, is a failure. Sync mode retries once and adds the decoder error to the prompt. Batch mode lists the failures; `--retry-failed` processes them in sync mode. |
+| A10 | The report contains token usage and an estimated cost per model. Prices are a constant table in USD per million tokens (October 2026): Sonnet 5.5 input 2, output 10, cache read 0.10; Haiku 5.5 input 0.10, output 0.50, cache read 0.01. Batch: 50 % of these. |
+| A11 | Flag `--out-dir` (default `data/enriched`) so that evaluation runs with different models do not overwrite each other. Flags `--ids`, `--limit`, `--data-dir` as in P1/P2. |
+
+#### P3.3 Model input
+
+Send only: title, intro, yieldText, servingsText, ingredient groups (with line numbers 0..n−1 over all groups), steps, category names. Do not send comments.
+
+#### P3.4 `EnrichedRecipe`
+
+Meta: `id`, `enrichmentVersion: 1`, `model`, `promptVersion`, `inputHash`, `createdAt`, `usage` (input, output, cache read tokens).
+
+LLM result `enrichment`:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `dishType` | `"soup" \| "main" \| "side" \| "salad" \| "snack" \| "savory_bake" \| "pancakes" \| "sauce" \| "other"` | |
+| `mealFit` | `"full_meal" \| "needs_side" \| "side_only" \| "not_a_meal"` | can it be a lunch or dinner alone |
+| `sideHint` | string \| null | a side that the author mentions ("рис или картофель"); null if none |
+| `proteinFamilies` | array of `"chicken" \| "turkey" \| "duck" \| "pork" \| "beef" \| "lamb" \| "rabbit" \| "fish" \| "seafood"` | by animal; offal and mince go to their animal |
+| `vegetarian` | boolean | no meat, fish or seafood |
+| `ingredients` | array (see below) | one item per raw line; a line with 2 products ("соль, перец") gives 2 items |
+| `servings` | `{ min: number, max: number, source: "page" \| "estimated" }` | `page` if the page states it |
+| `activeMinutes` | number | hands-on time, estimate |
+| `totalMinutes` | number | start to serving, without long waits |
+| `longWaitHours` | number \| null | marinate, rest, chill: hours; null if none |
+| `heat` | `0 \| 1 \| 2 \| 3` | 0 none; 1 mild (black pepper, paprika); 2 noticeable (some chilli, adjika); 3 hot |
+| `difficulty` | `1 \| 2 \| 3` | 1 simple; 3 complex (dough work, many stages) |
+| `equipment` | array of `"hob" \| "oven" \| "microwave" \| "air_fryer" \| "food_processor" \| "blender" \| "immersion_blender" \| "mixer" \| "grill" \| "slow_cooker" \| "deep_fryer" \| "special"` | `special` = equipment outside H7 |
+| `fridgeDays` | number | days the cooked dish keeps in the fridge (0–4) |
+| `freezable` | boolean | the cooked dish freezes well |
+| `reheats` | `"well" \| "ok" \| "poor" \| "served_cold"` | quality on day 2–3 |
+
+Ingredient item:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `line` | number | index of the raw line |
+| `item` | string | the product to buy, Russian, nominative, lower case, without quantity and preparation ("куриное филе", "лук репчатый", "сливки") |
+| `detail` | string \| null | variant or note ("15–20%", "сырокопченый") |
+| `category` | `"poultry" \| "meat" \| "fish" \| "seafood" \| "dairy" \| "eggs" \| "vegetable" \| "fruit" \| "herb" \| "grain" \| "pasta" \| "legume" \| "bakery" \| "canned" \| "frozen" \| "sauce" \| "spice" \| "oil" \| "sweet" \| "nuts" \| "other"` | |
+| `pantry` | boolean | a staple that the household has: salt, pepper, sugar, flour, oil, vinegar, dry spices, baking powder, soda, water |
+| `quantity` | number \| null | as written; range → upper value |
+| `unit` | `"g" \| "ml" \| "pcs" \| "tbsp" \| "tsp" \| "pinch" \| "bunch" \| "clove" \| "slice" \| "pack"` \| null | normalised ("ст. л." → `tbsp`) |
+| `grams` | number \| null | estimated mass in g (or volume in ml) for the shopping list |
+| `optional` | boolean | "по желанию", "для подачи" |
+
+#### P3.5 Evaluation and acceptance
+
+1. `test/fixtures/gold.json` (committed): 20 recipes with expected facts, checked by a human-style reading of the page: `dishType`, `mealFit`, `proteinFamilies`, `vegetarian`, heat range, servings range, active time range, and for 3–5 key lines the expected `item`, `category` and `pantry`. The set includes at least 1 hot dish, 2 soups, 2 salads, 2 fish dishes, 1 vegetarian dish, 1 dish with a long marinade, 1 recipe without servings on the page.
+2. `npm run enrich:eval -- --out-dir <dir>` compares the outputs for the gold IDs with `gold.json` and prints a score per field and in total.
+3. The user runs sync enrichment of the gold IDs with both models. The coordinator compares the scores and the costs and sets the default model.
+4. Unit tests use a fake API service. No test calls the real API.
+5. Acceptance: on the full scope, ≥ 98 % of recipes have a valid enrichment after `--retry-failed`.
 
 ### P4 — index and plan tools
 
