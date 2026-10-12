@@ -12,9 +12,12 @@
     "test": "vitest run",
     "scrape": "tsx src/scraper/cli.ts",
     "parse": "tsx src/parser/cli.ts",
+    "enrich": "tsx src/enrich/cli.ts",
+    "enrich:eval": "tsx src/enrich/eval-cli.ts",
     "fixtures:refresh": "tsx src/parser/fixtures-cli.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
     "@effect/platform-node": "4.0.3",
     "effect": "4.0.3",
     "parse5": "8.0.1"

@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1, P2 done. P3 in progress. Owner of this file: the coordinator. Coding agents do not edit it.
+Status: P1, P2 done (P2 accepted on the full cache: 1578/1578 pages, 0 failures). P3 implemented; the pilot (P3.5.3) is pending. Owner of this file: the coordinator. Coding agents do not edit it.
 
 ## 1. Goal
 
@@ -159,6 +159,7 @@ A recipe is in scope if its `categories` contain at least 1 of these IDs: 40 (В
 | A5 | Modes: batch (Message Batches API, default for runs over 20 recipes) and sync (`--sync`, concurrency 4, for small runs). Batch mode stores the batch ID in `data/enriched/_batch.json`, so a new run can resume polling. |
 | A6 | Model: flag `--model`. Supported: `claude-haiku-5-5`, `claude-sonnet-5-5`. The default model is chosen after the evaluation (P3.5). Until then, the flag is required. |
 | A7 | Prompt caching: put the system prompt first and mark it with `cache_control`. |
+| A12 | Thinking (official docs, 2026-10-12): Haiku 5.5 gets `thinking: {type: "disabled"}`. Sonnet 5.5 rejects `disabled` with HTTP 400 and gets `thinking: {type: "between_tools"}`. Do not send an effort value. The minimum cacheable prompt is 512 tokens for both models. |
 | A8 | Cache: skip a recipe if `data/enriched/<id>.json` has the same `inputHash`. `inputHash` = sha256 of (canonical JSON of the recipe input + `promptVersion` + model). |
 | A9 | A response that fails the schema decoder, or has `stop_reason` `max_tokens` or `refusal`, is a failure. Sync mode retries once and adds the decoder error to the prompt. Batch mode lists the failures; `--retry-failed` processes them in sync mode. |
 | A10 | The report contains token usage and an estimated cost per model. Prices are a constant table in USD per million tokens (October 2026): Sonnet 5.5 input 2, output 10, cache read 0.10; Haiku 5.5 input 0.10, output 0.50, cache read 0.01. Batch: 50 % of these. |
