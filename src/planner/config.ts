@@ -3,6 +3,8 @@ import type { Aliases } from "../domain/catalogue.ts"
 import { DECODE_OPTIONS, DEFAULT_HOUSEHOLD, HouseholdJson } from "../domain/household.ts"
 import type { Household } from "../domain/household.ts"
 import { AliasesJson, makeAliases } from "./items.ts"
+import { makeServingsOverrides, NO_SERVINGS_OVERRIDES, ServingsOverridesJson } from "./servings.ts"
+import type { ServingsOverrides } from "./servings.ts"
 
 export const DEFAULT_CONFIG_DIR = "config"
 export const DEFAULT_DATA_DIR = "data"
@@ -56,6 +58,25 @@ export const loadAliases = (
     }
     return yield* Schema.decodeUnknownEffect(AliasesJson)(text).pipe(
       Effect.map(makeAliases),
+      Effect.mapError((error) =>
+        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      )
+    )
+  })
+
+/** `<configDir>/servings-overrides.json` (handoff T2). A missing file gives an empty map. */
+export const loadServingsOverrides = (
+  configDir: string = DEFAULT_CONFIG_DIR
+): Effect.Effect<ServingsOverrides, ConfigError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const target = path.join(configDir, "servings-overrides.json")
+    const text = yield* readOptional(target)
+    if (text === undefined) {
+      return NO_SERVINGS_OVERRIDES
+    }
+    return yield* Schema.decodeUnknownEffect(ServingsOverridesJson)(text).pipe(
+      Effect.map(makeServingsOverrides),
       Effect.mapError((error) =>
         new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
       )

@@ -44,4 +44,6 @@ export interface Catalogue {
   readonly byId: ReadonlyMap<RecipeId, CatalogueEntry>
   /** The alias map that normalised the item names. Search uses it for the items of a query. */
   readonly aliases: Aliases
+  /** The recipes whose servings `config/servings-overrides.json` set. `servings.source` is still the enrichment's. */
+  readonly overridden: ReadonlySet<RecipeId>
 }
