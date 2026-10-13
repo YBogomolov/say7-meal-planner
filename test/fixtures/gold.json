@@ -84,7 +84,7 @@
     "longWait": false,
     "keyLines": [
       {"raw":"1 кг говядины (мраморной)","item":["говядина"],"category":["meat"],"pantry":false},
-      {"raw":"5–7 горошин черного перца","item":["черный перец","перец черный горошком"],"category":["spice"],"pantry":true},
+      {"raw":"5–7 горошин черного перца","item":["черный перец","перец черный горошком","перец черный"],"category":["spice"],"pantry":true},
       {"raw":"3 ст.л. растительного масла","item":["растительное масло","масло растительное"],"category":["oil"],"pantry":true}
     ],
     "note": "Rest after baking is 20-30 min, so longWait is false. The author names vegetables as the side."

@@ -32,9 +32,13 @@ const failure = (...argv: ReadonlyArray<string>): string => {
 }
 
 describe("parseEnrichCli", () => {
-  it("needs --model", () => {
-    assert.include(failure(), "--model is required")
-    assert.include(failure("--sync"), "claude-haiku-5-5")
+  it("uses claude-haiku-5-5 when --model is missing", () => {
+    assert.strictEqual(run().model, "claude-haiku-5-5")
+    assert.strictEqual(run("--sync").model, "claude-haiku-5-5")
+  })
+
+  it("keeps --model claude-sonnet-5-5 when it is given", () => {
+    assert.strictEqual(run("--model", "claude-sonnet-5-5").model, "claude-sonnet-5-5")
   })
 
   it("accepts the 2 models of the spec A6 and no other", () => {
@@ -139,7 +143,7 @@ describe("parseEnrichCli", () => {
     })
 
     it("is not a dry run without the flag", () => {
-      assert.include(failure("--limit", "5"), "--model is required")
+      assert.strictEqual(run("--limit", "5").model, "claude-haiku-5-5")
     })
   })
 

@@ -473,7 +473,7 @@ Put the flags after `--`, for example `npm run enrich -- --model claude-haiku-5-
 
 | Flag | Default | Meaning |
 |------|---------|---------|
-| `--model <name>` | none | Required, except with `--dry-run`. `claude-haiku-5-5` or `claude-sonnet-5-5`. |
+| `--model <name>` | `claude-haiku-5-5` | `claude-haiku-5-5` or `claude-sonnet-5-5`. Without `--model`, `--dry-run` estimates both models. |
 | `--ids <id,id,...>` | all | Process only these recipe IDs. |
 | `--limit <n>` | all | Process the first n recipes that need a call. |
 | `--sync` | off | Send one request for each recipe, also for more than 20 recipes. |

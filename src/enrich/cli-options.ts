@@ -1,12 +1,12 @@
 import { Option, Result, Schema } from "effect"
 import { parseArgs } from "node:util"
 import { join } from "node:path"
-import { MODEL_NAMES, ModelName } from "../domain/enriched-recipe.ts"
+import { DEFAULT_MODEL, MODEL_NAMES, ModelName } from "../domain/enriched-recipe.ts"
 import type { RecipeId } from "../domain/recipe.ts"
 import { CliError, DEFAULT_DATA_DIR, RecipeIdsFromString } from "../scraper/cli-options.ts"
 import type { DryRunOptions, EnrichOptions } from "./run.ts"
 
-export const USAGE = `Usage: npm run enrich -- --model <name> [options]
+export const USAGE = `Usage: npm run enrich -- [--model <name>] [options]
        npm run enrich -- --dry-run [options]
 
 Enrich the parsed recipes in <data-dir>/parsed/ with the Anthropic API.
@@ -14,7 +14,7 @@ Each recipe in scope gives one file <id>.json in <out-dir>. The file _report.jso
 The key is in the variable ANTHROPIC_API_KEY, or in the file .env.
 
 Options:
-  --model <name>     Required, except with --dry-run. One of: ${MODEL_NAMES.join(", ")}.
+  --model <name>     One of: ${MODEL_NAMES.join(", ")}. Default: ${DEFAULT_MODEL}. Without --model, --dry-run estimates every model.
   --ids <id,id,...>  Process only these recipe IDs.
   --limit <n>        Process the first n recipes that need a call.
   --sync             Use one request for each recipe. Without this flag, a run of more than 20 recipes uses a batch.
@@ -112,9 +112,6 @@ export const parseEnrichCli = (argv: ReadonlyArray<string>): Result.Result<Enric
           options: { ...common, models: args.model === undefined ? MODEL_NAMES : [args.model] }
         })
       }
-      if (args.model === undefined) {
-        return usageError(`The option --model is required. Use one of: ${MODEL_NAMES.join(", ")}.`)
-      }
-      return Result.succeed({ _tag: "Run", options: { ...common, model: args.model } })
+      return Result.succeed({ _tag: "Run", options: { ...common, model: args.model ?? DEFAULT_MODEL } })
     })
   )

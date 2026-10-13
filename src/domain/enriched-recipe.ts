@@ -9,6 +9,9 @@ export const MODEL_NAMES = ["claude-haiku-5-5", "claude-sonnet-5-5"] as const
 export const ModelName = Schema.Literals(MODEL_NAMES)
 export type ModelName = typeof ModelName.Type
 
+/** The model of a run without `--model` (spec A6). */
+export const DEFAULT_MODEL: ModelName = "claude-haiku-5-5"
+
 /** The `thinking` parameter of a request. Both values are typed by the SDK (`ThinkingConfigDisabled`, `ThinkingConfigBetweenTools`). */
 export type ThinkingSetting = { readonly type: "disabled" } | { readonly type: "between_tools" }
 
