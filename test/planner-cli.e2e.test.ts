@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, FileSystem, Schema } from "effect"
 import { ItemsReportJson } from "../src/domain/items-report.ts"
+import { ServingsReportJson } from "../src/domain/servings-report.ts"
 import { WeekPlanJson } from "../src/domain/week-plan.ts"
 import { baseFiles, basePlan, BASE_COOKING, BASE_MEALS, planOf, withTempDir, writeFiles } from "./support/planner.ts"
 
@@ -11,6 +12,7 @@ import { baseFiles, basePlan, BASE_COOKING, BASE_MEALS, planOf, withTempDir, wri
 const TSX = fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url))
 const PLAN_CLI = fileURLToPath(new URL("../src/planner/plan-cli.ts", import.meta.url))
 const ITEMS_CLI = fileURLToPath(new URL("../src/planner/items-cli.ts", import.meta.url))
+const SERVINGS_CLI = fileURLToPath(new URL("../src/planner/servings-cli.ts", import.meta.url))
 const SLOW_TEST_MS = 90_000
 
 interface Finished {
@@ -145,6 +147,33 @@ describe("npm run items:report, as a child process", () => {
         assert.include(missing.stderr, "npm run parse")
         const usage = yield* run(ITEMS_CLI, ["--fast"], root)
         assert.strictEqual(usage.code, 2)
+      })
+    ), SLOW_TEST_MS)
+})
+
+describe("npm run servings:report, as a child process", () => {
+  it.live("writes data/servings-report.json and warns about an unknown override", () =>
+    withTempDir((root) =>
+      Effect.gen(function*() {
+        const fs = yield* FileSystem.FileSystem
+        yield* writeFiles(root, { ...baseFiles(), "config/servings-overrides.json": '{"1": {"min": 20, "max": 30}, "99": {"min": 1, "max": 1}}' })
+        const result = yield* run(SERVINGS_CLI, [], root)
+        assert.strictEqual(result.code, 0, result.stderr)
+        assert.include(result.stderr, "рецепт 99")
+        assert.include(result.stdout, "Переопределений порций: 1.")
+        const report = Schema.decodeUnknownSync(ServingsReportJson)(yield* fs.readFileString(`${root}/data/servings-report.json`))
+        assert.strictEqual(report.recipes, 7)
+        const first = report.entries.find((entry) => Number(entry.id) === 1)
+        assert.isTrue(first?.overridden)
+        assert.include(first?.reasons, "max_above_12")
+      })
+    ), SLOW_TEST_MS)
+
+  it.live("exits 1 if the data are missing, and 2 for an unknown option", () =>
+    withTempDir((root) =>
+      Effect.gen(function*() {
+        assert.strictEqual((yield* run(SERVINGS_CLI, [], root)).code, 1)
+        assert.strictEqual((yield* run(SERVINGS_CLI, ["--fast"], root)).code, 2)
       })
     ), SLOW_TEST_MS)
 })

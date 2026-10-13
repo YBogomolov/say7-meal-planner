@@ -6,7 +6,7 @@ import { writeTextAtomic } from "./atomic.ts"
 import type { SkipReason, SkippedRecipe } from "./catalogue.ts"
 import { loadCatalogue, SKIP_REASONS } from "./catalogue.ts"
 import { ITEMS_REPORT_USAGE, parseItemsReportCli } from "./cli-options.ts"
-import { loadAliases } from "./config.ts"
+import { loadAliases, loadServingsOverrides } from "./config.ts"
 import { itemsReport } from "./items.ts"
 import { plannerLayer } from "./layers.ts"
 
@@ -38,7 +38,11 @@ const main = Effect.gen(function*() {
   const { dataDir, configDir } = command.options
   const path = yield* Path.Path
   const aliases = yield* loadAliases(configDir)
-  const { catalogue, skipped } = yield* loadCatalogue(dataDir, aliases)
+  const overrides = yield* loadServingsOverrides(configDir)
+  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides)
+  for (const id of unknownOverrides) {
+    yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
+  }
   const items = itemsReport(catalogue)
   const report: ItemsReport = {
     version: 1,

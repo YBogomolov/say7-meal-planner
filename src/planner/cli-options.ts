@@ -14,6 +14,18 @@ export const ITEMS_REPORT_USAGE = `Использование: npm run items:rep
   --config-dir <путь>  Каталог с настройками (по умолчанию ${DEFAULT_CONFIG_DIR}).
   -h, --help           Показать этот текст.`
 
+export const SERVINGS_REPORT_USAGE = `Использование: npm run servings:report -- [параметры]
+
+Читает каталог (<data-dir>/parsed и <data-dir>/enriched) и config/servings-overrides.json,
+ищет рецепты с подозрительным числом порций и пишет <data-dir>/servings-report.json.
+Рецепт попадает в отчёт, если порции оценены моделью, их больше 12, max больше 3 × min
+или масса порции вне 150–700 г.
+
+Параметры:
+  --data-dir <путь>    Каталог с данными (по умолчанию ${DEFAULT_DATA_DIR}).
+  --config-dir <путь>  Каталог с настройками (по умолчанию ${DEFAULT_CONFIG_DIR}).
+  -h, --help           Показать этот текст.`
+
 export const PLAN_CHECK_USAGE = `Использование: npm run plan:check -- <файл> [параметры]
 
 Проверяет план недели (JSON, форма WeekPlan) по правилам семьи
@@ -82,6 +94,9 @@ export const parseItemsReportCli = (argv: ReadonlyArray<string>): Result.Result<
       }
     )
   )
+
+/** Parse the command line of `npm run servings:report`: the same options as `items:report`. */
+export const parseServingsReportCli = parseItemsReportCli
 
 /** Parse the command line of `npm run plan:check`: 1 file and the options. */
 export const parsePlanCheckCli = (argv: ReadonlyArray<string>): Result.Result<PlanCheckCommand, CliError> =>

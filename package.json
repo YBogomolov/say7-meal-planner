@@ -16,6 +16,7 @@
     "enrich:eval": "tsx src/enrich/eval-cli.ts",
     "fixtures:refresh": "tsx src/parser/fixtures-cli.ts",
     "items:report": "tsx src/planner/items-cli.ts",
+    "servings:report": "tsx src/planner/servings-cli.ts",
     "plan:check": "tsx src/planner/plan-cli.ts"
   },
   "dependencies": {

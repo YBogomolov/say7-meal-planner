@@ -501,6 +501,35 @@ A recipe file has the fields `id`, `enrichmentVersion`, `model`, `promptVersion`
 `servings`, `activeMinutes`, `totalMinutes`, `longWaitHours`, `heat`, `difficulty`, `equipment`, `fridgeDays`, `freezable` and `reheats`.
 Each run writes a file to a temporary name first, then renames it, so a stop never leaves a half-written file.
 
+### Servings check
+
+The model can get `servings` wrong. Wrong servings give wrong portion findings in the plan rules.
+
+Run the check after the enrichment:
+
+```sh
+npm run servings:report
+```
+
+The command writes `data/servings-report.json` and prints the totals. The flag `--data-dir` and the flag `--config-dir` work as for `items:report`. A recipe is in the report if one of these is true:
+
+- `servings.source` is `estimated`.
+- `servings.max` is more than 12.
+- `servings.max` is more than 3 times `servings.min`.
+- The portion mass is less than 150 g or more than 700 g.
+
+The portion mass is the sum of `grams` of the lines that are not optional, divided by `servings.max`. The command skips this check if less than 70 % of those lines have `grams`.
+
+To correct a recipe, add its ID to `config/servings-overrides.json`:
+
+```json
+{ "935": { "min": 4, "max": 6 } }
+```
+
+The values must be positive integers, and `min` must not be more than `max`. The override wins over the enrichment. The file is optional. If an ID is not in the catalogue, the commands print a warning. If the file is not valid, the commands stop with an error.
+
+An overridden recipe stays in the report with `overridden: true`, because the report checks the final servings. The field `servings.source` keeps the value of the enrichment.
+
 ## Development
 
 | Command | Action |
@@ -512,6 +541,7 @@ Each run writes a file to a temporary name first, then renames it, so a stop nev
 | `npm run enrich -- <flags>` | Run the enrichment (`--dry-run` needs no key). |
 | `npm run enrich:eval -- <flags>` | Score the enrichments of the gold recipes. |
 | `npm run items:report -- <flags>` | Write `data/items-report.json`: the normalised ingredient names of the catalogue, to build `config/item-aliases.json`. |
+| `npm run servings:report -- <flags>` | Write `data/servings-report.json`: the recipes with servings that look wrong. See "Servings check". |
 | `npm run plan:check -- <plan.json> <flags>` | Check a week plan against the rules of the household, then print the shopping list in Markdown. Exit code 1 if the plan has errors. |
 | `npm run fixtures:refresh` | Copy the test pages from `data/raw/` to `test/fixtures/real/`. |
 

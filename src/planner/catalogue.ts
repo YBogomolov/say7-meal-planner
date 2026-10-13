@@ -8,6 +8,8 @@ import { RecipeId } from "../domain/recipe.ts"
 import { ParsedReadError } from "../enrich/store.ts"
 import { StoreError } from "../scraper/store.ts"
 import { NO_ALIASES, normaliseItem } from "./items.ts"
+import { applyServingsOverrides, NO_SERVINGS_OVERRIDES } from "./servings.ts"
+import type { ServingsOverrides } from "./servings.ts"
 
 const RECIPE_FILE = /^([1-9]\d*)\.json$/
 const READ_CONCURRENCY = 16
@@ -33,9 +35,13 @@ export const toCatalogueEntry = (parsed: ParsedRecipe, enriched: EnrichedRecipe,
 }
 
 /** The catalogue of the given entries, sorted by ID. */
-export const makeCatalogue = (entries: ReadonlyArray<CatalogueEntry>, aliases: Aliases = NO_ALIASES): Catalogue => {
+export const makeCatalogue = (
+  entries: ReadonlyArray<CatalogueEntry>,
+  aliases: Aliases = NO_ALIASES,
+  overridden: ReadonlySet<RecipeId> = new Set()
+): Catalogue => {
   const sorted = [...entries].sort((a, b) => a.id - b.id)
-  return { entries: sorted, byId: new Map(sorted.map((entry) => [entry.id, entry])), aliases }
+  return { entries: sorted, byId: new Map(sorted.map((entry) => [entry.id, entry])), aliases, overridden }
 }
 
 /** Why `loadCatalogue` leaves a recipe out. */
@@ -52,6 +58,8 @@ export interface SkippedRecipe {
 export interface LoadedCatalogue {
   readonly catalogue: Catalogue
   readonly skipped: ReadonlyArray<SkippedRecipe>
+  /** IDs in the servings overrides that are not in the catalogue (a warning, not a failure). Sorted. */
+  readonly unknownOverrides: ReadonlyArray<RecipeId>
 }
 
 const io = <A>(target: string, effect: Effect.Effect<A, { readonly message: string }>) =>
@@ -93,10 +101,12 @@ const readRecipeFile = <A, I>(target: string, id: RecipeId, codec: Schema.Codec<
  * The other recipes are in `skipped`, with the reason. The recipes without an enriched file (desserts, for example) are there too.
  * The load fails only if one of the two directories does not exist, or cannot be listed.
  * The item names are normalised with `aliases`.
+ * `overrides` set `servings.min` and `servings.max` after the decode (see `applyServingsOverrides`).
  */
 export const loadCatalogue = (
   dataDir: string,
-  aliases: Aliases = NO_ALIASES
+  aliases: Aliases = NO_ALIASES,
+  overrides: ServingsOverrides = NO_SERVINGS_OVERRIDES
 ): Effect.Effect<LoadedCatalogue, StoreError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
@@ -132,9 +142,14 @@ export const loadCatalogue = (
       })
 
     const results = yield* Effect.forEach(ids, load, { concurrency: READ_CONCURRENCY })
+    const applied = applyServingsOverrides(
+      results.flatMap((result) => Result.isSuccess(result) ? [result.success] : []),
+      overrides
+    )
     return {
-      catalogue: makeCatalogue(results.flatMap((result) => Result.isSuccess(result) ? [result.success] : []), aliases),
-      skipped: results.flatMap((result) => Result.isFailure(result) ? [result.failure] : [])
+      catalogue: makeCatalogue(applied.entries, aliases, applied.overridden),
+      skipped: results.flatMap((result) => Result.isFailure(result) ? [result.failure] : []),
+      unknownOverrides: applied.unknown
     }
   })
 
