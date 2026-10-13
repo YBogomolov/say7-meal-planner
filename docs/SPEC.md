@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1, P2, P3, P4 done (P3 full run 2026-10-13, see P3.5.6). P5, P6 pending. Remaining work: docs/HANDOFF.md.
+Status: P1–P6 done (2026-10-13). P3 full run: P3.5.6. P6 baseline: P6. Remaining work: docs/HANDOFF.md.
 
 ## 1. Goal
 
@@ -327,3 +327,22 @@ Tests use a synthetic catalogue (invented recipes and items). Each rule in P4.4 
 5. README: setup for Claude Desktop (`claude_desktop_config.json` with absolute paths to node and the project) and for Claude Code (`claude mcp add`).
 
 ### P6 — first weekly menu
+
+Week 2026-10-17 (Saturday), made with the prompt `plan_week` in Claude Code over the `say7` MCP server. Plan: `data/plans/2026-10-17.json` and `.md` (git-ignored). The user approved the third draft on 2026-10-13.
+
+1. Evaluation: `ok: true`, 0 errors. Warnings: `long_wait` (1361, 0.5 h) and `protein_families` (chicken and fish, 2 is the maximum). All 14 slots are covered.
+2. Baseline: `buyItemCount` 27, pantry items 8, 8 dishes. Active minutes: session A 140, session B 95.
+3. Dishes. Session A: 863 (×1), 1361 (×1), 564 (×2), 865 (×1). Session B: 250 (×2.5) with 101 (×1.5) in the same slots, 1668 (×1.5), 1275 (×1).
+4. Feedback of the user on the drafts (to convert into rules, see docs/HANDOFF.md T5.3):
+   - No soups.
+   - A side dish (potato, pasta, buckwheat, cabbage and so on) does not repeat in the week.
+   - No rice this week (permanent or not: open question).
+   - Dinners are light: fish, dishes from cottage cheese, filled pancakes, lean pies and quiches, omelettes, casseroles. No mayonnaise and no cream or cheese sauces at dinner.
+   - Lunches can be heavier.
+   - The first draft (4 of 5 dishes with rice, 11 items) was monotonous. A low `buyItemCount` alone does not make a good menu.
+5. Problems of the tools found in P6:
+   - The shopping list gives eggs in grams (413 g) and yolks as a separate item. It gives buckwheat in ml. Convert to pieces or grams.
+   - A whole stuffed pumpkin (982) at scale 2.5 gave 5 kg of pumpkin. Scale by pieces is unclear for whole vegetables.
+   - Mayonnaise (74) has no amount.
+   - No catalogue recipe combines chicken, mushrooms and buckwheat. 2 recipes in 1 slot (main + side) work.
+
