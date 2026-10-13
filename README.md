@@ -530,6 +530,106 @@ The values must be positive integers, and `min` must not be more than `max`. The
 
 An overridden recipe stays in the report with `overridden: true`, because the report checks the final servings. The field `servings.source` keeps the value of the enrichment.
 
+## MCP server
+
+The MCP server gives an AI client the tools to search recipes, check a week plan, make the shopping list and save the menu.
+It talks over stdio. The server reads the catalogue from `data/` and the settings from `config/`.
+The tools return titles, links and facts. They never return the intro or the steps of a recipe.
+
+### Start the server
+
+Run the server by hand to check that it starts:
+
+```sh
+npm run mcp
+```
+
+The server waits for MCP messages on stdin. Press Ctrl+C to stop it.
+The server writes its log to stderr. Stdout carries the protocol only.
+If `data/` has no recipes, the server starts anyway. The tool `search_recipes` then returns a hint.
+The server loads the catalogue at the start. Restart the server after a new `npm run enrich`.
+
+The server finds the project directory from the location of `src/mcp/server.ts`. The working directory does not matter.
+To use other directories, set these variables:
+
+| Variable | Meaning |
+|----------|---------|
+| `SAY7_DATA_DIR` | The directory with `parsed/`, `enriched/` and `plans/`. The default is `data` in the project. |
+| `SAY7_CONFIG_DIR` | The directory with `household.json`, `item-aliases.json` and `servings-overrides.json`. The default is `config` in the project. |
+
+### Tools and prompt
+
+| Name | Action |
+|------|--------|
+| `search_recipes` | Search the catalogue with filters. Returns compact rows with links. |
+| `get_recipe` | Return the facts and the ingredient lines of one recipe. |
+| `evaluate_plan` | Check a week plan against the rules of the household. |
+| `shopping_list` | Return the shopping list as JSON and as Markdown. |
+| `save_plan` | Write `data/plans/<weekStart>.json` and `data/plans/<weekStart>.md`. |
+| `plan_history` | List the last saved plans. The default is 4. |
+| `household` | Return the household settings. |
+| prompt `plan_week` | Give the planning method to the model. Arguments: `weekStart` and optional `proteinFamily`. |
+
+A tool that fails returns `isError: true` and a message in Russian.
+
+### Claude Code
+
+Create the file `.mcp.json` in the project directory:
+
+```json
+{ "mcpServers": { "say7": { "command": "npx", "args": ["tsx", "src/mcp/server.ts"] } } }
+```
+
+Then run these commands in the project directory:
+
+```sh
+claude mcp list
+```
+
+Claude Code asks you to approve a project server the first time. The list must show `say7` as connected.
+If the server does not connect, use absolute paths in `.mcp.json`, as in the Claude Desktop example below.
+You can also add the server with `claude mcp add --scope project say7 -- npx tsx src/mcp/server.ts`.
+
+### Claude Desktop
+
+1. Find the absolute path of Node.js.
+
+   ```sh
+   command -v node
+   ```
+
+2. Find the absolute path of the project directory.
+
+   ```sh
+   pwd
+   ```
+
+3. Open the file `~/Library/Application Support/Claude/claude_desktop_config.json`.
+4. Add the server. Replace the three placeholders with absolute paths.
+
+   ```json
+   {
+     "mcpServers": {
+       "say7": {
+         "command": "<absolute path of node>",
+         "args": [
+           "<project directory>/node_modules/tsx/dist/cli.mjs",
+           "<project directory>/src/mcp/server.ts"
+         ]
+       }
+     }
+   }
+   ```
+
+   The file `node_modules/tsx/dist/cli.mjs` is the `bin` entry of the package `tsx`. Check it in `node_modules/tsx/package.json`.
+
+5. Restart Claude Desktop.
+
+### Plan a week
+
+Use the prompt `plan_week` with `weekStart` set to the first day of the week (day 0, the shopping day).
+The model reads the household and the history, chooses dishes, checks them with `evaluate_plan`, and saves the plan with `save_plan`.
+
 ## Development
 
 | Command | Action |
@@ -543,6 +643,7 @@ An overridden recipe stays in the report with `overridden: true`, because the re
 | `npm run items:report -- <flags>` | Write `data/items-report.json`: the normalised ingredient names of the catalogue, to build `config/item-aliases.json`. |
 | `npm run servings:report -- <flags>` | Write `data/servings-report.json`: the recipes with servings that look wrong. See "Servings check". |
 | `npm run plan:check -- <plan.json> <flags>` | Check a week plan against the rules of the household, then print the shopping list in Markdown. Exit code 1 if the plan has errors. |
+| `npm run mcp` | Start the MCP server on stdio. See "MCP server". |
 | `npm run fixtures:refresh` | Copy the test pages from `data/raw/` to `test/fixtures/real/`. |
 
 Source layout:
@@ -568,6 +669,9 @@ src/planner/   catalogue.ts (loadCatalogue), items.ts, search.ts, evaluate.ts (e
                decimal.ts, labels.ts, plan-model.ts, report.ts, cli-options.ts                                                  pure functions
                config.ts, plans.ts, atomic.ts, layers.ts                                                                        services (config, saved plans, files)
                plan-cli.ts, items-cli.ts                                                                                        entry points
+               menu-render.ts                                                                                                   pure function (menu in Markdown)
+src/mcp/       tool.ts, tools.ts, prompt.ts, paths.ts, app.ts   tools, prompt and server
+               server.ts                                        entry point (stdio)
 config/        household.json (the household settings), item-aliases.json (item name -> canonical name)
 test/          unit tests, golden tests of the 34 real pages,
                and end-to-end tests against a local HTTP server and a temporary data directory.

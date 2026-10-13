@@ -8,7 +8,7 @@ const amountsText = (amounts: ReadonlyArray<ShoppingAmount>, approximate: boolea
 const recipesText = (item: ShoppingItem): string => ` (блюда: ${item.recipeIds.join(", ")})`
 
 /** The text of a link in Markdown: the brackets and the backslash get a backslash. */
-const escapeLinkText = (text: string): string => text.replace(/[\\[\]]/g, (char) => `\\${char}`)
+export const escapeLinkText = (text: string): string => text.replace(/[\\[\]]/g, (char) => `\\${char}`)
 
 const buySection = (list: ShoppingList): ReadonlyArray<string> => [
   "## Купить",
