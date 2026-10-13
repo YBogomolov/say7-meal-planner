@@ -7,9 +7,11 @@ import type { DishPortions, IssueCode, PlanEvaluation, PlanIssue, PlanMetrics } 
 import type { RecipeId } from "../domain/recipe.ts"
 import type { WeekPlan } from "../domain/week-plan.ts"
 import { isBuyIngredient } from "./items.ts"
-import { dayLabel, EQUIPMENT_LABELS, formatNumber, MEAL_LABELS, PROTEIN_LABELS } from "./labels.ts"
+import { dayLabel, DISH_TYPE_LABELS, EQUIPMENT_LABELS, formatNumber, MEAL_LABELS, PROTEIN_LABELS } from "./labels.ts"
 import { isCooked, planDishes } from "./plan-model.ts"
 import type { CookedDish, PlanDish } from "./plan-model.ts"
+import { buyItemsIn, hasAnyBuyItem, sideGroupsOf, tasteRulesOf } from "./taste.ts"
+import type { TasteRules } from "./taste.ts"
 
 /** Scale factor of the active time: a big batch costs more hands-on time (spec P4.4, `active_time`). */
 const BIG_BATCH_SCALE = 1.5
@@ -36,6 +38,7 @@ interface Context {
   readonly history: ReadonlyArray<WeekPlan>
   readonly dishes: ReadonlyArray<PlanDish>
   readonly cooked: ReadonlyArray<CookedDish>
+  readonly taste: TasteRules
 }
 
 /** `«Title» (12)`, or `рецепт 12` if the catalogue does not have the recipe. */
@@ -348,6 +351,73 @@ const recentRepeat = ({ plan, dishes, history, household }: Context): ReadonlyAr
   })
 }
 
+const sortedDays = (dishes: ReadonlyArray<PlanDish>): ReadonlyArray<number> =>
+  [...new Set(dishes.flatMap((dish) => dish.days))].sort((a, b) => a - b)
+
+/** A cooked dish of a type that the household does not eat is an error (spec P4.8). */
+const dishTypeExcluded = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
+  cooked.filter((dish) => taste.excludedDishTypes.includes(dish.entry.enrichment.dishType)).map((dish) =>
+    finding(
+      "error",
+      "dish_type_excluded",
+      `${nameOf(dish)}: тип блюда «${DISH_TYPE_LABELS[dish.entry.enrichment.dishType]}» (${dish.entry.enrichment.dishType}) семья не ест.`,
+      [dish.recipeId],
+      dish.days
+    )
+  )
+
+/** One warning for each side group that 2 or more cooked dishes have (spec P4.8). */
+const sideRepeated = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
+  taste.sideGroups.flatMap((group): ReadonlyArray<Finding> => {
+    const dishes = cooked.filter((dish) => sideGroupsOf(dish.entry.enrichment.ingredients, taste).includes(group.name))
+    return dishes.length < 2 ? [] : [
+      finding(
+        "warning",
+        "side_repeated",
+        `Гарнир «${group.name}» в ${dishes.length} блюдах: ${dishes.map(nameOf).join(", ")}. Лучше разные гарниры.`,
+        dishes.map((dish) => dish.recipeId),
+        sortedDays(dishes)
+      )
+    ]
+  })
+
+/** One warning for each cooked dish in a dinner slot that has a heavy side group or a heavy item (spec P4.8). */
+const heavyDinner = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
+  cooked.flatMap((dish): ReadonlyArray<Finding> => {
+    const days = [...new Set(dish.slots.filter((slot) => slot.meal === "dinner").map((slot) => slot.day))]
+    const { ingredients } = dish.entry.enrichment
+    const groups = sideGroupsOf(ingredients, taste).filter((group) => taste.dinnerAvoidSideGroups.has(group))
+    const items = buyItemsIn(ingredients, taste.dinnerAvoidItems)
+    if (days.length === 0 || groups.length + items.length === 0) {
+      return []
+    }
+    const reasons = [...groups.map((group) => `гарнир «${group}»`), ...items.map((item) => `продукт «${item}»`)]
+    return [
+      finding(
+        "warning",
+        "heavy_dinner",
+        `${nameOf(dish)} стоит в ужине (дни ${daysText(days)}), а для ужина тяжело: ${reasons.join(", ")}.`,
+        [dish.recipeId],
+        days
+      )
+    ]
+  })
+
+/** One warning for each limit that more than `maxDishes` cooked dishes break (spec P4.8). */
+const itemLimit = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
+  taste.itemLimits.flatMap((limit): ReadonlyArray<Finding> => {
+    const dishes = cooked.filter((dish) => hasAnyBuyItem(dish.entry.enrichment.ingredients, limit.items))
+    return dishes.length <= limit.maxDishes ? [] : [
+      finding(
+        "warning",
+        "item_limit",
+        `Ограничение «${limit.name}»: в ${dishes.length} блюдах, а допустимо не больше ${limit.maxDishes}: ${dishes.map(nameOf).join(", ")}.`,
+        dishes.map((dish) => dish.recipeId),
+        sortedDays(dishes)
+      )
+    ]
+  })
+
 const metricsOf = (context: Context): PlanMetrics => {
   const { plan, household, cooked } = context
   const ingredients = cooked.flatMap((dish) => dish.entry.enrichment.ingredients)
@@ -368,7 +438,7 @@ const metricsOf = (context: Context): PlanMetrics => {
   }
 }
 
-/** The rules of spec P4.4 in the order of the table. Every rule runs: the result lists all the problems. */
+/** The rules of spec P4.4 and P4.8 in the order of the table. Every rule runs: the result lists all the problems. */
 const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
   unknownRecipes,
   notCooked,
@@ -385,7 +455,11 @@ const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
   activeTime,
   longWait,
   proteinFamilies,
-  recentRepeat
+  recentRepeat,
+  dishTypeExcluded,
+  sideRepeated,
+  heavyDinner,
+  itemLimit
 ]
 
 /**
@@ -403,7 +477,15 @@ export const evaluatePlan = (
   history: ReadonlyArray<WeekPlan> = []
 ): PlanEvaluation => {
   const dishes = planDishes(plan, catalogue)
-  const context: Context = { plan, catalogue, household, history, dishes, cooked: dishes.filter(isCooked) }
+  const context: Context = {
+    plan,
+    catalogue,
+    household,
+    history,
+    dishes,
+    cooked: dishes.filter(isCooked),
+    taste: tasteRulesOf(household.preferences, catalogue.aliases)
+  }
   const findings = RULES.flatMap((rule) => rule(context))
   const errors = findings.filter((found) => found.level === "error").map((found) => found.issue)
   const warnings = findings.filter((found) => found.level === "warning").map((found) => found.issue)

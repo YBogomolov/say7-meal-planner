@@ -421,3 +421,73 @@ describe("shoppingList: freeze action", () => {
     assert.deepStrictEqual(result.actions, [])
   })
 })
+
+describe("shoppingList: units for the shopper (spec P4.5.7)", () => {
+  const itemOf = (name: string, ingredients: ReadonlyArray<IngredientSpec>, scale: PlanScale = 1): ShoppingItem | undefined =>
+    list({ 1: ingredients }, [{ session: "A", recipeId: 1, scale }]).buy
+      .flatMap((group) => group.items)
+      .find((item) => item.item === name)
+
+  it("turns the grams of eggs into pieces, rounded up, and keeps the grams", () => {
+    const eggs = itemOf("яйца", [inGrams("яйца", 413, { category: "eggs" })])
+    assert.deepStrictEqual(eggs?.amounts, [{ unit: "pcs", value: 8 }, { unit: "g", value: 413 }])
+    assert.isTrue(eggs?.approximate)
+  })
+
+  it("rounds up at the boundary: 440 g are 8 pieces and 441 g are 9", () => {
+    assert.deepStrictEqual(itemOf("яйца", [inGrams("яйца", 440, { category: "eggs" })])?.amounts[0], { unit: "pcs", value: 8 })
+    assert.deepStrictEqual(itemOf("яйца", [inGrams("яйца", 441, { category: "eggs" })])?.amounts[0], { unit: "pcs", value: 9 })
+  })
+
+  it("sums the lines and the scale first: 110 g and 100 g at scale 1,5 are 315 g, 6 pieces", () => {
+    const eggs = itemOf(
+      "яйца",
+      [ing("яйца", { category: "eggs", quantity: 2, unit: "pcs", grams: 110 }), inGrams("яйца", 100, { category: "eggs" })],
+      1.5
+    )
+    assert.deepStrictEqual(eggs?.amounts, [{ unit: "pcs", value: 6 }, { unit: "g", value: 315 }])
+  })
+
+  it("uses 20 g for a yolk and 35 g for a white", () => {
+    assert.deepStrictEqual(itemOf("желток", [inGrams("желток", 41, { category: "eggs" })])?.amounts[0], { unit: "pcs", value: 3 })
+    assert.deepStrictEqual(itemOf("белок", [inGrams("белок", 35, { category: "eggs" })])?.amounts, [
+      { unit: "pcs", value: 1 },
+      { unit: "g", value: 35 }
+    ])
+  })
+
+  it("leaves eggs without grams as they are", () => {
+    const eggs = itemOf("яйца", [ing("яйца", { category: "eggs", quantity: 3, unit: "pcs" })])
+    assert.deepStrictEqual(eggs?.amounts, [{ unit: "pcs", value: 3 }])
+    assert.isFalse(eggs?.approximate)
+  })
+
+  it("turns the millilitres of a cereal into grams with the density, and marks the sum as approximate", () => {
+    const buckwheat = itemOf("гречка", [ing("гречка", { category: "grain", quantity: 300, unit: "ml", grams: 300 })])
+    assert.deepStrictEqual(buckwheat?.amounts, [{ unit: "g", value: 255 }])
+    assert.isTrue(buckwheat?.approximate)
+    assert.deepStrictEqual(itemOf("кускус", [ing("кускус", { category: "grain", quantity: 200, unit: "ml", grams: 200 })])?.amounts, [
+      { unit: "g", value: 150 }
+    ])
+  })
+
+  it("converts the millilitres of a line without grams, and spoons that turn into ml", () => {
+    assert.deepStrictEqual(itemOf("рис", [ing("рис", { category: "grain", quantity: 200, unit: "ml" })])?.amounts, [{ unit: "g", value: 170 }])
+    const flour = itemOf("мука", [ing("мука", { category: "grain", quantity: 100, unit: "ml" }), ing("мука", { category: "grain", quantity: 2, unit: "tbsp" })])
+    assert.deepStrictEqual(flour?.amounts, [{ unit: "g", value: 78 }])
+  })
+
+  it("does not change an item without a table, or a cereal that is already in grams", () => {
+    const milk = itemOf("молоко", [ing("молоко", { category: "dairy", quantity: 300, unit: "ml", grams: 300 })])
+    assert.deepStrictEqual(milk?.amounts, [{ unit: "ml", value: 300 }])
+    assert.isFalse(milk?.approximate)
+    const rice = itemOf("рис", [inGrams("рис", 300, { category: "grain" })])
+    assert.deepStrictEqual(rice?.amounts, [{ unit: "g", value: 300 }])
+    assert.isFalse(rice?.approximate)
+  })
+
+  it("does not change a cereal with a mix of units", () => {
+    const mixed = itemOf("гречка", [ing("гречка", { category: "grain", quantity: 100, unit: "ml" }), ing("гречка", { category: "grain", quantity: 1, unit: "pack" })])
+    assert.deepStrictEqual(mixed?.amounts, [{ unit: "ml", value: 100 }, { unit: "pack", value: 1 }])
+  })
+})

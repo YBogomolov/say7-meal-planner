@@ -1,5 +1,5 @@
 import { addDays, weekdayOf } from "../domain/calendar.ts"
-import type { Equipment, IngredientCategory, IngredientUnit, ProteinFamily } from "../domain/enriched-recipe.ts"
+import type { DishType, Equipment, IngredientCategory, IngredientUnit, ProteinFamily } from "../domain/enriched-recipe.ts"
 import type { MealName } from "../domain/household.ts"
 import type { IsoDate } from "../domain/recipe.ts"
 
@@ -32,6 +32,18 @@ export const CATEGORY_HEADINGS: Readonly<Record<IngredientCategory, string>> = {
   spice: "Специи",
   oil: "Масла",
   other: "Прочее"
+}
+
+export const DISH_TYPE_LABELS: Readonly<Record<DishType, string>> = {
+  soup: "суп",
+  main: "основное блюдо",
+  side: "гарнир",
+  salad: "салат",
+  snack: "закуска",
+  savory_bake: "пирог или выпечка",
+  pancakes: "блины и оладьи",
+  sauce: "соус",
+  other: "прочее"
 }
 
 export const EQUIPMENT_LABELS: Readonly<Record<Equipment, string>> = {

@@ -112,6 +112,45 @@ export const aggregateAmounts = (lines: ReadonlyArray<ShoppingLine>): Aggregate 
   return { amounts, approximate: sumCount > 1 || (sumCount > 0 && withoutQuantity > 0) }
 }
 
+/** Weight of one piece in grams (spec P4.5.7). The key is a normalised item name. */
+export const PIECE_GRAMS: Readonly<Record<string, number>> = { яйца: 55, желток: 20, белок: 35 }
+
+/** Density in grams per millilitre, for the items that have only a volume (spec P4.5.7). */
+export const DENSITY_G_PER_ML: Readonly<Record<string, number>> = {
+  гречка: 0.85,
+  рис: 0.85,
+  пшено: 0.85,
+  булгур: 0.8,
+  кускус: 0.75,
+  манка: 0.65,
+  мука: 0.6,
+  сахар: 0.85
+}
+
+/**
+ * The units for the shopper (spec P4.5.7).
+ *
+ * - An item with a piece weight and one sum in `g` gets the pieces first, rounded up, then the grams: `[pcs, g]`.
+ *   The generic sums never have `pcs` before `g`, so this order marks the item. `approximate` is true.
+ * - An item with a density and one sum in `ml` becomes one sum in `g`. `approximate` is true.
+ * - Any other item does not change.
+ */
+export const shopperUnits = (item: string, aggregate: Aggregate): Aggregate => {
+  const [only, ...rest] = aggregate.amounts
+  if (only === undefined || rest.length > 0) {
+    return aggregate
+  }
+  const pieceGrams = Object.hasOwn(PIECE_GRAMS, item) ? PIECE_GRAMS[item] : undefined
+  if (only.unit === "g" && pieceGrams !== undefined) {
+    return { amounts: [{ unit: "pcs", value: Math.ceil(only.value / pieceGrams) }, only], approximate: true }
+  }
+  const density = Object.hasOwn(DENSITY_G_PER_ML, item) ? DENSITY_G_PER_ML[item] : undefined
+  if (only.unit === "ml" && density !== undefined) {
+    return { amounts: [{ unit: "g", value: Math.round(only.value * density) }], approximate: true }
+  }
+  return aggregate
+}
+
 type Section = "buy" | "optional" | "check_at_home"
 
 const sectionOf = (ingredient: CatalogueIngredient): Section =>
@@ -148,7 +187,7 @@ const groupBy = <A>(values: ReadonlyArray<A>, key: (value: A) => string): Readon
 }
 
 const itemOf = (item: string, lines: ReadonlyArray<DishLine>): ShoppingItem => {
-  const { amounts, approximate } = aggregateAmounts(lines)
+  const { amounts, approximate } = shopperUnits(item, aggregateAmounts(lines))
   return {
     item,
     category: categoryOf(lines),

@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { Equipment } from "./enriched-recipe.ts"
+import { DishType, Equipment } from "./enriched-recipe.ts"
 
 /** The cooking sessions of the week (spec H2): A at the weekend, B midweek. */
 export const SESSION_IDS = ["A", "B"] as const
@@ -47,6 +47,39 @@ const DEFAULT_EQUIPMENT: ReadonlyArray<Equipment> = [
   "mixer"
 ]
 
+const ItemNames = Schema.Array(Schema.NonEmptyString)
+
+/** A limit of the taste rules: at most `maxDishes` cooked dishes of the week have any of `items`. */
+export const ItemLimit = Schema.Struct({
+  name: Schema.NonEmptyString,
+  items: ItemNames,
+  maxDishes: NaturalInt
+})
+export type ItemLimit = typeof ItemLimit.Type
+
+/**
+ * `household.preferences` (spec P4.8). Every key is optional. The item names are cleaned and mapped through
+ * the alias map when the rules run, so the file can use any variant of a name.
+ */
+export const Preferences = Schema.Struct({
+  /** Dish types that the household does not eat: a cooked dish of this type is an error. */
+  excludedDishTypes: Schema.Array(DishType).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<DishType>>([]))),
+  /** The base of a plate: `{ "<group>": item[] }`. */
+  sideGroups: Schema.Record(Schema.String, ItemNames).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<Readonly<Record<string, ReadonlyArray<string>>>>({}))
+  ),
+  /** A buy-ingredient gives its side group only if its grams at scale 1 are at least this value, or unknown. */
+  sideMinGrams: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(100))),
+  /** Side groups that are too heavy for dinner. */
+  dinnerAvoidSideGroups: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))),
+  /** Items that are too heavy for dinner. */
+  dinnerAvoidItems: ItemNames.pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))),
+  itemLimits: Schema.Array(ItemLimit).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<ItemLimit>>([])))
+})
+export type Preferences = typeof Preferences.Type
+
+const DEFAULT_PREFERENCES: Preferences = Schema.decodeUnknownSync(Preferences)({})
+
 /**
  * `config/household.json` (spec P4.1). Every key is optional in the file, and a missing key has the default of the spec.
  * A key that the schema does not know is an error when the file is decoded (see `DECODE_OPTIONS`), so a typo does not pass.
@@ -90,7 +123,9 @@ export const Household = Schema.Struct({
   /** H9. More families are an error. Two or more families are a warning. */
   maxProteinFamilies: PositiveInt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(2))),
   /** A recipe from a plan of these last weeks is a warning. */
-  recentWeeks: NaturalInt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(4)))
+  recentWeeks: NaturalInt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(4))),
+  /** P4.8. Taste rules. Without the key, all lists are empty and the rules find nothing. */
+  preferences: Preferences.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PREFERENCES)))
 })
 export type Household = typeof Household.Type
 

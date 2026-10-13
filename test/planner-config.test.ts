@@ -25,13 +25,37 @@ describe("Household", () => {
       fridgeDaysCap: 4,
       rawProteinFridgeDays: 2,
       maxProteinFamilies: 2,
-      recentWeeks: 4
+      recentWeeks: 4,
+      preferences: {
+        excludedDishTypes: [],
+        sideGroups: {},
+        sideMinGrams: 100,
+        dinnerAvoidSideGroups: [],
+        dinnerAvoidItems: [],
+        itemLimits: []
+      }
     })
   })
 
-  it("is the same as config/household.json, which lists every key", () => {
+  it("fills the missing keys of preferences with the defaults", () => {
+    const household = Result.getOrThrow(decodeHousehold({ preferences: { excludedDishTypes: ["soup"] } }))
+    assert.deepStrictEqual(household.preferences, { ...DEFAULT_HOUSEHOLD.preferences, excludedDishTypes: ["soup"] })
+  })
+
+  it("rejects an unknown key and a wrong dish type in preferences", () => {
+    assert.isTrue(Result.isFailure(decodeHousehold({ preferences: { sideGroup: {} } })))
+    assert.isTrue(Result.isFailure(decodeHousehold({ preferences: { excludedDishTypes: ["dessert"] } })))
+    assert.isTrue(Result.isFailure(decodeHousehold({ preferences: { sideMinGrams: -1 } })))
+  })
+
+  it("is the same as config/household.json, which lists every key and has the taste preferences", () => {
     const text = readFileSync(new URL("../config/household.json", import.meta.url), "utf8")
-    assert.deepStrictEqual(Schema.decodeUnknownSync(HouseholdJson)(text, DECODE_OPTIONS), DEFAULT_HOUSEHOLD)
+    const decoded = Schema.decodeUnknownSync(HouseholdJson)(text, DECODE_OPTIONS)
+    assert.deepStrictEqual({ ...decoded, preferences: DEFAULT_HOUSEHOLD.preferences }, DEFAULT_HOUSEHOLD)
+    assert.deepStrictEqual(decoded.preferences.excludedDishTypes, ["soup"])
+    assert.strictEqual(decoded.preferences.sideMinGrams, 100)
+    assert.isAbove(Object.keys(decoded.preferences.sideGroups).length, 0)
+    assert.isAbove(decoded.preferences.itemLimits.length, 0)
     assert.deepStrictEqual(Object.keys(JSON.parse(text)).sort(), Object.keys(DEFAULT_HOUSEHOLD).sort())
   })
 

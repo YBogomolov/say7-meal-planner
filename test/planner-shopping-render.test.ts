@@ -39,6 +39,10 @@ describe("renderShoppingList: golden week", () => {
     assert.include(rendered, "(3), масштаб ×1,5")
   })
 
+  it("shows the eggs as pieces with the grams", () => {
+    assert.include(rendered, "- [ ] яйца — 6 шт. (≈ 300 г) (блюда: 4, 5)")
+  })
+
   it("shows the freeze action for the raw poultry that session B uses", () => {
     assert.include(
       rendered,
@@ -174,5 +178,31 @@ describe("labels", () => {
     assert.strictEqual(dayLabel("2026-10-17", 0), "день 0 (суббота)")
     assert.strictEqual(dayLabel("2026-10-17", 2), "день 2 (понедельник)")
     assert.strictEqual(dateLabel("2026-10-17", 6), "пятница, 2026-10-23")
+  })
+})
+
+describe("renderShoppingList: units for the shopper", () => {
+  const render = (ingredients: ReturnType<typeof ing>[]): string =>
+    renderShoppingList(
+      shoppingList(
+        planOf({ cooking: [{ session: "A", recipeId: 1 }], meals: [] }),
+        catalogueOf([entryOf(1, { ingredients })]),
+        DEFAULT_HOUSEHOLD
+      )
+    )
+
+  it("writes eggs as «8 шт. (≈ 413 г)»", () => {
+    assert.include(render([ing("яйца", { category: "eggs", quantity: 413, unit: "g", grams: 413 })]), "- [ ] яйца — 8 шт. (≈ 413 г) (блюда: 1)")
+  })
+
+  it("writes a cereal in millilitres as «≈ 255 г»", () => {
+    assert.include(render([ing("гречка", { category: "grain", quantity: 300, unit: "ml", grams: 300 })]), "- [ ] гречка — ≈ 255 г (блюда: 1)")
+  })
+
+  it("keeps the usual mix of grams and pieces", () => {
+    assert.include(
+      render([ing("морковь", { quantity: 200, unit: "g", grams: null }), ing("морковь", { quantity: 2, unit: "pcs" })]),
+      "- [ ] морковь — ≈ 200 г + 2 шт. (блюда: 1)"
+    )
   })
 })

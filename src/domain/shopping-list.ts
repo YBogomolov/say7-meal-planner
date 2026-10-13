@@ -46,6 +46,8 @@ export type ShoppingAmount = typeof ShoppingAmount.Type
  *   Otherwise it has 1 sum for each unit. It is empty if no line has a quantity ("соль по вкусу").
  *   The units `tbsp` and `tsp` stay spoons if the product has no line in `ml`: the sum is whole `tbsp` and the rest in `tsp`
  *   (1 `tbsp` is 3 `tsp`). If the product also has a line in `ml`, the spoons turn into `ml` (15 and 5) before the sum.
+ * - Eggs, yolks and whites (spec P4.5.7): `amounts` is `[pcs, g]`, the pieces rounded up and the grams of the sum.
+ *   A cereal that has only `ml` is converted: 1 amount in `g`, with `approximate`.
  * - `approximate` is true if the units mix, or if a line without quantity could not add to the sum.
  * - `recipeIds` are the dishes that use the product.
  */

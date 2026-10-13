@@ -308,6 +308,36 @@ Metrics: `buyItemCount` (number of distinct normalised non-pantry, non-optional 
 4. Each item lists the recipe IDs that use it.
 5. Actions: for each item with category poultry, meat, fish or seafood that a session uses more than `rawProteinFridgeDays` after the shopping day, add the action "заморозить в день покупки, разморозить в холодильнике накануне сессии <id>". This rule is a heuristic: cured or smoked products get the same note.
 6. `renderShoppingList(list)` → Markdown in Russian, with metric units (g, kg above 1000 g, ml, l above 1000 ml, шт.).
+7. Units for the shopper (added after P6):
+   - Piece weights (fixed table in code): `яйца` 55 g, `желток` 20 g, `белок` 35 g. If the summed grams of such an item are known, add an amount in pieces (`pcs`), rounded up. Render "яйца — 8 шт. (≈ 413 г)".
+   - Densities for an item that has only ml (fixed table in code, g per ml): `гречка` 0.85, `рис` 0.85, `пшено` 0.85, `булгур` 0.8, `кускус` 0.75, `манка` 0.65, `мука` 0.6, `сахар` 0.85. Convert the ml sum to grams and set `approximate`. Render "гречка — ≈ 255 г".
+   - Other items do not change.
+
+#### P4.8 Taste rules (`household.preferences`, added after P6)
+
+`config/household.json` gets an optional key `preferences`. If the key is missing, all lists are empty and the rules below find nothing. All item names are normalised names (P4.2.3).
+
+| Key | Type | Meaning |
+|-----|------|---------|
+| `excludedDishTypes` | DishType[] | Dish types that the household does not eat. |
+| `sideGroups` | `{ "<group>": item[] }` | The base of a plate: for example `картофель`, `макароны` (all pasta items), `рис`, `гречка`, `капуста`. |
+| `sideMinGrams` | number, default 100 | A buy-ingredient gives its side group to a dish only if its grams at scale 1 are ≥ this value, or unknown. |
+| `dinnerAvoidSideGroups` | group[] | Side groups that are too heavy for dinner (starchy). |
+| `dinnerAvoidItems` | item[] | Items that are too heavy for dinner (for example `майонез`, `сливки`). |
+| `itemLimits` | `[{ "name", "items": item[], "maxDishes" }]` | At most `maxDishes` cooked dishes per week contain any of `items` as a buy-ingredient. |
+
+"Buy-ingredient" = non-pantry, non-optional ingredient (as for `buyItemCount`).
+
+New rules of `evaluatePlan`:
+
+| Code | Level | Rule |
+|------|-------|------|
+| `dish_type_excluded` | E | A cooked dish has a `dishType` in `excludedDishTypes`. |
+| `side_repeated` | W | 2 or more cooked dishes have the same side group. 1 warning per group, with the recipe IDs. |
+| `heavy_dinner` | W | A dish in a dinner slot has a side group in `dinnerAvoidSideGroups` or a buy-ingredient in `dinnerAvoidItems`. 1 warning per dish, with the days. |
+| `item_limit` | W | More cooked dishes than `maxDishes` contain an item of the limit. 1 warning per limit. |
+
+Values of the household (2026-10-13): `excludedDishTypes: ["soup"]`; side groups for potato, pasta, rice, buckwheat, bulgur, couscous, millet, cabbage; `dinnerAvoidSideGroups`: potato, pasta, rice, bulgur, couscous; `dinnerAvoidItems`: `майонез`, `сливки`; limits: rice max 1 dish, sausages and cooked sausage max 1 dish.
 
 #### P4.6 Plan files
 

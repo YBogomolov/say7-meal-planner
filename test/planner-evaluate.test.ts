@@ -1,12 +1,13 @@
 import { assert, describe, it } from "@effect/vitest"
-import type { CatalogueEntry } from "../src/domain/catalogue.ts"
+import type { Aliases, CatalogueEntry } from "../src/domain/catalogue.ts"
 import { DEFAULT_HOUSEHOLD } from "../src/domain/household.ts"
-import type { Household } from "../src/domain/household.ts"
+import type { Household, Preferences } from "../src/domain/household.ts"
 import { ISSUE_CODES } from "../src/domain/plan-evaluation.ts"
 import type { IssueCode, PlanEvaluation, PlanIssue } from "../src/domain/plan-evaluation.ts"
 import type { WeekPlan } from "../src/domain/week-plan.ts"
 import { evaluatePlan } from "../src/planner/evaluate.ts"
-import { baseCatalogue, baseEntries, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, inGrams, planOf } from "./support/planner.ts"
+import { makeAliases } from "../src/planner/items.ts"
+import { baseCatalogue, baseEntries, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, ing, inGrams, planOf } from "./support/planner.ts"
 import type { DishOptions, EnrichmentChange, PlanSpec } from "./support/planner.ts"
 
 interface Scenario {
@@ -19,6 +20,7 @@ interface Scenario {
   readonly extra?: ReadonlyArray<CatalogueEntry>
   readonly household?: Partial<Household>
   readonly history?: ReadonlyArray<WeekPlan>
+  readonly aliases?: Aliases
 }
 
 const evaluate = (scenario: Scenario = {}): PlanEvaluation =>
@@ -28,7 +30,7 @@ const evaluate = (scenario: Scenario = {}): PlanEvaluation =>
       cooking: scenario.cooking ?? BASE_COOKING,
       meals: scenario.meals ?? BASE_MEALS
     }),
-    catalogueOf([...baseEntries(scenario.dishes), ...(scenario.extra ?? [])]),
+    catalogueOf([...baseEntries(scenario.dishes, scenario.aliases), ...(scenario.extra ?? [])], scenario.aliases),
     { ...DEFAULT_HOUSEHOLD, ...scenario.household },
     scenario.history ?? []
   )
@@ -57,6 +59,11 @@ const scaled = (recipeId: number, scale: 0.5 | 1 | 1.5 | 2 | 2.5 | 3): PlanSpec[
   BASE_COOKING.map((entry) => entry.recipeId === recipeId ? { ...entry, scale } : entry)
 
 const servings = (min: number, max: number): EnrichmentChange => ({ servings: { min, max, source: "page" } })
+
+/** A household with some taste preferences (spec P4.8). */
+const prefs = (preferences: Partial<Preferences>): Partial<Household> => ({
+  preferences: { ...DEFAULT_HOUSEHOLD.preferences, ...preferences }
+})
 
 const GARNISH = (n: number, overrides: EnrichmentChange = {}) =>
   entryOf(n, {
@@ -660,7 +667,11 @@ describe("evaluatePlan: every code of the table", () => {
     active_time: { household: { activeMinutesPerSession: 79 } },
     long_wait: { dishes: { 6: { enrichment: { longWaitHours: 13 } } } },
     protein_families: { dishes: { 3: { enrichment: { proteinFamilies: ["beef"], vegetarian: false } } } },
-    recent_repeat: { history: [past] }
+    recent_repeat: { history: [past] },
+    dish_type_excluded: { household: prefs({ excludedDishTypes: ["soup"] }) },
+    side_repeated: { household: prefs({ sideGroups: { рис: ["рис"] } }), dishes: { 2: { ingredients: [inGrams("рис", 200)] } } },
+    heavy_dinner: { household: prefs({ dinnerAvoidItems: ["сметана"] }) },
+    item_limit: { household: prefs({ itemLimits: [{ name: "рис", items: ["рис"], maxDishes: 0 }] }) }
   }
 
   it("is triggered by its scenario, as an error or as a warning", () => {
@@ -675,6 +686,197 @@ describe("evaluatePlan: every code of the table", () => {
     for (const code of ISSUE_CODES) {
       assert.notInclude(codes([...evaluation.errors, ...evaluation.warnings]), code, `base week and ${code}`)
     }
+  })
+})
+
+describe("evaluatePlan: taste rules (spec P4.8)", () => {
+  const DISH_2_BASE = inGrams("куриные бёдра", 800, { category: "poultry" })
+  /** Dish 2 (dinner on days 0 and 1) with an extra ingredient. */
+  const dish2With = (...extra: ReadonlyArray<ReturnType<typeof inGrams>>): NonNullable<Scenario["dishes"]> => ({
+    2: { ingredients: [DISH_2_BASE, ...extra] }
+  })
+  const SIDES = { картофель: ["картофель"], макароны: ["макароны"], рис: ["рис"] }
+
+  it("finds nothing without preferences, also for a week that repeats the same side", () => {
+    const evaluation = evaluate({ dishes: dish2With(inGrams("картофель", 300), inGrams("рис", 300), inGrams("сосиски", 200)) })
+    assert.deepStrictEqual(codes([...evaluation.errors, ...evaluation.warnings]), [])
+  })
+
+  describe("dish_type_excluded", () => {
+    it("is an error for each cooked dish of an excluded type", () => {
+      const evaluation = evaluate({ household: prefs({ excludedDishTypes: ["soup"] }) })
+      assert.deepStrictEqual(codes(evaluation.errors), ["dish_type_excluded"])
+      const issue = issueOf(evaluation.errors, "dish_type_excluded")
+      assert.deepStrictEqual(idsOf(issue), [1])
+      assert.deepStrictEqual(issue.days, [0, 1])
+      assert.include(issue.message, "«Суп Альфа» (1)")
+      assert.isFalse(evaluation.ok)
+    })
+
+    it("lists each dish of the types once", () => {
+      const evaluation = evaluate({ household: prefs({ excludedDishTypes: ["soup", "salad"] }) })
+      assert.deepStrictEqual(evaluation.errors.map(idsOf), [[1], [4]])
+    })
+
+    it("does not fire for a type that the week does not have, or for a dish that is not cooked", () => {
+      assert.deepStrictEqual(codes(evaluate({ household: prefs({ excludedDishTypes: ["sauce"] }) }).errors), [])
+      const notCooked = evaluate({
+        household: prefs({ excludedDishTypes: ["soup"] }),
+        cooking: BASE_COOKING.filter((entry) => entry.recipeId !== 1)
+      })
+      assert.notInclude(codes(notCooked.errors), "dish_type_excluded")
+    })
+  })
+
+  describe("side_repeated", () => {
+    it("is 1 warning for a group that 2 cooked dishes have, with the IDs and the days", () => {
+      const evaluation = evaluate({ household: prefs({ sideGroups: SIDES }), dishes: dish2With(inGrams("картофель", 300)) })
+      assert.deepStrictEqual(codes(evaluation.warnings), ["side_repeated"])
+      const issue = issueOf(evaluation.warnings, "side_repeated")
+      assert.deepStrictEqual(idsOf(issue), [1, 2])
+      assert.deepStrictEqual(issue.days, [0, 1])
+      assert.include(issue.message, "«картофель»")
+      assert.isTrue(evaluation.ok)
+    })
+
+    it("does not fire for 1 dish per group", () => {
+      assert.deepStrictEqual(codes(evaluate({ household: prefs({ sideGroups: SIDES }) }).warnings), [])
+    })
+
+    it("gives 1 warning for each repeated group", () => {
+      const evaluation = evaluate({
+        household: prefs({ sideGroups: SIDES }),
+        dishes: dish2With(inGrams("картофель", 300), inGrams("рис", 300))
+      })
+      assert.deepStrictEqual(evaluation.warnings.map((issue) => idsOf(issue)), [[1, 2], [2, 3]])
+    })
+
+    it("counts the grams at the boundary: sideMinGrams itself counts, less does not", () => {
+      const household = prefs({ sideGroups: SIDES, sideMinGrams: 100 })
+      assert.deepStrictEqual(codes(evaluate({ household, dishes: dish2With(inGrams("картофель", 100)) }).warnings), ["side_repeated"])
+      assert.deepStrictEqual(codes(evaluate({ household, dishes: dish2With(inGrams("картофель", 99)) }).warnings), [])
+    })
+
+    it("counts an ingredient with unknown grams", () => {
+      const evaluation = evaluate({ household: prefs({ sideGroups: SIDES }), dishes: dish2With(ing("картофель")) })
+      assert.deepStrictEqual(codes(evaluation.warnings), ["side_repeated"])
+    })
+
+    it("ignores pantry and optional ingredients", () => {
+      const household = prefs({ sideGroups: SIDES })
+      assert.deepStrictEqual(codes(evaluate({ household, dishes: dish2With(inGrams("картофель", 300, { pantry: true })) }).warnings), [])
+      assert.deepStrictEqual(codes(evaluate({ household, dishes: dish2With(inGrams("картофель", 300, { optional: true })) }).warnings), [])
+    })
+
+    it("matches the names of the config through the alias map", () => {
+      const household = prefs({ sideGroups: { картофель: ["Картошка"] } })
+      const dishes = dish2With(inGrams("картофель", 300))
+      assert.deepStrictEqual(codes(evaluate({ household, dishes }).warnings), [])
+      const aliases = makeAliases({ картошка: "картофель" })
+      assert.deepStrictEqual(codes(evaluate({ household, dishes, aliases }).warnings), ["side_repeated"])
+    })
+
+    it("matches the names of the catalogue through the alias map too", () => {
+      const aliases = makeAliases({ картошка: "картофель" })
+      const household = prefs({ sideGroups: { картофель: ["картофель"] } })
+      const evaluation = evaluate({ household, dishes: dish2With(inGrams("картошка", 300)), aliases })
+      assert.deepStrictEqual(codes(evaluation.warnings), ["side_repeated"])
+    })
+  })
+
+  describe("heavy_dinner", () => {
+    const household = prefs({ sideGroups: SIDES, dinnerAvoidSideGroups: ["макароны", "рис"] })
+
+    it("is a warning for a dish with a heavy side group in a dinner slot", () => {
+      // Dish 6 (pasta): lunch on day 5, dinner on day 6.
+      const evaluation = evaluate({ household })
+      assert.deepStrictEqual(codes(evaluation.warnings), ["heavy_dinner"])
+      const issue = issueOf(evaluation.warnings, "heavy_dinner")
+      assert.deepStrictEqual(idsOf(issue), [6])
+      assert.deepStrictEqual(issue.days, [6])
+      assert.include(issue.message, "гарнир «макароны»")
+    })
+
+    it("does not fire for a lunch only: dish 3 (rice) is at lunch", () => {
+      const lunchOnly = evaluate({ household: prefs({ sideGroups: SIDES, dinnerAvoidSideGroups: ["рис"] }) })
+      assert.deepStrictEqual(codes(lunchOnly.warnings), [])
+    })
+
+    it("does not fire for a side group that is not in dinnerAvoidSideGroups", () => {
+      assert.deepStrictEqual(codes(evaluate({ household: prefs({ sideGroups: SIDES, dinnerAvoidSideGroups: ["картофель"] }) }).warnings), [])
+    })
+
+    it("fires for an item in dinnerAvoidItems, 1 warning for each dish, with the dinner days", () => {
+      const evaluation = evaluate({ household: prefs({ dinnerAvoidItems: ["сметана"] }) })
+      // Dish 2 has «сметана» (dinner on days 0 and 1), dish 4 too (dinner on days 2 and 3).
+      assert.deepStrictEqual(evaluation.warnings.map((issue) => [issue.code, idsOf(issue), issue.days]), [
+        ["heavy_dinner", [2], [0, 1]],
+        ["heavy_dinner", [4], [2, 3]]
+      ])
+      assert.include(evaluation.warnings[0]?.message ?? "", "продукт «сметана»")
+    })
+
+    it("lists only the dinner days of a dish that is at lunch and at dinner", () => {
+      const evaluation = evaluate({ household: prefs({ dinnerAvoidItems: ["макароны"] }) })
+      assert.deepStrictEqual(evaluation.warnings.map((issue) => issue.days), [[6]])
+    })
+
+    it("ignores an optional item", () => {
+      // «сыр» is optional in dish 6.
+      assert.deepStrictEqual(codes(evaluate({ household: prefs({ dinnerAvoidItems: ["сыр"] }) }).warnings), [])
+    })
+
+    it("honours sideMinGrams and the alias map", () => {
+      const aliases = makeAliases({ спагетти: "макароны" })
+      const small = prefs({ sideGroups: { макароны: ["Спагетти"] }, dinnerAvoidSideGroups: ["макароны"], sideMinGrams: 401 })
+      assert.deepStrictEqual(codes(evaluate({ household: small, aliases }).warnings), [])
+      const enough = prefs({ sideGroups: { макароны: ["Спагетти"] }, dinnerAvoidSideGroups: ["макароны"], sideMinGrams: 400 })
+      assert.deepStrictEqual(codes(evaluate({ household: enough, aliases }).warnings), ["heavy_dinner"])
+    })
+  })
+
+  describe("item_limit", () => {
+    const limit = (maxDishes: number, items: ReadonlyArray<string> = ["рис"]) =>
+      prefs({ itemLimits: [{ name: "рис", items, maxDishes }] })
+
+    it("is 1 warning when more dishes than maxDishes have the item", () => {
+      const evaluation = evaluate({ household: limit(1), dishes: dish2With(inGrams("рис", 50)) })
+      assert.deepStrictEqual(codes(evaluation.warnings), ["item_limit"])
+      const issue = issueOf(evaluation.warnings, "item_limit")
+      assert.deepStrictEqual(idsOf(issue), [2, 3])
+      assert.deepStrictEqual(issue.days, [0, 1, 2, 3])
+      assert.include(issue.message, "«рис»")
+    })
+
+    it("does not fire at the limit", () => {
+      assert.deepStrictEqual(codes(evaluate({ household: limit(1) }).warnings), [])
+      assert.deepStrictEqual(codes(evaluate({ household: limit(2), dishes: dish2With(inGrams("рис", 50)) }).warnings), [])
+    })
+
+    it("counts the dishes that have any item of the list, a dish once", () => {
+      // Dish 3 has «рис», dish 6 has «макароны»; dish 2 has both.
+      const both = limit(2, ["рис", "макароны"])
+      assert.deepStrictEqual(codes(evaluate({ household: both }).warnings), [])
+      const withDish2 = evaluate({ household: both, dishes: dish2With(inGrams("рис", 50), inGrams("макароны", 50)) })
+      assert.deepStrictEqual(idsOf(issueOf(withDish2.warnings, "item_limit")), [2, 3, 6])
+    })
+
+    it("ignores pantry and optional items, and maps the names through the aliases", () => {
+      assert.deepStrictEqual(codes(evaluate({ household: limit(1), dishes: dish2With(inGrams("рис", 50, { optional: true })) }).warnings), [])
+      const aliases = makeAliases({ "рис круглозерный": "рис" })
+      const evaluation = evaluate({ household: limit(1, ["Рис круглозерный"]), dishes: dish2With(inGrams("рис", 50)), aliases })
+      assert.deepStrictEqual(codes(evaluation.warnings), ["item_limit"])
+    })
+
+    it("gives 1 warning for each limit", () => {
+      const household = prefs({
+        itemLimits: [
+          { name: "рис", items: ["рис"], maxDishes: 0 },
+          { name: "макароны", items: ["макароны"], maxDishes: 0 }
+        ]
+      })
+      assert.deepStrictEqual(evaluate({ household }).warnings.map(idsOf), [[3], [6]])
+    })
   })
 })
 

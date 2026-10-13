@@ -2,8 +2,23 @@ import { SESSION_IDS } from "../domain/household.ts"
 import type { ShoppingAmount, ShoppingItem, ShoppingList } from "../domain/shopping-list.ts"
 import { CATEGORY_HEADINGS, dateLabel, formatAmount, formatNumber } from "./labels.ts"
 
-const amountsText = (amounts: ReadonlyArray<ShoppingAmount>, approximate: boolean): string =>
-  amounts.length === 0 ? "" : ` — ${approximate ? "≈ " : ""}${amounts.map((amount) => formatAmount(amount.unit, amount.value)).join(" + ")}`
+/** Pieces first, then grams (see `shopperUnits`): `8 шт. (≈ 413 г)`. */
+const piecesWithGrams = (amounts: ReadonlyArray<ShoppingAmount>): string | undefined => {
+  const [pieces, grams, ...rest] = amounts
+  return pieces?.unit === "pcs" && grams?.unit === "g" && rest.length === 0
+    ? `${formatAmount(pieces.unit, pieces.value)} (≈ ${formatAmount(grams.unit, grams.value)})`
+    : undefined
+}
+
+const amountsText = (amounts: ReadonlyArray<ShoppingAmount>, approximate: boolean): string => {
+  if (amounts.length === 0) {
+    return ""
+  }
+  const pieces = piecesWithGrams(amounts)
+  return pieces === undefined
+    ? ` — ${approximate ? "≈ " : ""}${amounts.map((amount) => formatAmount(amount.unit, amount.value)).join(" + ")}`
+    : ` — ${pieces}`
+}
 
 const recipesText = (item: ShoppingItem): string => ` (блюда: ${item.recipeIds.join(", ")})`
 

@@ -630,6 +630,35 @@ You can also add the server with `claude mcp add --scope project say7 -- npx tsx
 Use the prompt `plan_week` with `weekStart` set to the first day of the week (day 0, the shopping day).
 The model reads the household and the history, chooses dishes, checks them with `evaluate_plan`, and saves the plan with `save_plan`.
 
+### Taste rules
+
+The key `preferences` in `config/household.json` sets the taste rules. Every sub-key is optional. If the key is missing, the lists are empty and the rules find nothing.
+The item names must be normalised names. The program cleans each name and maps it through `config/item-aliases.json`, as for the recipes.
+
+| Key | Meaning |
+|-----|---------|
+| `excludedDishTypes` | Dish types that the household does not eat, for example `["soup"]`. |
+| `sideGroups` | The base of a plate: `{ "<group>": ["<item>", ...] }`. |
+| `sideMinGrams` | The minimum grams of an ingredient at scale 1 to give its group to a dish. The default is 100. An ingredient with unknown grams counts. |
+| `dinnerAvoidSideGroups` | Side groups that are too heavy for dinner. |
+| `dinnerAvoidItems` | Items that are too heavy for dinner. |
+| `itemLimits` | A list of `{ "name", "items", "maxDishes" }`. A week can have at most `maxDishes` cooked dishes with any of the items. |
+
+Only ingredients that you buy count. Pantry and optional ingredients do not count.
+
+| Code | Level | Meaning |
+|------|-------|---------|
+| `dish_type_excluded` | error | A cooked dish has an excluded dish type. |
+| `side_repeated` | warning | Two or more cooked dishes have the same side group. |
+| `heavy_dinner` | warning | A dish in a dinner slot has a heavy side group or a heavy item. |
+| `item_limit` | warning | More cooked dishes than `maxDishes` have an item of a limit. |
+
+### Units of the shopping list
+
+The shopping list shows eggs as pieces with the grams, for example `яйца — 8 шт. (≈ 413 г)`.
+The piece weights are 55 g for `яйца`, 20 g for `желток` and 35 g for `белок`.
+A cereal or flour that has only a volume shows the grams, for example `гречка — ≈ 255 г`. The densities are in `src/planner/shopping.ts`.
+
 ## Development
 
 | Command | Action |
@@ -665,7 +694,7 @@ src/enrich/    scope.ts, input.ts, plan.ts, prompt.ts, json-schema.ts, decode.ts
                api.ts (Llm), store.ts, env.ts                                         services (Anthropic API, files, .env)
                run.ts, layers.ts, cli-options.ts, cli.ts                              program and entry point
                eval-run.ts, eval-cli-options.ts, eval-cli.ts                          evaluation against the gold set
-src/planner/   catalogue.ts (loadCatalogue), items.ts, search.ts, evaluate.ts (evaluatePlan), shopping.ts, shopping-render.ts   pure functions
+src/planner/   catalogue.ts (loadCatalogue), items.ts, search.ts, evaluate.ts (evaluatePlan), taste.ts, shopping.ts, shopping-render.ts   pure functions
                decimal.ts, labels.ts, plan-model.ts, report.ts, cli-options.ts                                                  pure functions
                config.ts, plans.ts, atomic.ts, layers.ts                                                                        services (config, saved plans, files)
                plan-cli.ts, items-cli.ts                                                                                        entry points

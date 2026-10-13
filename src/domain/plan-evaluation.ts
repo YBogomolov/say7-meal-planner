@@ -4,7 +4,7 @@ import { DayIndex, SessionId } from "./household.ts"
 import { RecipeId } from "./recipe.ts"
 import { PlanScale } from "./week-plan.ts"
 
-/** The codes of the rules of spec P4.4. The codes are stable: the callers match on them. */
+/** The codes of the rules of spec P4.4 and P4.8. The codes are stable: the callers match on them. */
 export const ISSUE_CODES = [
   "unknown_recipe",
   "not_cooked",
@@ -23,7 +23,11 @@ export const ISSUE_CODES = [
   "active_time",
   "long_wait",
   "protein_families",
-  "recent_repeat"
+  "recent_repeat",
+  "dish_type_excluded",
+  "side_repeated",
+  "heavy_dinner",
+  "item_limit"
 ] as const
 export const IssueCode = Schema.Literals(ISSUE_CODES)
 export type IssueCode = typeof IssueCode.Type

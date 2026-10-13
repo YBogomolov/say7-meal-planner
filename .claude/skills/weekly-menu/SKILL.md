@@ -51,7 +51,7 @@ Rules of thumb that the code does not state:
 1. Call `evaluate_plan`. Fix every error.
 2. Fix `portions_tight` by a higher `scale` (0.5 steps) until the lower end of "made" is at least "eaten". Leftovers of 1–3 portions are fine; too little food is worse than too much.
 3. Accept `long_wait` of less than 1 h and `protein_families` with 2 families, but mention them. For a longer wait (a marinade of several hours), replace the dish unless the user asked for it: the cooking day is already full.
-4. Then check the preferences yourself, dish by dish: side dishes, dinner weight, excluded products. The code does not see them.
+4. Part of the preferences is now in the code (`household.preferences`): `dish_type_excluded` (a soup, an error), `side_repeated` (the same side dish in 2 dishes), `heavy_dinner` (a starchy side, mayonnaise or cream at dinner), `item_limit` (more than 1 dish with rice or sausages). Treat these 4 warnings like errors: fix them, or explain to the user why you keep one. Then check the rest of `references/preferences.md` yourself (variety of dinners, pies, real meat at lunch): the code does not see it.
 5. A lower `buyItemCount` is good only when the menu still has variety. Do not trade taste for 2–3 fewer items.
 6. Call `shopping_list` and read it for odd amounts. Translate them into what the user buys:
    - eggs and yolks in grams: about 55 g per egg, 20 g per yolk; give 1 total number of eggs;
