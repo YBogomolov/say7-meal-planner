@@ -7,3 +7,6 @@ coverage/
 test/fixtures/real/
 .env
 .env.*
+
+# Claude Code agent worktrees
+.claude/worktrees/
