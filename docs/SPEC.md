@@ -1,6 +1,6 @@
 # say7 meal planner — specification
 
-Status: P1, P2, P4 done. P3 implemented, pilot done (default model: claude-haiku-5-5, see docs/HANDOFF.md R1), full run pending. P5, P6 pending. Remaining work: docs/HANDOFF.md.
+Status: P1, P2, P3, P4 done (P3 full run 2026-10-13, see P3.5.6). P5, P6 pending. Remaining work: docs/HANDOFF.md.
 
 ## 1. Goal
 
@@ -218,6 +218,11 @@ Ingredient item:
 3. The user runs sync enrichment of the gold IDs with both models. The coordinator compares the scores and the costs and sets the default model.
 4. Unit tests use a fake API service. No test calls the real API.
 5. Acceptance: on the full scope, ≥ 98 % of recipes have a valid enrichment after `--retry-failed`.
+6. Result of the full run (2026-10-13, `claude-haiku-5-5`, prompt version 2, batch mode):
+   - Scope: 1578 parsed files, 502 out of scope, 1076 in scope.
+   - Batch: 1075 of 1076 valid. 1 decode failure (878: an ingredient line without an item). `--retry-failed` (sync): 1 of 1 valid. Total: 1076 of 1076 valid (100 %). Acceptance passed.
+   - Tokens (batch): input 709 836, output 740 166, cache read 6 493 404, cache write 12 092. Estimated cost: 0.2538 USD (batch) + 0.0012 USD (retry) = 0.255 USD.
+   - Gold set on the full-run outputs: 338/340 (99.4 %). Failed checks: `activeMinutes` of 38 (40, expected 50–100) and 1653 (25, expected 30–70).
 
 ### P4 — catalogue, plan rules, shopping list
 
