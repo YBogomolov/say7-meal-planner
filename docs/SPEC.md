@@ -338,7 +338,7 @@ New rules of `evaluatePlan`:
 | `heavy_dinner` | W | A dish in a dinner slot has a side group in `dinnerAvoidSideGroups` or a buy-ingredient in `dinnerAvoidItems`. 1 warning per dish, with the days. |
 | `item_limit` | W | More cooked dishes than `maxDishes` contain an item of the limit. 1 warning per limit. |
 
-Values of the household (2026-10-13): `excludedDishTypes: ["soup"]`; side groups for potato, pasta, rice, buckwheat, bulgur, couscous, millet, cabbage; `dinnerAvoidSideGroups`: potato, pasta, rice, bulgur, couscous; `dinnerAvoidItems`: `майонез`, `сливки`; limits: rice max 1 dish, sausages and cooked sausage max 1 dish.
+Values of the household (2026-10-13): `excludedDishTypes: ["soup"]`; side groups for potato, pasta, rice, buckwheat, bulgur, couscous, millet, cabbage; `dinnerAvoidSideGroups`: pasta, rice, bulgur, couscous (potato is allowed at dinner, user decision 2026-10-13); `dinnerAvoidItems`: `майонез`, `сливки`; limits: rice max 1 dish, sausages and cooked sausage max 1 dish.
 
 #### P4.6 Plan files
 
