@@ -4,7 +4,7 @@ import { Effect, Result, Schema } from "effect"
 import { DECODE_OPTIONS, DEFAULT_HOUSEHOLD, Household, HouseholdJson, sessionDay } from "../src/domain/household.ts"
 import { PLAN_DECODE_OPTIONS, PLAN_SCALES, WeekPlan } from "../src/domain/week-plan.ts"
 import { ConfigError, loadAliases, loadHousehold } from "../src/planner/config.ts"
-import { normaliseItem } from "../src/planner/items.ts"
+import { AliasesJson, cleanItemName, normaliseItem } from "../src/planner/items.ts"
 import { withTempDir, writeFiles } from "./support/planner.ts"
 
 const decodeHousehold = (input: unknown) => Schema.decodeUnknownResult(Household)(input, DECODE_OPTIONS)
@@ -206,8 +206,16 @@ describe("loadHousehold and loadAliases", () => {
       })
     ))
 
-  it("the committed config/item-aliases.json starts empty", () => {
+  it("the committed config/item-aliases.json is clean and has no chains", () => {
     const text = readFileSync(new URL("../config/item-aliases.json", import.meta.url), "utf8")
-    assert.deepStrictEqual(JSON.parse(text), {})
+    const record = Schema.decodeUnknownSync(AliasesJson)(text)
+    const entries = Object.entries(record)
+    assert.isAbove(entries.length, 0)
+    for (const [variant, canonical] of entries) {
+      assert.strictEqual(cleanItemName(variant), variant, `variant "${variant}" is not clean`)
+      assert.strictEqual(cleanItemName(canonical), canonical, `canonical "${canonical}" is not clean`)
+      assert.notStrictEqual(variant, canonical)
+      assert.isFalse(canonical in record, `"${variant}" → "${canonical}" is a chain`)
+    }
   })
 })

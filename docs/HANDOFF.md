@@ -15,7 +15,7 @@ Date: 2026-10-12. From: the coordinator session (cloud sandbox). To: a Claude Co
 | P1 scraper | Done | Full run on the Mac: 1578 pages, all `ok`, about 73 min. `data/raw/`. |
 | P2 parser | Done | Full cache: 1578 of 1578 parse, 0 failures. Warnings: no servings 524 (mostly sweet bakes in pieces), no durations 202. |
 | P3 enrichment | Done | Full run 2026-10-13 (T1): 1076 of 1076 valid, 0.255 USD. Gold set 99.4 %. SPEC P3.5.6. |
-| P4 plan rules | Done | 18 rule codes, shopping list, `plan:check`, `items:report`. Tested on a synthetic catalogue only. |
+| P4 plan rules | Done (T3 aliases 2026-10-13: 369 non-pantry items) | 18 rule codes, shopping list, `plan:check`, `items:report`. Tested on a synthetic catalogue only. |
 | P5 MCP server | Not started | Spec in SPEC.md P5 and task T4 below. |
 | P6 first menu | Not started | Task T5 below. |
 
