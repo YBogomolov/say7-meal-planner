@@ -73,7 +73,7 @@ Do not call `save_plan` before the user approves. Show the draft in Russian:
 
 When the user asks for changes, change only what they asked for, run `evaluate_plan` again and show the new draft the same way.
 
-When the user approves: call `save_plan` and give the path `data/plans/<weekStart>.md`. Then ask whether new wishes from this conversation should go into `references/preferences.md`. If yes, add them there in the same style (the rule, then why).
+When the user approves: call `save_plan` and give the path `data/plans/<weekStart>.md`. Then copy the shopping list for Google Keep: run `npm run -s shopping:text -- <weekStart> | pbcopy` and tell the user to paste it into a Keep checklist note (each line becomes 1 checkbox). Remind them of the freezing actions, which are not in the Keep text. Then ask whether new wishes from this conversation should go into `references/preferences.md`. If yes, add them there in the same style (the rule, then why).
 
 ## Limits
 

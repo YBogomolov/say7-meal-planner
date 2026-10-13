@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs"
 import { assert, describe, it } from "@effect/vitest"
 import { DEFAULT_HOUSEHOLD } from "../src/domain/household.ts"
-import type { ShoppingList } from "../src/domain/shopping-list.ts"
+import type { ShoppingItem, ShoppingList } from "../src/domain/shopping-list.ts"
 import { dateLabel, dayLabel, formatAmount, formatNumber } from "../src/planner/labels.ts"
 import { shoppingList } from "../src/planner/shopping.ts"
-import { renderShoppingList } from "../src/planner/shopping-render.ts"
+import { renderShoppingList, renderShoppingText } from "../src/planner/shopping-render.ts"
 import { id } from "./support/enrich.ts"
 import { baseCatalogue, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, ing, planOf } from "./support/planner.ts"
 
@@ -204,5 +204,59 @@ describe("renderShoppingList: units for the shopper", () => {
       render([ing("морковь", { quantity: 200, unit: "g", grams: null }), ing("морковь", { quantity: 2, unit: "pcs" })]),
       "- [ ] морковь — ≈ 200 г + 2 шт. (блюда: 1)"
     )
+  })
+})
+
+describe("renderShoppingText", () => {
+  const item = (name: string, amounts: ShoppingItem["amounts"], recipeIds: ReadonlyArray<number> = [1]): ShoppingItem => ({
+    item: name,
+    category: "other",
+    amounts,
+    approximate: false,
+    recipeIds: recipeIds.map(id)
+  })
+  const list: ShoppingList = {
+    weekStart: "2026-10-17",
+    shoppingDay: 0,
+    buy: [
+      { category: "vegetable", items: [item("лук репчатый", [{ unit: "g", value: 450 }], [1, 2, 3])] },
+      { category: "eggs", items: [item("яйца", [{ unit: "pcs", value: 8 }, { unit: "g", value: 413 }], [4, 5])] },
+      { category: "spice", items: [item("соль", [])] }
+    ],
+    optional: [item("сметана", [{ unit: "ml", value: 1500 }], [6])],
+    check_at_home: [item("мука", [{ unit: "g", value: 300 }])],
+    actions: [],
+    dishes: [],
+    unknownRecipeIds: []
+  }
+
+  it("writes one line per item to buy, with the amount and without the recipe IDs, and ends with 1 newline", () => {
+    assert.strictEqual(
+      renderShoppingText(list, { withOptional: false }),
+      "лук репчатый — 450 г\nяйца — 8 шт. (≈ 413 г)\nсоль\n"
+    )
+  })
+
+  it("adds the optional items after the items to buy when withOptional is set", () => {
+    assert.strictEqual(
+      renderShoppingText(list, { withOptional: true }),
+      "лук репчатый — 450 г\nяйца — 8 шт. (≈ 413 г)\nсоль\nсметана — 1,5 л\n"
+    )
+  })
+
+  it("keeps the check-at-home items out of the text", () => {
+    assert.notInclude(renderShoppingText(list, { withOptional: true }), "мука")
+  })
+
+  it("writes the approximate sign as in the Markdown list", () => {
+    const text = renderShoppingText({
+      ...list,
+      buy: [{ category: "grain", items: [{ ...item("гречка", [{ unit: "g", value: 255 }]), approximate: true }] }]
+    }, { withOptional: false })
+    assert.strictEqual(text, "гречка — ≈ 255 г\n")
+  })
+
+  it("gives an empty text for a list with nothing to buy", () => {
+    assert.strictEqual(renderShoppingText({ ...list, buy: [], optional: [] }, { withOptional: true }), "")
   })
 })

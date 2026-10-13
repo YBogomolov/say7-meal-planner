@@ -13,6 +13,7 @@ const TSX = fileURLToPath(new URL("../node_modules/.bin/tsx", import.meta.url))
 const PLAN_CLI = fileURLToPath(new URL("../src/planner/plan-cli.ts", import.meta.url))
 const ITEMS_CLI = fileURLToPath(new URL("../src/planner/items-cli.ts", import.meta.url))
 const SERVINGS_CLI = fileURLToPath(new URL("../src/planner/servings-cli.ts", import.meta.url))
+const SHOPPING_TEXT_CLI = fileURLToPath(new URL("../src/planner/shopping-text-cli.ts", import.meta.url))
 const SLOW_TEST_MS = 90_000
 
 interface Finished {
@@ -115,6 +116,59 @@ describe("npm run plan:check, as a child process", () => {
         const result = yield* run(PLAN_CLI, ["plan.json"], root)
         assert.strictEqual(result.code, 1)
         assert.include(result.stderr, "npm run enrich")
+      })
+    ), SLOW_TEST_MS)
+})
+
+describe("npm run shopping:text, as a child process", () => {
+  it.live("prints only the text of the saved plan, one line per item, and the warnings to stderr", () =>
+    withTempDir((root) =>
+      Effect.gen(function*() {
+        yield* writeFiles(root, {
+          ...baseFiles(),
+          "data/plans/2026-10-17.json": Schema.encodeSync(WeekPlanJson)(basePlan()),
+          "config/servings-overrides.json": '{"99": {"min": 1, "max": 1}}'
+        })
+        const result = yield* run(SHOPPING_TEXT_CLI, ["2026-10-17"], root)
+        assert.strictEqual(result.code, 0, result.stderr)
+        assert.include(result.stdout, "куриное филе — 900 г\n")
+        assert.notInclude(result.stdout, "(блюда:")
+        assert.notInclude(result.stdout, "#")
+        assert.notInclude(result.stdout, "Каталог:")
+        assert.isTrue(result.stdout.endsWith("\n") && !result.stdout.endsWith("\n\n"))
+        assert.include(result.stderr, "рецепт 99")
+      })
+    ), SLOW_TEST_MS)
+
+  it.live("exits 1 with a Russian message for a missing plan, and 2 for a bad date", () =>
+    withTempDir((root) =>
+      Effect.gen(function*() {
+        yield* writeFiles(root, baseFiles())
+        const missing = yield* run(SHOPPING_TEXT_CLI, ["2026-10-17"], root)
+        assert.strictEqual(missing.code, 1)
+        assert.strictEqual(missing.stdout, "")
+        assert.include(missing.stderr, "План на неделю 2026-10-17 не найден")
+        const badDate = yield* run(SHOPPING_TEXT_CLI, ["2026-13-01"], root)
+        assert.strictEqual(badDate.code, 2)
+        assert.include(badDate.stderr, "ГГГГ-ММ-ДД")
+        const help = yield* run(SHOPPING_TEXT_CLI, ["--help"], root)
+        assert.strictEqual(help.code, 0)
+        assert.include(help.stdout, "npm run shopping:text")
+      })
+    ), SLOW_TEST_MS)
+
+  it.live("adds the optional items with --with-optional", () =>
+    withTempDir((root) =>
+      Effect.gen(function*() {
+        yield* writeFiles(root, {
+          ...baseFiles(),
+          "data/plans/2026-10-17.json": Schema.encodeSync(WeekPlanJson)(basePlan())
+        })
+        const plain = yield* run(SHOPPING_TEXT_CLI, ["2026-10-17"], root)
+        const optional = yield* run(SHOPPING_TEXT_CLI, ["2026-10-17", "--with-optional"], root)
+        assert.strictEqual(optional.code, 0, optional.stderr)
+        assert.isTrue(optional.stdout.startsWith(plain.stdout))
+        assert.strictEqual(optional.stdout.slice(plain.stdout.length), "ванилин — 1 щепотка\nсыр — 100 г\nукроп — 1 пучок\n")
       })
     ), SLOW_TEST_MS)
 })

@@ -312,6 +312,7 @@ Metrics: `buyItemCount` (number of distinct normalised non-pantry, non-optional 
    - Piece weights (fixed table in code): `яйца` 55 g, `желток` 20 g, `белок` 35 g. If the summed grams of such an item are known, add an amount in pieces (`pcs`), rounded up. Render "яйца — 8 шт. (≈ 413 г)".
    - Densities for an item that has only ml (fixed table in code, g per ml): `гречка` 0.85, `рис` 0.85, `пшено` 0.85, `булгур` 0.8, `кускус` 0.75, `манка` 0.65, `мука` 0.6, `сахар` 0.85. Convert the ml sum to grams and set `approximate`. Render "гречка — ≈ 255 г".
    - Other items do not change.
+8. Plain text for Google Keep (added after P6): `renderShoppingText(list)` → 1 line per item of `buy`, in shop order, no headings and no Markdown: "<item> — <amount>" (the amount as in the Markdown list, without the recipe IDs; only "<item>" when there is no amount). When the user pastes the text into a Keep checklist, each line becomes 1 checkbox. CLI `npm run shopping:text -- <weekStart>` reads `data/plans/<weekStart>.json` and prints the text (`--with-optional` adds the `optional` items, `--data-dir`, `--config-dir` as in the other planner CLIs). On macOS the user runs `npm run -s shopping:text -- <weekStart> | pbcopy`.
 
 #### P4.8 Taste rules (`household.preferences`, added after P6)
 

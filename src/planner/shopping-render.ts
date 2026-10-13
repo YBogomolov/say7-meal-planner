@@ -95,3 +95,15 @@ export const renderShoppingList = (list: ShoppingList): string =>
     ...plainSection("Проверить дома", list.check_at_home, false),
     ...dishesSection(list)
   ].join("\n").replace(/\n*$/, "\n")
+
+const textLine = (item: ShoppingItem): string => `${item.item}${amountsText(item.amounts, item.approximate)}\n`
+
+/**
+ * The shopping list as plain text, for a checklist note (spec P4.5.8): 1 line per item of `buy` in shop order,
+ * then the optional items if `withOptional`. No headings, no recipe IDs. Each line ends with 1 newline.
+ */
+export const renderShoppingText = (list: ShoppingList, options: { readonly withOptional: boolean }): string =>
+  [
+    ...list.buy.flatMap(({ items }) => items.map(textLine)),
+    ...(options.withOptional ? list.optional.map(textLine) : [])
+  ].join("")

@@ -659,6 +659,23 @@ The shopping list shows eggs as pieces with the grams, for example `яйца —
 The piece weights are 55 g for `яйца`, 20 g for `желток` and 35 g for `белок`.
 A cereal or flour that has only a volume shows the grams, for example `гречка — ≈ 255 г`. The densities are in `src/planner/shopping.ts`.
 
+### Copy the shopping list to Keep
+
+Run this command to copy the shopping list as plain text to the clipboard:
+
+```bash
+npm run -s shopping:text -- 2026-10-17 | pbcopy
+```
+
+Replace `2026-10-17` with the first day of the plan week. The command reads `data/plans/2026-10-17.json`.
+
+Paste the text into a Keep checklist note. Each line becomes one checkbox.
+
+- `--with-optional` adds the optional items after the items to buy.
+- `--help` shows all options.
+
+If the plan file is missing, save the plan first with `save_plan`.
+
 ## Development
 
 | Command | Action |
@@ -672,6 +689,7 @@ A cereal or flour that has only a volume shows the grams, for example `греч�
 | `npm run items:report -- <flags>` | Write `data/items-report.json`: the normalised ingredient names of the catalogue, to build `config/item-aliases.json`. |
 | `npm run servings:report -- <flags>` | Write `data/servings-report.json`: the recipes with servings that look wrong. See "Servings check". |
 | `npm run plan:check -- <plan.json> <flags>` | Check a week plan against the rules of the household, then print the shopping list in Markdown. Exit code 1 if the plan has errors. |
+| `npm run shopping:text -- <weekStart> <flags>` | Print the shopping list of a saved plan as plain text, one line per item, for a Keep checklist. See "Copy the shopping list to Keep". |
 | `npm run mcp` | Start the MCP server on stdio. See "MCP server". |
 | `npm run fixtures:refresh` | Copy the test pages from `data/raw/` to `test/fixtures/real/`. |
 

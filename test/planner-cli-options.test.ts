@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Result } from "effect"
-import { ITEMS_REPORT_USAGE, parseItemsReportCli, parsePlanCheckCli, PLAN_CHECK_USAGE } from "../src/planner/cli-options.ts"
+import { ITEMS_REPORT_USAGE, parseItemsReportCli, parsePlanCheckCli, parseShoppingTextCli, PLAN_CHECK_USAGE, SHOPPING_TEXT_USAGE } from "../src/planner/cli-options.ts"
 import { formatEvaluation } from "../src/planner/report.ts"
 import { evaluatePlan } from "../src/planner/evaluate.ts"
 import { DEFAULT_HOUSEHOLD } from "../src/domain/household.ts"
@@ -62,6 +62,39 @@ describe("parseItemsReportCli", () => {
   })
 })
 
+describe("parseShoppingTextCli", () => {
+  it("takes the week start and the defaults", () => {
+    assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["2026-10-17"])), {
+      _tag: "Run",
+      options: { weekStart: "2026-10-17", withOptional: false, dataDir: "data", configDir: "config" }
+    })
+  })
+
+  it("takes --with-optional and the directories, in any order", () => {
+    assert.deepStrictEqual(
+      Result.getOrThrow(parseShoppingTextCli(["--with-optional", "2026-10-17", "--data-dir", "d", "--config-dir", "c"])),
+      { _tag: "Run", options: { weekStart: "2026-10-17", withOptional: true, dataDir: "d", configDir: "c" } }
+    )
+  })
+
+  it("shows the help", () => {
+    assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["-h"])), { _tag: "Help" })
+  })
+
+  it("rejects no date, 2 positionals, a date that is not a real day, and the option of another command", () => {
+    for (const argv of [[], ["2026-10-17", "2026-10-24"], ["2026-02-30"], ["17.10.2026"], ["2026-10-17", "--force"], ["2026-10-17", "--data-dir"]]) {
+      const result = parseShoppingTextCli(argv)
+      assert.isTrue(Result.isFailure(result), argv.join(" "))
+      if (Result.isFailure(result)) {
+        assert.strictEqual(result.failure._tag, "CliError")
+      }
+    }
+    const badDate = parseShoppingTextCli(["2026-02-30"])
+    assert.include(Result.isFailure(badDate) ? badDate.failure.message : "", "ГГГГ-ММ-ДД")
+    assert.isTrue(Result.isFailure(parseItemsReportCli(["--with-optional"])))
+  })
+})
+
 describe("usage texts and package.json", () => {
   it("name the options that the parsers accept", () => {
     for (const text of [PLAN_CHECK_USAGE, ITEMS_REPORT_USAGE]) {
@@ -70,12 +103,15 @@ describe("usage texts and package.json", () => {
     }
     assert.include(PLAN_CHECK_USAGE, "npm run plan:check")
     assert.include(ITEMS_REPORT_USAGE, "npm run items:report")
+    assert.include(SHOPPING_TEXT_USAGE, "npm run shopping:text")
+    assert.include(SHOPPING_TEXT_USAGE, "--with-optional")
   })
 
   it("has the scripts items:report and plan:check", () => {
     const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts
     assert.strictEqual(scripts["items:report"], "tsx src/planner/items-cli.ts")
     assert.strictEqual(scripts["plan:check"], "tsx src/planner/plan-cli.ts")
+    assert.strictEqual(scripts["shopping:text"], "tsx src/planner/shopping-text-cli.ts")
   })
 })
 
