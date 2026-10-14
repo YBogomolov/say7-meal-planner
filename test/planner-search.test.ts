@@ -201,7 +201,7 @@ describe("searchRecipes: the row", () => {
   it("has the compact fields of spec P4.2.4 and nothing more", () => {
     assert.deepStrictEqual(Object.keys(row ?? {}).sort(), [
       "activeMinutes", "buyItems", "commentsCount", "difficulty", "dishType", "freezable", "fridgeDays", "heat", "id",
-      "longWaitHours", "mealFit", "proteinFamilies", "reheats", "servings", "sideHint", "title", "totalMinutes", "url",
+      "longWaitHours", "mealFit", "proteinFamilies", "proteinPerPortion", "reheats", "servings", "sideHint", "title", "totalMinutes", "url",
       "vegetarian"
     ])
   })

@@ -26,6 +26,7 @@ describe("Household", () => {
       rawProteinFridgeDays: 2,
       maxProteinFamilies: 2,
       recentWeeks: 4,
+      proteinMinGrams: { breakfast: 15, lunch: 20, dinner: 20 },
       preferences: {
         excludedDishTypes: [],
         sideGroups: {},

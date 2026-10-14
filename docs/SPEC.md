@@ -12,7 +12,7 @@ The plan uses the smallest number of distinct ingredients to buy and keeps the m
 
 | ID | Constraint |
 |----|------------|
-| H1 | 3 persons. 7 days. 2 meals per day (lunch and dinner). All meals are at home. Breakfast is out of scope. |
+| H1 | 3 persons. 7 days. 2 meals per day (lunch and dinner). All meals are at home. Breakfast: see P7.2 (added 2026-10-14). |
 | H2 | 2 cooking sessions per week. Session A is at the weekend. Session B is midweek. |
 | H3 | 1 shopping trip per week, before session A. |
 | H4 | The household eats 1 dish for 3 days or less. |
@@ -376,4 +376,27 @@ Week 2026-10-17 (Saturday), made with the prompt `plan_week` in Claude Code over
    - A whole stuffed pumpkin (982) at scale 2.5 gave 5 kg of pumpkin. Scale by pieces is unclear for whole vegetables.
    - Mayonnaise (74) has no amount.
    - No catalogue recipe combines chicken, mushrooms and buckwheat. 2 recipes in 1 slot (main + side) work.
+
+### P7 — protein and breakfasts (added 2026-10-14)
+
+Request of the household: every meal has protein (more or less, but nearly always), and the plan covers breakfasts. Implement P7.1 first, then P7.2.
+
+#### P7.1 Protein per portion
+
+1. `config/item-protein.json` (committed): `{ "<normalised item>": <g protein per 100 g> }` for the items of the catalogue, as bought (raw meat, dry cereals, dry legumes). Decode with Effect Schema (non-negative numbers). The coordinator fills it from `data/items-report.json`; values are approximate (food tables).
+2. `portionProtein(entry, table)` (pure): sum of `grams × protein / 100` over all non-optional ingredients (pantry included), divided by the middle of `servings` ((min + max) / 2, after the servings overrides). Ingredients without grams or without a table entry add 0. The result has `grams` (1 decimal) and `coverage` (share of the protein-relevant lines that have grams and a table entry; protein-relevant = category poultry, meat, fish, seafood, dairy, eggs, legume, nuts, or table value ≥ 5; lines of category spice, herb and oil are never protein-relevant).
+3. Slot protein = the sum of the portion protein of the dishes in the slot.
+4. Household keys: `proteinMinGrams: { "breakfast": 15, "lunch": 20, "dinner": 20 }`.
+5. Rule `low_protein` (W): slot protein < the minimum of its meal. 1 warning per dish set and meal, with the days. If the coverage of a dish is < 0.7, the message says that the estimate is uncertain.
+6. Metrics: protein per slot. `search_recipes` rows get `proteinPerPortion` (grams). `get_recipe` shows it with the coverage.
+7. A test checks that the committed table decodes. `items:report` lists the items of the catalogue without a table entry (so that the refresh can add them).
+
+#### P7.2 Breakfasts
+
+1. Household: `meals` becomes `["breakfast", "lunch", "dinner"]`. New key `mealPersons: { "breakfast": 2 }` (persons per meal; other meals use `persons`). The third person eats a simple breakfast of her own; she can eat leftovers, but the plan does not count her.
+2. `WeekPlan.meals[].meal` accepts `breakfast`. Cooking entries get a third kind: `session: "fresh"`. A fresh dish is cooked on each day it is eaten; `scale` is per cooking day. Shopping multiplies by the number of days. Fresh dishes are not in the active minutes of the sessions; rule `fresh_time` (W): `activeMinutes × scale-factor` of the fresh dishes of 1 day > `freshMinutesMax` (household key, default 20). `not_fresh`, `eaten_before_cooked` and the freeze actions do not apply to fresh dishes. Fresh dishes are allowed only in breakfast slots (else E `fresh_not_breakfast`).
+3. Simple breakfasts: `config/simple-breakfasts.json` (committed): `[{ "id": "<kebab-case>", "title": "<Russian>", "items": [{ "item", "grams", "category", "pantry" }] }]`, amounts per portion. A slot can have `simpleIds: string[]` next to `recipeIds` (at least 1 of the two is non-empty). Simple breakfasts are fresh (no cooking entry), only in breakfast slots. Their protein comes from the table; their items go to the shopping list (× persons of the slot). Unknown id: E `unknown_simple`.
+4. Breakfast candidates from the catalogue: a recipe is breakfast-eligible if its categories contain 50 (Блины, оладьи, сырники), 62 (Закуски из яиц), 63 (Бутерброды), 79 (Рецепты запеканок), 233 (Выпечка из творога), or its id is in `household.breakfastExtraIds`. `loadCatalogue` keeps a `not_a_meal` recipe if it is breakfast-eligible (it is valid only in breakfast slots). `slot_not_a_meal` does not apply to breakfast slots. `search_recipes` gets a filter `forMeal: "breakfast" | "lunch" | "dinner"` (breakfast = eligible; lunch and dinner = the current rules).
+5. Scope of P3: add category 233 (Выпечка из творога). The coordinator runs the enrichment for the new recipes.
+6. MCP: new tool `simple_breakfasts` (the list with the protein per portion). `plan_week` prompt and the `weekly-menu` skill cover breakfasts. The menu table gets a breakfast column. `menu-render` and the shopping list support fresh dishes and simple breakfasts.
 

@@ -6,9 +6,10 @@ import { writeTextAtomic } from "./atomic.ts"
 import type { SkipReason, SkippedRecipe } from "./catalogue.ts"
 import { loadCatalogue, SKIP_REASONS } from "./catalogue.ts"
 import { ITEMS_REPORT_USAGE, parseItemsReportCli } from "./cli-options.ts"
-import { loadAliases, loadServingsOverrides } from "./config.ts"
+import { loadAliases, loadItemProtein, loadServingsOverrides } from "./config.ts"
 import { itemsReport } from "./items.ts"
 import { plannerLayer } from "./layers.ts"
+import { missingProteinItems } from "./protein.ts"
 
 const EXIT_FAILED = 1
 const EXIT_USAGE = 2
@@ -39,16 +40,19 @@ const main = Effect.gen(function*() {
   const path = yield* Path.Path
   const aliases = yield* loadAliases(configDir)
   const overrides = yield* loadServingsOverrides(configDir)
-  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides)
+  const proteinTable = yield* loadItemProtein(configDir, aliases)
+  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable)
   for (const id of unknownOverrides) {
     yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
   }
   const items = itemsReport(catalogue)
+  const missingProtein = missingProteinItems(catalogue)
   const report: ItemsReport = {
     version: 1,
     generatedAt: DateTime.formatIso(yield* DateTime.now),
     recipes: catalogue.entries.length,
-    items
+    items,
+    missingProtein
   }
   const target = path.join(dataDir, "items-report.json")
   const text = yield* Schema.encodeEffect(ItemsReportJson)(report)
@@ -56,6 +60,7 @@ const main = Effect.gen(function*() {
 
   yield* Console.log(`Каталог: ${catalogue.entries.length} рецептов. Пропущено: ${skipped.length}${skipped.length === 0 ? "" : ` (${skippedSummary(skipped)})`}.`)
   yield* Console.log(`Псевдонимов в config: ${aliases.size}. Продуктов после нормализации: ${items.length}.`)
+  yield* Console.log(`Продуктов без записи в item-protein.json: ${missingProtein.length} (список: missingProtein в отчёте).`)
   yield* Console.log(`Отчёт записан: ${target}`)
 }).pipe(
   Effect.provide(plannerLayer),

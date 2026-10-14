@@ -6,7 +6,8 @@ import { ISSUE_CODES } from "../src/domain/plan-evaluation.ts"
 import type { IssueCode, PlanEvaluation, PlanIssue } from "../src/domain/plan-evaluation.ts"
 import type { WeekPlan } from "../src/domain/week-plan.ts"
 import { evaluatePlan } from "../src/planner/evaluate.ts"
-import { makeAliases } from "../src/planner/items.ts"
+import { makeAliases, NO_ALIASES } from "../src/planner/items.ts"
+import { makeProteinTable } from "../src/planner/protein.ts"
 import { baseCatalogue, baseEntries, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, ing, inGrams, planOf } from "./support/planner.ts"
 import type { DishOptions, EnrichmentChange, PlanSpec } from "./support/planner.ts"
 
@@ -21,6 +22,8 @@ interface Scenario {
   readonly household?: Partial<Household>
   readonly history?: ReadonlyArray<WeekPlan>
   readonly aliases?: Aliases
+  /** The protein table `{ "<item>": g per 100 g }`. Without it the table is empty and `low_protein` is off. */
+  readonly protein?: Readonly<Record<string, number>>
 }
 
 const evaluate = (scenario: Scenario = {}): PlanEvaluation =>
@@ -30,7 +33,10 @@ const evaluate = (scenario: Scenario = {}): PlanEvaluation =>
       cooking: scenario.cooking ?? BASE_COOKING,
       meals: scenario.meals ?? BASE_MEALS
     }),
-    catalogueOf([...baseEntries(scenario.dishes, scenario.aliases), ...(scenario.extra ?? [])], scenario.aliases),
+    catalogueOf([...baseEntries(scenario.dishes, scenario.aliases), ...(scenario.extra ?? [])],
+      scenario.aliases,
+      makeProteinTable(scenario.protein ?? {}, scenario.aliases ?? NO_ALIASES)
+    ),
     { ...DEFAULT_HOUSEHOLD, ...scenario.household },
     scenario.history ?? []
   )
@@ -671,7 +677,8 @@ describe("evaluatePlan: every code of the table", () => {
     dish_type_excluded: { household: prefs({ excludedDishTypes: ["soup"] }) },
     side_repeated: { household: prefs({ sideGroups: { рис: ["рис"] } }), dishes: { 2: { ingredients: [inGrams("рис", 200)] } } },
     heavy_dinner: { household: prefs({ dinnerAvoidItems: ["сметана"] }) },
-    item_limit: { household: prefs({ itemLimits: [{ name: "рис", items: ["рис"], maxDishes: 0 }] }) }
+    item_limit: { household: prefs({ itemLimits: [{ name: "рис", items: ["рис"], maxDishes: 0 }] }) },
+    low_protein: { protein: { соль: 0 } }
   }
 
   it("is triggered by its scenario, as an error or as a warning", () => {
@@ -887,5 +894,58 @@ describe("evaluatePlan: Russian messages", () => {
     assert.strictEqual(missing.message, "Не заполнен слот: день 4 (среда), обед.")
     const heat = issueOf(evaluate({ dishes: { 2: { enrichment: { heat: 3 } } } }).errors, "heat")
     assert.strictEqual(heat.message, "«Рагу Браво» (2): острота 3, а допустимо не больше 2.")
+  })
+})
+
+describe("evaluatePlan: protein (spec P7.1)", () => {
+  /** Chicken 20 g/100 g gives dish 1 (500 g, 7 portions) 14.3 g and dish 2 (800 g) 22.9 g per portion. */
+  const PROTEIN = { "куриное филе": 20, "куриные бёдра": 20, яйца: 12.5, творог: 16, макароны: 12 }
+  const low = (evaluation: PlanEvaluation) => evaluation.warnings.filter((issue) => issue.code === "low_protein")
+
+  it("is off with an empty table, and the metric is still there", () => {
+    const evaluation = evaluate()
+    assert.deepStrictEqual(low(evaluation), [])
+    assert.strictEqual(evaluation.metrics.proteinPerSlot.length, 14)
+  })
+
+  it("reports the protein of each slot, the sum of its dishes, sorted by day and meal", () => {
+    const evaluation = evaluate({ protein: PROTEIN, meals: withMeal(0, "lunch", [1, 2]) })
+    const slots = evaluation.metrics.proteinPerSlot
+    assert.deepStrictEqual(slots.slice(0, 3).map((slot) => [slot.day, slot.meal]), [[0, "lunch"], [0, "dinner"], [1, "lunch"]])
+    assert.strictEqual(slots[0]?.grams, 37.2)
+    assert.strictEqual(slots[1]?.grams, 22.9)
+  })
+
+  it("warns 1 time for a dish set and meal, with the days", () => {
+    const evaluation = evaluate({ protein: PROTEIN })
+    const warnings = low(evaluation)
+    const soup = warnings.find((issue) => idsOf(issue).join() === "1")
+    assert.deepStrictEqual(soup?.days, [0, 1])
+    assert.include(soup?.message ?? "", "14,3 г")
+    assert.include(soup?.message ?? "", "обед")
+    assert.notInclude(soup?.message ?? "", "неточная")
+    assert.isTrue(evaluation.ok)
+  })
+
+  it("does not warn when the protein reaches the minimum", () => {
+    const evaluation = evaluate({ protein: PROTEIN, household: { proteinMinGrams: { breakfast: 15, lunch: 14, dinner: 20 } } })
+    assert.notInclude(low(evaluation).map((issue) => idsOf(issue).join()), "1")
+  })
+
+  it("groups slots with the same dishes in a different order", () => {
+    const evaluation = evaluate({
+      protein: { соль: 0 },
+      meals: [...BASE_MEALS.filter((slot) => slot.day > 1), { day: 0, meal: "lunch", recipeIds: [1, 2] }, { day: 1, meal: "lunch", recipeIds: [2, 1] }]
+    })
+    const pair = low(evaluation).filter((issue) => idsOf(issue).join() === "1,2")
+    assert.strictEqual(pair.length, 1)
+    assert.deepStrictEqual(pair[0]?.days, [0, 1])
+  })
+
+  it("says that the estimate is uncertain if the coverage of a dish is below 0.7", () => {
+    const evaluation = evaluate({ protein: { "куриные бёдра": 20 } })
+    const soup = low(evaluation).find((issue) => idsOf(issue).join() === "1")
+    assert.include(soup?.message ?? "", "Оценка неточная")
+    assert.include(soup?.message ?? "", "покрытие 0%")
   })
 })

@@ -3,10 +3,11 @@ import type { Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
 import { ProteinFamily } from "../domain/enriched-recipe.ts"
 import { sessionDay } from "../domain/household.ts"
 import type { Household } from "../domain/household.ts"
-import type { DishPortions, IssueCode, PlanEvaluation, PlanIssue, PlanMetrics } from "../domain/plan-evaluation.ts"
+import type { DishPortions, IssueCode, PlanEvaluation, PlanIssue, PlanMetrics, SlotProtein } from "../domain/plan-evaluation.ts"
 import type { RecipeId } from "../domain/recipe.ts"
 import type { WeekPlan } from "../domain/week-plan.ts"
 import { isBuyIngredient } from "./items.ts"
+import { portionProtein, UNCERTAIN_COVERAGE } from "./protein.ts"
 import { dayLabel, DISH_TYPE_LABELS, EQUIPMENT_LABELS, formatNumber, MEAL_LABELS, PROTEIN_LABELS } from "./labels.ts"
 import { isCooked, planDishes } from "./plan-model.ts"
 import type { CookedDish, PlanDish } from "./plan-model.ts"
@@ -418,6 +419,69 @@ const itemLimit = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
     ]
   })
 
+/** The protein of every slot that has dishes, sorted by day and meal. A slot with a dish outside the catalogue is left out. */
+const slotProteins = ({ plan, catalogue }: Context) =>
+  [...plan.meals]
+    .sort((a, b) => a.day - b.day || (a.meal === b.meal ? 0 : a.meal === "lunch" ? -1 : 1))
+    .flatMap((slot) => {
+      const entries = slot.recipeIds.map((id) => catalogue.byId.get(id))
+      const known = entries.flatMap((entry) => entry === undefined ? [] : [entry])
+      if (known.length === 0 || known.length !== entries.length) {
+        return []
+      }
+      const dishes = known.map((entry) => ({ entry, protein: portionProtein(entry, catalogue.proteinTable) }))
+      return [{
+        slot,
+        dishes,
+        grams: Math.round(dishes.reduce((total, dish) => total + dish.protein.grams, 0) * 10) / 10,
+        coverage: Math.min(...dishes.map((dish) => dish.protein.coverage))
+      }]
+    })
+
+/**
+ * `low_protein` (warning, spec P7.1): the protein of a slot is below the minimum of its meal.
+ * 1 warning for each set of dishes (sorted recipe IDs) and meal, with the days.
+ * The rule is off if the protein table is empty.
+ */
+const lowProtein = (context: Context): ReadonlyArray<Finding> => {
+  // Without a protein table every slot has 0 g. That is missing data, not a finding.
+  if (context.catalogue.proteinTable.size === 0) {
+    return []
+  }
+  const groups = new Map<string, Array<ReturnType<typeof slotProteins>[number]>>()
+  for (const item of slotProteins(context)) {
+    if (item.grams < context.household.proteinMinGrams[item.slot.meal]) {
+      const key = `${item.slot.meal}/${[...item.slot.recipeIds].sort((a, b) => a - b).join(",")}`
+      groups.set(key, [...(groups.get(key) ?? []), item])
+    }
+  }
+  return [...groups.values()].flatMap((items): ReadonlyArray<Finding> => {
+    const first = items[0]
+    if (first === undefined) {
+      return []
+    }
+    const { meal } = first.slot
+    const minimum = context.household.proteinMinGrams[meal]
+    const days = items.map((item) => item.slot.day)
+    const ids = [...first.slot.recipeIds].sort((a, b) => a - b)
+    const uncertain = first.dishes.filter((dish) => dish.protein.coverage < UNCERTAIN_COVERAGE)
+    const note = uncertain.length === 0 ? "" : ` Оценка неточная: в таблице белка нет части продуктов блюд ${
+      uncertain.map((dish) => `«${dish.entry.title}» (${dish.entry.id}, покрытие ${Math.round(dish.protein.coverage * 100)}%)`).join(", ")
+    }.`
+    return [
+      finding(
+        "warning",
+        "low_protein",
+        `Мало белка в приёме пищи «${MEAL_LABELS[meal]}» (дни ${daysText(days)}): ${formatNumber(first.grams)} г на порцию при норме не меньше ${minimum} г. Блюда: ${
+          first.dishes.map((dish) => `«${dish.entry.title}» (${dish.entry.id})`).join(", ")
+        }.${note}`,
+        ids,
+        days
+      )
+    ]
+  })
+}
+
 const metricsOf = (context: Context): PlanMetrics => {
   const { plan, household, cooked } = context
   const ingredients = cooked.flatMap((dish) => dish.entry.enrichment.ingredients)
@@ -434,7 +498,13 @@ const metricsOf = (context: Context): PlanMetrics => {
       (count, day) => count + household.meals.filter((meal) => filled.has(`${day}/${meal}`)).length,
       0
     ),
-    slotsRequired: required
+    slotsRequired: required,
+    proteinPerSlot: slotProteins(context).map(({ slot, grams, coverage }): SlotProtein => ({
+      day: slot.day,
+      meal: slot.meal,
+      grams,
+      coverage
+    }))
   }
 }
 
@@ -459,7 +529,8 @@ const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
   dishTypeExcluded,
   sideRepeated,
   heavyDinner,
-  itemLimit
+  itemLimit,
+  lowProtein
 ]
 
 /**

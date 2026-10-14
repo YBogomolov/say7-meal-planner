@@ -4,9 +4,10 @@ import { RecipeId } from "../domain/recipe.ts"
 import { WeekPlan } from "../domain/week-plan.ts"
 import { writeTextAtomic } from "../planner/atomic.ts"
 import { loadCatalogue, makeCatalogue } from "../planner/catalogue.ts"
-import { loadAliases, loadHousehold, loadServingsOverrides } from "../planner/config.ts"
+import { loadAliases, loadHousehold, loadItemProtein, loadServingsOverrides } from "../planner/config.ts"
 import { evaluatePlan } from "../planner/evaluate.ts"
 import { loadHistory, savePlan } from "../planner/plans.ts"
+import { portionProtein } from "../planner/protein.ts"
 import { renderMenu } from "../planner/menu-render.ts"
 import { searchRecipes, SearchQuery } from "../planner/search.ts"
 import { shoppingList } from "../planner/shopping.ts"
@@ -40,7 +41,7 @@ export const EMPTY_CATALOGUE_HINT = (dataDir: string): string =>
   `Каталог пуст: в ${dataDir} нет разобранных и обогащённых рецептов. Запустите \`npm run scrape\`, \`npm run parse\` и \`npm run enrich\`, потом перезапустите сервер.`
 
 /**
- * Load the aliases, the servings overrides and the catalogue (like the CLIs do).
+ * Load the aliases, the servings overrides, the protein table and the catalogue (like the CLIs do).
  * A catalogue that cannot be read (no directories) is empty: the server starts anyway. `warn` gets the Russian text of each problem.
  */
 export const loadWorld = (
@@ -51,10 +52,11 @@ export const loadWorld = (
   Effect.gen(function*() {
     const aliases = yield* loadAliases(configDir)
     const overrides = yield* loadServingsOverrides(configDir)
-    const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides))
+    const proteinTable = yield* loadItemProtein(configDir, aliases)
+    const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides, proteinTable))
     if (loaded._tag === "Failure") {
       warn(loaded.failure.message)
-      return { dataDir, configDir, catalogue: makeCatalogue([], aliases), skipped: 0 }
+      return { dataDir, configDir, catalogue: makeCatalogue([], aliases, undefined, proteinTable), skipped: 0 }
     }
     for (const id of loaded.success.unknownOverrides) {
       warn(`в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
@@ -71,7 +73,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const searchTool = defineTool({
     name: "search_recipes",
     description:
-      "Поиск рецептов в каталоге по фильтрам (все необязательны). Возвращает компактные строки: id, название, ссылку, тип блюда, порции, время, нагрев, дни в холодильнике, продукты к покупке. Сортировка: popular или fewest_items. По умолчанию 20 строк, не больше 100.",
+      "Поиск рецептов в каталоге по фильтрам (все необязательны). Возвращает компактные строки: id, название, ссылку, тип блюда, порции, время, нагрев, дни в холодильнике, продукты к покупке, белок на порцию в граммах (proteinPerPortion, оценка по таблице белка). Сортировка: popular или fewest_items. По умолчанию 20 строк, не больше 100.",
     input: SearchQuery,
     run: (query) =>
       Effect.succeed([
@@ -86,20 +88,20 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const getRecipeTool = defineTool({
     name: "get_recipe",
     description:
-      "Карточка одного рецепта по id: название, ссылка, категория, обогащённые факты (порции, время, нагрев, оборудование, срок хранения) и строки ингредиентов. Текста рецепта и шагов нет: они остаются на сайте.",
+      "Карточка одного рецепта по id: название, ссылка, категория, обогащённые факты (порции, время, нагрев, оборудование, срок хранения) и строки ингредиентов, а также белок на порцию (protein.grams, г) и покрытие оценки (protein.coverage, 0–1; ниже 0,7 оценка неточная). Текста рецепта и шагов нет: они остаются на сайте.",
     input: GetRecipeInput,
     run: ({ id }) => {
       const entry = catalogue.byId.get(id)
       return entry === undefined
         ? Effect.fail({ message: `Рецепта ${id} нет в каталоге.` })
-        : Effect.succeed([json(entry)])
+        : Effect.succeed([json({ ...entry, protein: portionProtein(entry, catalogue.proteinTable) })])
     }
   })
 
   const evaluateTool = defineTool({
     name: "evaluate_plan",
     description:
-      "Проверяет план недели по правилам семьи (коды ошибок и предупреждений, показатели: buyItemCount, порции, активное время, белки). План с ошибками (ok: false) нельзя считать готовым.",
+      "Проверяет план недели по правилам семьи (коды ошибок и предупреждений, показатели: buyItemCount, порции, активное время, белки, proteinPerSlot — белок по приёмам пищи в граммах; предупреждение low_protein, если белка в приёме мало). План с ошибками (ok: false) нельзя считать готовым.",
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function*() {

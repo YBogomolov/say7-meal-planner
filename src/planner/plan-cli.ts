@@ -2,7 +2,7 @@ import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import { Console, Effect, FileSystem } from "effect"
 import { loadCatalogue } from "./catalogue.ts"
 import { parsePlanCheckCli, PLAN_CHECK_USAGE } from "./cli-options.ts"
-import { loadAliases, loadHousehold, loadServingsOverrides } from "./config.ts"
+import { loadAliases, loadItemProtein, loadHousehold, loadServingsOverrides } from "./config.ts"
 import { evaluatePlan } from "./evaluate.ts"
 import { plannerLayer } from "./layers.ts"
 import { decodePlanJson, loadHistory, PlanInvalidError } from "./plans.ts"
@@ -28,7 +28,8 @@ const main = Effect.gen(function*() {
   const household = yield* loadHousehold(configDir)
   const aliases = yield* loadAliases(configDir)
   const overrides = yield* loadServingsOverrides(configDir)
-  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides)
+  const proteinTable = yield* loadItemProtein(configDir, aliases)
+  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable)
   for (const id of unknownOverrides) {
     yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
   }

@@ -653,6 +653,18 @@ Only ingredients that you buy count. Pantry and optional ingredients do not coun
 | `heavy_dinner` | warning | A dish in a dinner slot has a heavy side group or a heavy item. |
 | `item_limit` | warning | More cooked dishes than `maxDishes` have an item of a limit. |
 
+### Protein table and `low_protein`
+
+The file `config/item-protein.json` lists the grams of protein per 100 g for each item, as bought. The values are approximate. Item names go through the same cleaning and aliases as the item names of the catalogue.
+
+The planner computes the protein per portion of a recipe from this table. It adds `grams × protein / 100` for each line that is not optional, and divides the sum by the middle of the servings. A line without grams or without a table entry adds 0. The `coverage` value is the share of protein lines that have grams and a table entry.
+
+The key `proteinMinGrams` in `config/household.json` sets the least protein for each meal. The defaults are 15 g for breakfast, 20 g for lunch and 20 g for dinner. If the dishes of a slot give less, `evaluatePlan` returns the warning `low_protein`. It gives one warning for each set of dishes and meal, and it lists the days. If the coverage of a dish is below 0.7, the message says that the estimate is uncertain. If the table is empty, the rule does not run.
+
+The tool `search_recipes` returns `proteinPerPortion` in each row. The tool `get_recipe` returns `protein.grams` and `protein.coverage`. The evaluation has `proteinPerSlot` in its metrics.
+
+To find items that the table does not have, run `npm run items:report`. The report `data/items-report.json` lists them in `missingProtein`. Add them to the table, then run the command again.
+
 ### Units of the shopping list
 
 The shopping list shows eggs as pieces with the grams, for example `яйца — 8 шт. (≈ 413 г)`.

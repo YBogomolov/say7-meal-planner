@@ -1,9 +1,10 @@
 import { Schema } from "effect"
-import type { Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
+import type { Catalogue, CatalogueEntry, ProteinTable } from "../domain/catalogue.ts"
 import { DishType, Equipment, MealFit, ProteinFamily } from "../domain/enriched-recipe.ts"
 import type { Reheats } from "../domain/enriched-recipe.ts"
 import { RecipeId } from "../domain/recipe.ts"
 import { buyItemsOf, cleanItemName, normaliseItem } from "./items.ts"
+import { NO_PROTEIN, portionProtein } from "./protein.ts"
 
 export const DEFAULT_LIMIT = 20
 export const MAX_LIMIT = 100
@@ -64,9 +65,11 @@ export interface SearchRow {
   /** The normalised items that are not pantry and not optional, sorted. */
   readonly buyItems: ReadonlyArray<string>
   readonly commentsCount: number | null
+  /** Grams of protein per portion, 1 decimal (spec P7.1.6). 0 if the protein table is empty. */
+  readonly proteinPerPortion: number
 }
 
-export const toSearchRow = (entry: CatalogueEntry): SearchRow => {
+export const toSearchRow = (entry: CatalogueEntry, proteinTable: ProteinTable = NO_PROTEIN): SearchRow => {
   const { enrichment } = entry
   return {
     id: entry.id,
@@ -87,7 +90,8 @@ export const toSearchRow = (entry: CatalogueEntry): SearchRow => {
     reheats: enrichment.reheats,
     sideHint: enrichment.sideHint,
     buyItems: buyItemsOf(enrichment.ingredients),
-    commentsCount: entry.commentsCount
+    commentsCount: entry.commentsCount,
+    proteinPerPortion: portionProtein(entry, proteinTable).grams
   }
 }
 
@@ -152,5 +156,5 @@ export const searchRecipes = (catalogue: Catalogue, query: SearchQuery): Readonl
       matchesText(entry, queryWords)
   }
 
-  return catalogue.entries.filter(matches).map(toSearchRow).sort(compareBy(query.sort ?? "popular")).slice(0, limit)
+  return catalogue.entries.filter(matches).map((entry) => toSearchRow(entry, catalogue.proteinTable)).sort(compareBy(query.sort ?? "popular")).slice(0, limit)
 }

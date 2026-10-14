@@ -178,7 +178,9 @@ describe("npm run items:report, as a child process", () => {
     withTempDir((root) =>
       Effect.gen(function*() {
         const fs = yield* FileSystem.FileSystem
-        yield* writeFiles(root, { ...baseFiles(), "config/item-aliases.json": '{"куриные бёдра": "куриное филе"}' })
+        yield* writeFiles(root, { ...baseFiles(), "config/item-aliases.json": '{"куриные бёдра": "куриное филе"}',
+          "config/item-protein.json": '{"Куриные бёдра": 20}'
+        })
         const result = yield* run(ITEMS_CLI, [], root)
         assert.strictEqual(result.code, 0, result.stderr)
         assert.include(result.stdout, "Каталог: 7 рецептов. Пропущено: 0.")
@@ -190,6 +192,9 @@ describe("npm run items:report, as a child process", () => {
         // Most recipes first, and the alphabet for a tie.
         assert.deepStrictEqual(report.items.slice(0, 2).map((row) => row.item), ["куриное филе", "лук репчатый"])
         assert.isFalse(report.items.some((row) => row.item === "куриные бедра"))
+        assert.notInclude(report.missingProtein, "куриное филе")
+        assert.include(report.missingProtein, "лук репчатый")
+        assert.include(result.stdout, `Продуктов без записи в item-protein.json: ${report.missingProtein.length}`)
       })
     ), SLOW_TEST_MS)
 

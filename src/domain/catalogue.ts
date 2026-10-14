@@ -38,6 +38,9 @@ export interface CatalogueEntry {
   readonly enrichment: CatalogueEnrichment
 }
 
+/** `{ "<normalised item>": <g protein per 100 g> }` of `config/item-protein.json`, with cleaned names (see `makeProteinTable`). */
+export type ProteinTable = ReadonlyMap<string, number>
+
 /** The recipes in memory. `entries` are sorted by ID. */
 export interface Catalogue {
   readonly entries: ReadonlyArray<CatalogueEntry>
@@ -46,4 +49,6 @@ export interface Catalogue {
   readonly aliases: Aliases
   /** The recipes whose servings `config/servings-overrides.json` set. `servings.source` is still the enrichment's. */
   readonly overridden: ReadonlySet<RecipeId>
+  /** The protein table (spec P7.1). `evaluatePlan` and `searchRecipes` read it. Empty if there is no table. */
+  readonly proteinTable: ProteinTable
 }

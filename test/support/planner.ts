@@ -1,7 +1,7 @@
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem"
 import * as NodePath from "@effect/platform-node/NodePath"
 import { Effect, FileSystem, Layer, Path, Schema } from "effect"
-import type { Aliases, Catalogue, CatalogueEntry } from "../../src/domain/catalogue.ts"
+import type { Aliases, Catalogue, CatalogueEntry, ProteinTable } from "../../src/domain/catalogue.ts"
 import { EnrichedRecipeJson, NO_USAGE } from "../../src/domain/enriched-recipe.ts"
 import type { EnrichedRecipe, Enrichment, IngredientItem } from "../../src/domain/enriched-recipe.ts"
 import type { MealName, SessionId } from "../../src/domain/household.ts"
@@ -10,6 +10,7 @@ import { WeekPlan } from "../../src/domain/week-plan.ts"
 import type { PlanScale } from "../../src/domain/week-plan.ts"
 import { makeCatalogue, toCatalogueEntry } from "../../src/planner/catalogue.ts"
 import { NO_ALIASES } from "../../src/planner/items.ts"
+import { NO_PROTEIN } from "../../src/planner/protein.ts"
 import { enrichmentFor, id, parsedRecipe } from "./enrich.ts"
 
 /** Synthetic recipes for the planner tests. The titles and the items are invented. */
@@ -74,8 +75,11 @@ export const entryOf = (n: number, options: DishOptions & { readonly aliases?: A
     options.aliases ?? NO_ALIASES
   )
 
-export const catalogueOf = (entries: ReadonlyArray<CatalogueEntry>, aliases: Aliases = NO_ALIASES): Catalogue =>
-  makeCatalogue(entries, aliases)
+export const catalogueOf = (
+  entries: ReadonlyArray<CatalogueEntry>,
+  aliases: Aliases = NO_ALIASES,
+  proteinTable: ProteinTable = NO_PROTEIN
+): Catalogue => makeCatalogue(entries, aliases, undefined, proteinTable)
 
 export interface PlanSpec {
   readonly weekStart?: string

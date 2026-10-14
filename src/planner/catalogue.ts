@@ -1,5 +1,5 @@
 import { Effect, FileSystem, Option, Path, Result, Schema } from "effect"
-import type { Aliases, Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
+import type { Aliases, Catalogue, CatalogueEntry, ProteinTable } from "../domain/catalogue.ts"
 import { EnrichedRecipeJson } from "../domain/enriched-recipe.ts"
 import type { EnrichedRecipe } from "../domain/enriched-recipe.ts"
 import { ParsedRecipeJson } from "../domain/parsed-recipe.ts"
@@ -8,6 +8,7 @@ import { RecipeId } from "../domain/recipe.ts"
 import { ParsedReadError } from "../enrich/store.ts"
 import { StoreError } from "../scraper/store.ts"
 import { NO_ALIASES, normaliseItem } from "./items.ts"
+import { NO_PROTEIN } from "./protein.ts"
 import { applyServingsOverrides, NO_SERVINGS_OVERRIDES } from "./servings.ts"
 import type { ServingsOverrides } from "./servings.ts"
 
@@ -38,10 +39,11 @@ export const toCatalogueEntry = (parsed: ParsedRecipe, enriched: EnrichedRecipe,
 export const makeCatalogue = (
   entries: ReadonlyArray<CatalogueEntry>,
   aliases: Aliases = NO_ALIASES,
-  overridden: ReadonlySet<RecipeId> = new Set()
+  overridden: ReadonlySet<RecipeId> = new Set(),
+  proteinTable: ProteinTable = NO_PROTEIN
 ): Catalogue => {
   const sorted = [...entries].sort((a, b) => a.id - b.id)
-  return { entries: sorted, byId: new Map(sorted.map((entry) => [entry.id, entry])), aliases, overridden }
+  return { entries: sorted, byId: new Map(sorted.map((entry) => [entry.id, entry])), aliases, overridden, proteinTable }
 }
 
 /** Why `loadCatalogue` leaves a recipe out. */
@@ -102,11 +104,13 @@ const readRecipeFile = <A, I>(target: string, id: RecipeId, codec: Schema.Codec<
  * The load fails only if one of the two directories does not exist, or cannot be listed.
  * The item names are normalised with `aliases`.
  * `overrides` set `servings.min` and `servings.max` after the decode (see `applyServingsOverrides`).
+ * `proteinTable` goes into the catalogue as it is (spec P7.1).
  */
 export const loadCatalogue = (
   dataDir: string,
   aliases: Aliases = NO_ALIASES,
-  overrides: ServingsOverrides = NO_SERVINGS_OVERRIDES
+  overrides: ServingsOverrides = NO_SERVINGS_OVERRIDES,
+  proteinTable: ProteinTable = NO_PROTEIN
 ): Effect.Effect<LoadedCatalogue, StoreError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
@@ -147,7 +151,7 @@ export const loadCatalogue = (
       overrides
     )
     return {
-      catalogue: makeCatalogue(applied.entries, aliases, applied.overridden),
+      catalogue: makeCatalogue(applied.entries, aliases, applied.overridden, proteinTable),
       skipped: results.flatMap((result) => Result.isFailure(result) ? [result.failure] : []),
       unknownOverrides: applied.unknown
     }

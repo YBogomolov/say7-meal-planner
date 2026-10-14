@@ -78,6 +78,19 @@ export const Preferences = Schema.Struct({
 })
 export type Preferences = typeof Preferences.Type
 
+/**
+ * `household.proteinMinGrams` (spec P7.1): the least protein in grams for the dishes of a slot, for each meal.
+ * `breakfast` is there for P7.2; the meal enum has no breakfast yet.
+ */
+export const ProteinMinGrams = Schema.Struct({
+  breakfast: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(15))),
+  lunch: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20))),
+  dinner: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20)))
+})
+export type ProteinMinGrams = typeof ProteinMinGrams.Type
+
+const DEFAULT_PROTEIN_MIN_GRAMS: ProteinMinGrams = Schema.decodeUnknownSync(ProteinMinGrams)({})
+
 const DEFAULT_PREFERENCES: Preferences = Schema.decodeUnknownSync(Preferences)({})
 
 /**
@@ -124,6 +137,8 @@ export const Household = Schema.Struct({
   maxProteinFamilies: PositiveInt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(2))),
   /** A recipe from a plan of these last weeks is a warning. */
   recentWeeks: NaturalInt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(4))),
+  /** P7.1. Rule `low_protein`: the least protein in grams of a slot, for each meal. */
+  proteinMinGrams: ProteinMinGrams.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PROTEIN_MIN_GRAMS))),
   /** P4.8. Taste rules. Without the key, all lists are empty and the rules find nothing. */
   preferences: Preferences.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PREFERENCES)))
 })

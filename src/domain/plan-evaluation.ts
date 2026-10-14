@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 import { ProteinFamily } from "./enriched-recipe.ts"
-import { DayIndex, SessionId } from "./household.ts"
+import { DayIndex, MealName, SessionId } from "./household.ts"
 import { RecipeId } from "./recipe.ts"
 import { PlanScale } from "./week-plan.ts"
 
@@ -27,7 +27,8 @@ export const ISSUE_CODES = [
   "dish_type_excluded",
   "side_repeated",
   "heavy_dinner",
-  "item_limit"
+  "item_limit",
+  "low_protein"
 ] as const
 export const IssueCode = Schema.Literals(ISSUE_CODES)
 export type IssueCode = typeof IssueCode.Type
@@ -63,6 +64,16 @@ export const SessionMinutes = Schema.Struct({
 })
 export type SessionMinutes = typeof SessionMinutes.Type
 
+/** The protein of one slot (spec P7.1): the sum of the protein per portion of its dishes, in grams. */
+export const SlotProtein = Schema.Struct({
+  day: DayIndex,
+  meal: MealName,
+  grams: Schema.Finite,
+  /** The lowest coverage of the dishes of the slot (0 to 1). Below 0.7 the estimate is uncertain. */
+  coverage: Schema.Finite
+})
+export type SlotProtein = typeof SlotProtein.Type
+
 /** Spec P4.4, "Metrics". The dishes that are not in the catalogue do not count. */
 export const PlanMetrics = Schema.Struct({
   /** Distinct normalised items that are not pantry and not optional: the main objective of the plan. */
@@ -78,7 +89,9 @@ export const PlanMetrics = Schema.Struct({
   /** Number of slots of `days × meals` that have at least 1 dish. */
   slotsCovered: Schema.Natural,
   /** Number of slots of `days × meals`. */
-  slotsRequired: Schema.Natural
+  slotsRequired: Schema.Natural,
+  /** P7.1. Protein per slot with at least 1 dish, sorted by day and meal. */
+  proteinPerSlot: Schema.Array(SlotProtein)
 })
 export type PlanMetrics = typeof PlanMetrics.Type
 

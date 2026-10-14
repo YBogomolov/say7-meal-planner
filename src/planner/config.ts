@@ -1,8 +1,9 @@
 import { Effect, FileSystem, Path, Schema } from "effect"
-import type { Aliases } from "../domain/catalogue.ts"
+import type { Aliases, ProteinTable } from "../domain/catalogue.ts"
 import { DECODE_OPTIONS, DEFAULT_HOUSEHOLD, HouseholdJson } from "../domain/household.ts"
 import type { Household } from "../domain/household.ts"
-import { AliasesJson, makeAliases } from "./items.ts"
+import { AliasesJson, makeAliases, NO_ALIASES } from "./items.ts"
+import { ItemProteinJson, makeProteinTable, NO_PROTEIN } from "./protein.ts"
 import { makeServingsOverrides, NO_SERVINGS_OVERRIDES, ServingsOverridesJson } from "./servings.ts"
 import type { ServingsOverrides } from "./servings.ts"
 
@@ -77,6 +78,29 @@ export const loadServingsOverrides = (
     }
     return yield* Schema.decodeUnknownEffect(ServingsOverridesJson)(text).pipe(
       Effect.map(makeServingsOverrides),
+      Effect.mapError((error) =>
+        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      )
+    )
+  })
+
+/**
+ * `<configDir>/item-protein.json` (spec P7.1.1). A missing file gives an empty table.
+ * The item names are cleaned and mapped through `aliases`, like the items of the catalogue.
+ */
+export const loadItemProtein = (
+  configDir: string = DEFAULT_CONFIG_DIR,
+  aliases: Aliases = NO_ALIASES
+): Effect.Effect<ProteinTable, ConfigError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const target = path.join(configDir, "item-protein.json")
+    const text = yield* readOptional(target)
+    if (text === undefined) {
+      return NO_PROTEIN
+    }
+    return yield* Schema.decodeUnknownEffect(ItemProteinJson)(text).pipe(
+      Effect.map((record) => makeProteinTable(record, aliases)),
       Effect.mapError((error) =>
         new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
       )
