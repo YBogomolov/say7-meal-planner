@@ -78,7 +78,7 @@ Do not call `save_plan` before the user approves. Show the draft in Russian:
 1. One line: status of `evaluate_plan`, protein families, `buyItemCount`.
 2. A table: day (weekday and date) × breakfast, lunch, dinner. The first time a dish appears, write it as a link `[title](url)`; on later days, use a short name.
 3. The sessions: for each dish the scale, portions made vs. eaten. Active minutes per session. Then the fresh breakfasts («утром»): dish, days, minutes per morning.
-4. The shopping list, grouped (vegetables, meat and fish, dairy, other), with the freezing action and "проверить дома".
+4. The shopping list, grouped (vegetables, meat and fish, dairy, other), with the freezing action and "проверить дома". Add the section «Каждую неделю» (`extras` of `shopping_list`: the breakfast products of the third person).
 5. «Что смущает»: 1–3 honest doubts (odd amounts, seasonal products, items that are hard to buy in Varna) with a concrete alternative.
 6. A question: approve or change.
 

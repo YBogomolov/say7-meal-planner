@@ -30,6 +30,7 @@ describe("Household", () => {
       mealPersons: {},
       freshMinutesMax: 20,
       breakfastExtraIds: [],
+      weeklyExtras: [],
       preferences: {
         excludedDishTypes: [],
         sideGroups: {},
@@ -39,6 +40,13 @@ describe("Household", () => {
         itemLimits: []
       }
     })
+  })
+
+  it("decodes weeklyExtras and rejects an empty field or an unknown category", () => {
+    const extra = { item: "яйца", amount: "7 шт", category: "eggs", note: "Соне на завтраки" } as const
+    assert.deepStrictEqual(Result.getOrThrow(decodeHousehold({ weeklyExtras: [extra] })).weeklyExtras, [extra])
+    assert.isTrue(Result.isFailure(decodeHousehold({ weeklyExtras: [{ ...extra, note: "" }] })))
+    assert.isTrue(Result.isFailure(decodeHousehold({ weeklyExtras: [{ ...extra, category: "x" as string }] })))
   })
 
   it("fills the missing keys of preferences with the defaults", () => {
@@ -58,8 +66,9 @@ describe("Household", () => {
     // The file has breakfast (spec P7.2.1): `meals` and `mealPersons` differ from the defaults.
     assert.deepStrictEqual(decoded.meals, ["breakfast", "lunch", "dinner"])
     assert.deepStrictEqual(decoded.mealPersons, { breakfast: 2 })
+    assert.deepStrictEqual(decoded.weeklyExtras.map((extra) => extra.item), ["вафли", "яйца"])
     assert.deepStrictEqual(
-      { ...decoded, preferences: DEFAULT_HOUSEHOLD.preferences, meals: DEFAULT_HOUSEHOLD.meals, mealPersons: {} },
+      { ...decoded, preferences: DEFAULT_HOUSEHOLD.preferences, meals: DEFAULT_HOUSEHOLD.meals, mealPersons: {}, weeklyExtras: [] },
       DEFAULT_HOUSEHOLD
     )
     assert.deepStrictEqual(decoded.preferences.excludedDishTypes, ["soup"])

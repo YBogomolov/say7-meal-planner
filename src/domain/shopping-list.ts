@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 import { IngredientCategory, IngredientUnit } from "./enriched-recipe.ts"
-import { DayIndex, SessionId } from "./household.ts"
+import { DayIndex, SessionId, WeeklyExtra } from "./household.ts"
 import { IsoDate, RecipeId } from "./recipe.ts"
 import { CookingSession, PlanScale } from "./week-plan.ts"
 
@@ -117,6 +117,7 @@ export type ShoppingSimple = typeof ShoppingSimple.Type
  * - `optional`: not pantry, optional ("по желанию", "для подачи").
  * - `check_at_home`: pantry.
  * - `unknownRecipeIds`: cooked recipes that the catalogue does not have. They add nothing to the list.
+ * - `extras`: `household.weeklyExtras` in the order of the file (spec P7.3). They are not in `buy`.
  * - `simpleBreakfasts`: the simple breakfasts of the plan. `unknownSimpleIds`: IDs that `config/simple-breakfasts.json` does not have.
  */
 export const ShoppingList = Schema.Struct({
@@ -128,6 +129,7 @@ export const ShoppingList = Schema.Struct({
   actions: Schema.Array(FreezeAction),
   dishes: Schema.Array(ShoppingDish),
   unknownRecipeIds: Schema.Array(RecipeId),
+  extras: Schema.Array(WeeklyExtra),
   simpleBreakfasts: Schema.Array(ShoppingSimple),
   unknownSimpleIds: Schema.Array(Schema.String)
 })

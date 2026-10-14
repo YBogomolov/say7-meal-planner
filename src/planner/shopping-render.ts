@@ -1,4 +1,4 @@
-import { SESSION_IDS } from "../domain/household.ts"
+import { SESSION_IDS, type WeeklyExtra } from "../domain/household.ts"
 import type { ShoppingAmount, ShoppingDish, ShoppingItem, ShoppingList } from "../domain/shopping-list.ts"
 import { CATEGORY_HEADINGS, dateLabel, formatAmount, formatNumber } from "./labels.ts"
 
@@ -35,7 +35,7 @@ export const escapeLinkText = (text: string): string => text.replace(/[\\[\]]/g,
 const buySection = (list: ShoppingList): ReadonlyArray<string> => [
   "## Купить",
   "",
-  ...(list.buy.length === 0 ? ["Покупать нечего."] : list.buy.flatMap(({ category, items }) => [
+  ...(list.buy.length === 0 ? ["Покупать нечего.", ""] : list.buy.flatMap(({ category, items }) => [
     `### ${CATEGORY_HEADINGS[category]}`,
     "",
     ...items.map((item) => `- [ ] ${item.item}${amountsText(item.amounts, item.approximate)}${recipesText(item)}`),
@@ -58,6 +58,17 @@ const plainSection = (heading: string, items: ReadonlyArray<ShoppingItem>, withR
     `## ${heading}`,
     "",
     ...items.map((item) => `- ${item.item}${amountsText(item.amounts, item.approximate)}${withRecipes ? recipesText(item) : ""}`),
+    ""
+  ]
+
+const extraLine = (extra: WeeklyExtra): string => `${extra.item} — ${extra.amount} (${extra.note})`
+
+/** The products of every week (spec P7.3), after the departments. */
+const extrasSection = (list: ShoppingList): ReadonlyArray<string> =>
+  list.extras.length === 0 ? [] : [
+    "## Каждую неделю",
+    "",
+    ...list.extras.map((extra) => `- ${extraLine(extra)}`),
     ""
   ]
 
@@ -126,6 +137,7 @@ export const renderShoppingList = (list: ShoppingList): string =>
     "",
     ...unknownSection(list),
     ...buySection(list),
+    ...extrasSection(list),
     ...freezeSection(list),
     ...plainSection("По желанию", list.optional, true),
     ...plainSection("Проверить дома", list.check_at_home, false),
@@ -137,10 +149,11 @@ const textLine = (item: ShoppingItem): string => `${item.item}${amountsText(item
 
 /**
  * The shopping list as plain text, for a checklist note (spec P4.5.8): 1 line per item of `buy` in shop order,
- * then the optional items if `withOptional`. No headings, no recipe IDs. Each line ends with 1 newline.
+ * then 1 line per weekly extra (spec P7.3), then the optional items if `withOptional`. No headings, no recipe IDs. Each line ends with 1 newline.
  */
 export const renderShoppingText = (list: ShoppingList, options: { readonly withOptional: boolean }): string =>
   [
     ...list.buy.flatMap(({ items }) => items.map(textLine)),
+    ...list.extras.map((extra) => `${extraLine(extra)}\n`),
     ...(options.withOptional ? list.optional.map(textLine) : [])
   ].join("")

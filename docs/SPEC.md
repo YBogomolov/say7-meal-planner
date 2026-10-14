@@ -400,3 +400,13 @@ Request of the household: every meal has protein (more or less, but nearly alway
 5. Scope of P3: add category 233 (Выпечка из творога). The coordinator runs the enrichment for the new recipes.
 6. MCP: new tool `simple_breakfasts` (the list with the protein per portion). `plan_week` prompt and the `weekly-menu` skill cover breakfasts. The menu table gets a breakfast column. `menu-render` and the shopping list support fresh dishes and simple breakfasts.
 
+
+#### P7.3 Weekly extras (added 2026-10-14)
+
+The third person (Соня) makes her own simple breakfast (spec P7.2.1). The household buys her products every week. The plan does not count them, but the shopping list must contain them.
+
+1. Household key `weeklyExtras` (optional, default `[]`): `[{ "item": "<Russian>", "amount": "<free text>", "category": <IngredientCategory>, "note": "<Russian>" }]`. Example: `{ "item": "яйца", "amount": "7 шт", "category": "eggs", "note": "Соне на завтраки" }`.
+2. `ShoppingList` gets the field `extras`: the entries of `weeklyExtras`, in the order of the file. They do not merge with the items of `buy`. They do not change `buyItemCount` and the rules of `evaluate_plan`.
+3. The Markdown list (`shopping-render`) and the menu show a section «Каждую неделю» after the departments: `<item> — <amount> (<note>)`.
+4. `shopping:text` (spec P4.5.8) adds 1 line per extra after the lines of `buy`: `<item> — <amount> (<note>)`.
+5. The MCP tools `household` and `shopping_list` return the extras.

@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { DishType, Equipment } from "./enriched-recipe.ts"
+import { DishType, Equipment, IngredientCategory } from "./enriched-recipe.ts"
 import { RecipeId } from "./recipe.ts"
 
 /** The cooking sessions of the week (spec H2): A at the weekend, B midweek. */
@@ -101,6 +101,18 @@ export const MealPersons = Schema.Struct({
 })
 export type MealPersons = typeof MealPersons.Type
 
+/**
+ * One entry of `household.weeklyExtras` (spec P7.3): a product that the household buys every week.
+ * The plan does not count it. `amount` and `note` are free text.
+ */
+export const WeeklyExtra = Schema.Struct({
+  item: Schema.NonEmptyString,
+  amount: Schema.NonEmptyString,
+  category: IngredientCategory,
+  note: Schema.NonEmptyString
+})
+export type WeeklyExtra = typeof WeeklyExtra.Type
+
 const DEFAULT_PROTEIN_MIN_GRAMS: ProteinMinGrams = Schema.decodeUnknownSync(ProteinMinGrams)({})
 
 const DEFAULT_PREFERENCES: Preferences = Schema.decodeUnknownSync(Preferences)({})
@@ -160,6 +172,8 @@ export const Household = Schema.Struct({
     Schema.check(Schema.isUnique()),
     Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<RecipeId>>([]))
   ),
+  /** P7.3. Products that the shopping list shows every week, outside the departments. */
+  weeklyExtras: Schema.Array(WeeklyExtra).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<WeeklyExtra>>([]))),
   /** P4.8. Taste rules. Without the key, all lists are empty and the rules find nothing. */
   preferences: Preferences.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PREFERENCES)))
 })

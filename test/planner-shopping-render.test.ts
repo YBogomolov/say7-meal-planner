@@ -90,6 +90,7 @@ describe("renderShoppingList: small lists", () => {
     actions: [],
     dishes: [],
     unknownRecipeIds: [],
+    extras: [],
     simpleBreakfasts: [],
     unknownSimpleIds: []
   }
@@ -99,6 +100,19 @@ describe("renderShoppingList: small lists", () => {
       renderShoppingList(empty),
       "# Список покупок: неделя с 2026-10-17\n\nДень покупки: суббота, 2026-10-17 (день 0).\n\n## Купить\n\nПокупать нечего.\n"
     )
+  })
+
+  it("writes the weekly extras after the departments, and leaves the section out when empty", () => {
+    const extras = [
+      { item: "вафли", amount: "1 упаковка", category: "sweet", note: "Соне на завтраки" },
+      { item: "яйца", amount: "7 шт", category: "eggs", note: "Соне на завтраки" }
+    ] as const
+    const text = renderShoppingList({ ...empty, extras })
+    assert.include(
+      text,
+      "Покупать нечего.\n\n## Каждую неделю\n\n- вафли — 1 упаковка (Соне на завтраки)\n- яйца — 7 шт (Соне на завтраки)\n"
+    )
+    assert.notInclude(renderShoppingList(empty), "Каждую неделю")
   })
 
   it("warns about recipes that the catalogue does not have", () => {
@@ -231,6 +245,7 @@ describe("renderShoppingText", () => {
     actions: [],
     dishes: [],
     unknownRecipeIds: [],
+    extras: [],
     simpleBreakfasts: [],
     unknownSimpleIds: []
   }
@@ -246,6 +261,14 @@ describe("renderShoppingText", () => {
     assert.strictEqual(
       renderShoppingText(list, { withOptional: true }),
       "лук репчатый — 450 г\nяйца — 8 шт. (≈ 413 г)\nсоль\nсметана — 1,5 л\n"
+    )
+  })
+
+  it("adds one line per weekly extra after the items to buy", () => {
+    const extras = [{ item: "яйца", amount: "7 шт", category: "eggs", note: "Соне на завтраки" }] as const
+    assert.strictEqual(
+      renderShoppingText({ ...list, extras }, { withOptional: true }),
+      "лук репчатый — 450 г\nяйца — 8 шт. (≈ 413 г)\nсоль\nяйца — 7 шт (Соне на завтраки)\nсметана — 1,5 л\n"
     )
   })
 

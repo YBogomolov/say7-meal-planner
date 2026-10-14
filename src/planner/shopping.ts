@@ -329,6 +329,7 @@ export const shoppingList = (plan: WeekPlan, catalogue: Catalogue, household: Ho
     actions: freezeActions(buyLines, household),
     dishes: shoppingDishes,
     unknownRecipeIds: dishes.filter((dish) => dish.entry === undefined).map((dish) => dish.recipeId),
+    extras: household.weeklyExtras,
     simpleBreakfasts: shoppingSimples,
     unknownSimpleIds: simples.filter((simple) => simple.entry === undefined).map((simple) => simple.simpleId)
   }

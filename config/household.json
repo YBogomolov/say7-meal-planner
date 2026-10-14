@@ -5,6 +5,10 @@
   "mealPersons": { "breakfast": 2 },
   "freshMinutesMax": 20,
   "breakfastExtraIds": [],
+  "weeklyExtras": [
+    { "item": "вафли", "amount": "1 упаковка", "category": "sweet", "note": "Соне на завтраки" },
+    { "item": "яйца", "amount": "7 шт", "category": "eggs", "note": "Соне на завтраки" }
+  ],
   "sessions": [
     { "id": "A", "dayOffset": 0 },
     { "id": "B", "dayOffset": 4 }

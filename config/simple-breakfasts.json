@@ -65,5 +65,13 @@
       { "item": "авокадо", "grams": 70, "category": "fruit", "pantry": false },
       { "item": "яйца", "grams": 110, "category": "eggs", "pantry": false }
     ]
+  },
+  {
+    "id": "banitsa-kiselo-mlyako",
+    "title": "Баница с сиренете (покупная, запечь) и кисело мляко",
+    "items": [
+      { "item": "баница", "grams": 150, "category": "bakery", "pantry": false },
+      { "item": "кисело мляко", "grams": 200, "category": "dairy", "pantry": false }
+    ]
   }
 ]
