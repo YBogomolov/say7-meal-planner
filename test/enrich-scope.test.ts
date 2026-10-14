@@ -5,11 +5,11 @@ import { DESSERTS, parsedRecipe, SALADS, SOUPS } from "./support/enrich.ts"
 const category = (id: number) => ({ id, slug: `c${id}`, name: `Категория ${id}` })
 
 describe("isInScope", () => {
-  it("lists the 7 categories of the spec P3.1", () => {
-    assert.deepStrictEqual([...SCOPE_CATEGORY_IDS].toSorted((a, b) => a - b), [38, 40, 41, 44, 47, 48, 50])
+  it("lists the 8 categories of the spec P3.1 and P7.2.5", () => {
+    assert.deepStrictEqual([...SCOPE_CATEGORY_IDS].toSorted((a, b) => a - b), [38, 40, 41, 44, 47, 48, 50, 233])
   })
 
-  it.each([38, 40, 41, 44, 47, 48, 50])("accepts category %i", (id) => {
+  it.each([38, 40, 41, 44, 47, 48, 50, 233])("accepts category %i", (id) => {
     assert.isTrue(isInScope(parsedRecipe(1, { categories: [category(id)] })))
   })
 

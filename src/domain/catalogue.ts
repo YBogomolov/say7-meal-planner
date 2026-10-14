@@ -1,5 +1,6 @@
 import type { Enrichment, IngredientItem } from "./enriched-recipe.ts"
 import type { RecipeId } from "./recipe.ts"
+import type { SimpleBreakfast } from "./simple-breakfast.ts"
 
 /** `{ "<variant>": "<canonical>" }` of `config/item-aliases.json`, with cleaned names (see `makeAliases`). */
 export type Aliases = ReadonlyMap<string, string>
@@ -36,6 +37,11 @@ export interface CatalogueEntry {
   readonly primaryCategory: CatalogueCategory | null
   readonly commentsCount: number | null
   readonly enrichment: CatalogueEnrichment
+  /**
+   * True if the recipe is a breakfast candidate (spec P7.2.4): a category of the breakfast list, or the ID is in `breakfastExtraIds`.
+   * A recipe with `mealFit: not_a_meal` is in the catalogue only if this is true, and it is valid only in breakfast slots.
+   */
+  readonly breakfastEligible: boolean
 }
 
 /** `{ "<normalised item>": <g protein per 100 g> }` of `config/item-protein.json`, with cleaned names (see `makeProteinTable`). */
@@ -51,4 +57,7 @@ export interface Catalogue {
   readonly overridden: ReadonlySet<RecipeId>
   /** The protein table (spec P7.1). `evaluatePlan` and `searchRecipes` read it. Empty if there is no table. */
   readonly proteinTable: ProteinTable
+  /** The simple breakfasts of `config/simple-breakfasts.json` (spec P7.2.3), with cleaned and aliased item names. */
+  readonly simpleBreakfasts: ReadonlyArray<SimpleBreakfast>
+  readonly simpleById: ReadonlyMap<string, SimpleBreakfast>
 }

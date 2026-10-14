@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 import type { Aliases, Catalogue, CatalogueEntry, ProteinTable } from "../domain/catalogue.ts"
 import type { IngredientCategory } from "../domain/enriched-recipe.ts"
+import type { SimpleBreakfast } from "../domain/simple-breakfast.ts"
 import { cleanItemName, compareText, normaliseItem } from "./items.ts"
 
 /** JSON text codec for `config/item-protein.json`: `{ "<item>": <g protein per 100 g> }` (spec P7.1.1). */
@@ -51,15 +52,14 @@ export interface PortionProtein {
 
 const round1 = (value: number): number => Math.round(value * 10) / 10
 
-/**
- * Protein per portion of a recipe (spec P7.1.2). Pure.
- * Sum of `grams × protein / 100` over the non-optional lines (pantry included), divided by the middle of `servings`.
- * A line without grams or without a table entry adds 0.
- */
-export const portionProtein = (entry: CatalogueEntry, table: ProteinTable): PortionProtein => {
-  const lines = entry.enrichment.ingredients.filter((ingredient) => !ingredient.optional)
-  const { min, max } = entry.enrichment.servings
-  const portions = (min + max) / 2
+interface ProteinLine {
+  readonly item: string
+  readonly category: IngredientCategory
+  readonly grams: number | null
+}
+
+/** Grams of protein per portion and the coverage of a set of lines (spec P7.1.2). `portions` is the divisor. */
+const proteinOfLines = (lines: ReadonlyArray<ProteinLine>, portions: number, table: ProteinTable): PortionProtein => {
   let total = 0
   let relevant = 0
   let covered = 0
@@ -83,16 +83,31 @@ export const portionProtein = (entry: CatalogueEntry, table: ProteinTable): Port
   }
 }
 
+/**
+ * Protein per portion of a recipe (spec P7.1.2). Pure.
+ * Sum of `grams × protein / 100` over the non-optional lines (pantry included), divided by the middle of `servings`.
+ * A line without grams or without a table entry adds 0.
+ */
+export const portionProtein = (entry: CatalogueEntry, table: ProteinTable): PortionProtein => {
+  const { min, max } = entry.enrichment.servings
+  return proteinOfLines(entry.enrichment.ingredients.filter((ingredient) => !ingredient.optional), (min + max) / 2, table)
+}
+
+/** Protein per portion of a simple breakfast (spec P7.2.3): the amounts of the items are per portion already. */
+export const simpleProtein = (simple: SimpleBreakfast, table: ProteinTable): PortionProtein =>
+  proteinOfLines(simple.items, 1, table)
+
 /** The protein of a recipe with the table of the catalogue. */
 export const catalogueProtein = (catalogue: Catalogue, entry: CatalogueEntry): PortionProtein =>
   portionProtein(entry, catalogue.proteinTable)
 
-/** The normalised items of the catalogue that the table does not have, sorted (spec P7.1.7). */
+/** The normalised items of the catalogue and of the simple breakfasts that the table does not have, sorted (spec P7.1.7). */
 export const missingProteinItems = (catalogue: Catalogue): ReadonlyArray<string> =>
   [
-    ...new Set(
-      catalogue.entries.flatMap((entry) => entry.enrichment.ingredients.map((ingredient) => ingredient.item))
-    )
+    ...new Set([
+      ...catalogue.entries.flatMap((entry) => entry.enrichment.ingredients.map((ingredient) => ingredient.item)),
+      ...catalogue.simpleBreakfasts.flatMap((simple) => simple.items.map((item) => item.item))
+    ])
   ]
     .filter((item) => !catalogue.proteinTable.has(item))
     .sort(compareText)

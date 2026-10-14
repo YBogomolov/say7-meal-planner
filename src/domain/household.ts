@@ -1,13 +1,15 @@
 import { Effect, Schema } from "effect"
 import { DishType, Equipment } from "./enriched-recipe.ts"
+import { RecipeId } from "./recipe.ts"
 
 /** The cooking sessions of the week (spec H2): A at the weekend, B midweek. */
 export const SESSION_IDS = ["A", "B"] as const
 export const SessionId = Schema.Literals(SESSION_IDS)
 export type SessionId = typeof SessionId.Type
 
-/** The meals of a day (spec H1). Breakfast is out of scope. */
-export const MealName = Schema.Literals(["lunch", "dinner"])
+/** The meals of a day (spec H1 and P7.2), in the order of the day. */
+export const MEAL_NAMES = ["breakfast", "lunch", "dinner"] as const
+export const MealName = Schema.Literals(MEAL_NAMES)
 export type MealName = typeof MealName.Type
 
 /** A day of the plan week: 0 is the first day (`weekStart`), 6 the last. */
@@ -80,7 +82,6 @@ export type Preferences = typeof Preferences.Type
 
 /**
  * `household.proteinMinGrams` (spec P7.1): the least protein in grams for the dishes of a slot, for each meal.
- * `breakfast` is there for P7.2; the meal enum has no breakfast yet.
  */
 export const ProteinMinGrams = Schema.Struct({
   breakfast: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(15))),
@@ -88,6 +89,17 @@ export const ProteinMinGrams = Schema.Struct({
   dinner: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20)))
 })
 export type ProteinMinGrams = typeof ProteinMinGrams.Type
+
+/**
+ * `household.mealPersons` (spec P7.2.1): the persons of a meal, if they differ from `persons`.
+ * A meal without a key uses `persons`.
+ */
+export const MealPersons = Schema.Struct({
+  breakfast: Schema.optionalKey(PositiveInt),
+  lunch: Schema.optionalKey(PositiveInt),
+  dinner: Schema.optionalKey(PositiveInt)
+})
+export type MealPersons = typeof MealPersons.Type
 
 const DEFAULT_PROTEIN_MIN_GRAMS: ProteinMinGrams = Schema.decodeUnknownSync(ProteinMinGrams)({})
 
@@ -139,6 +151,15 @@ export const Household = Schema.Struct({
   recentWeeks: NaturalInt.pipe(Schema.withDecodingDefaultKey(Effect.succeed(4))),
   /** P7.1. Rule `low_protein`: the least protein in grams of a slot, for each meal. */
   proteinMinGrams: ProteinMinGrams.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PROTEIN_MIN_GRAMS))),
+  /** P7.2.1. Persons of a meal, for example `{ "breakfast": 2 }`. Another meal uses `persons`. */
+  mealPersons: MealPersons.pipe(Schema.withDecodingDefaultKey(Effect.succeed<MealPersons>({}))),
+  /** P7.2.2. Rule `fresh_time`: the active minutes of the fresh dishes of one day, at most. */
+  freshMinutesMax: PositiveNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20))),
+  /** P7.2.4. Recipes that are breakfast candidates, in addition to the categories of the spec. */
+  breakfastExtraIds: Schema.Array(RecipeId).pipe(
+    Schema.check(Schema.isUnique()),
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<RecipeId>>([]))
+  ),
   /** P4.8. Taste rules. Without the key, all lists are empty and the rules find nothing. */
   preferences: Preferences.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PREFERENCES)))
 })
@@ -156,3 +177,6 @@ export const DEFAULT_HOUSEHOLD: Household = Schema.decodeUnknownSync(Household)(
 /** The day of a session, counted from the first day of the plan week. */
 export const sessionDay = (household: Household, session: SessionId): number =>
   household.sessions.find((candidate) => candidate.id === session)?.dayOffset ?? 0
+
+/** The persons that eat a meal (spec P7.2.1): `mealPersons` for the meal, else `persons`. */
+export const personsOf = (household: Household, meal: MealName): number => household.mealPersons[meal] ?? household.persons

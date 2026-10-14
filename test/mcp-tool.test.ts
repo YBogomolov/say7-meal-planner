@@ -117,6 +117,13 @@ describe("prompt plan_week", () => {
     assert.include(text, "in Russian")
   })
 
+  it("covers breakfasts: 2 persons, fresh dishes, simple breakfasts, protein minimums and the fresh time limit", () => {
+    const text = planWeekPrompt("2026-10-17", undefined)
+    for (const part of ["2 persons", "`session: \"fresh\"`", "`simple_breakfasts`", "`simpleIds`", "`forMeal: \"breakfast\"`", "`freshMinutesMax`", "`proteinMinGrams`", "21 slots"]) {
+      assert.include(text, part)
+    }
+  })
+
   it("fixes the protein family when the argument is given", () => {
     assert.include(planWeekPrompt("2026-10-17", "fish"), "`fish`")
     assert.notInclude(planWeekPrompt("2026-10-17", undefined), "Use the protein family")

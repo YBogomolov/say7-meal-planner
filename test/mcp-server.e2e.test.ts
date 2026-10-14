@@ -57,6 +57,21 @@ beforeAll(async () => {
     writeFileSync(target, text)
   }
   const configDir = join(root, "config")
+  mkdirSync(configDir, { recursive: true })
+  writeFileSync(
+    join(configDir, "simple-breakfasts.json"),
+    JSON.stringify([
+      {
+        id: "yogurt",
+        title: "Йогурт с бананом",
+        items: [
+          { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
+          { item: "мёд", grams: 15, category: "sweet", pantry: true }
+        ]
+      }
+    ])
+  )
+  writeFileSync(join(configDir, "item-protein.json"), JSON.stringify({ "греческий йогурт": 9 }))
   main = await startServer(root, dataDir, configDir)
   mkdirSync(join(root, "empty-data"), { recursive: true })
   empty = await startServer(root, join(root, "empty-data"), configDir)
@@ -69,7 +84,7 @@ afterAll(async () => {
 })
 
 describe("MCP server over stdio", () => {
-  it("lists the 7 tools with object input schemas", async () => {
+  it("lists the 8 tools with object input schemas", async () => {
     const { tools } = await main.client.listTools()
     expect(tools.map((tool) => tool.name).sort()).toEqual([
       "evaluate_plan",
@@ -78,13 +93,65 @@ describe("MCP server over stdio", () => {
       "plan_history",
       "save_plan",
       "search_recipes",
-      "shopping_list"
+      "shopping_list",
+      "simple_breakfasts"
     ])
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe("object")
     }
     const search = tools.find((tool) => tool.name === "search_recipes")
     expect(Object.keys(search?.inputSchema.properties ?? {})).toContain("proteinFamilies")
+  }, CASE_MS)
+
+  it("describes the slot of a plan with simpleIds and forMeal in the input schemas", async () => {
+    const { tools } = await main.client.listTools()
+    const search = tools.find((tool) => tool.name === "search_recipes")
+    expect(Object.keys(search?.inputSchema.properties ?? {})).toContain("forMeal")
+    const evaluate = tools.find((tool) => tool.name === "evaluate_plan")
+    expect(JSON.stringify(evaluate?.inputSchema)).toContain("simpleIds")
+    expect(JSON.stringify(evaluate?.inputSchema)).toContain("fresh")
+    expect(JSON.stringify(evaluate?.inputSchema)).toContain("breakfast")
+  }, CASE_MS)
+
+  it("simple_breakfasts lists the breakfasts with the protein per portion and the items", async () => {
+    const result = await call(main, "simple_breakfasts", {})
+    expect(result.isError).toBeFalsy()
+    expect(parse(textsOf(result)[0])).toEqual({
+      simpleBreakfasts: [
+        {
+          id: "yogurt",
+          title: "Йогурт с бананом",
+          proteinPerPortion: 18,
+          coverage: 1,
+          items: [
+            { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
+            { item: "мед", grams: 15, category: "sweet", pantry: true }
+          ]
+        }
+      ]
+    })
+  }, CASE_MS)
+
+  it("evaluate_plan and shopping_list take a slot that has only simpleIds", async () => {
+    const plan = {
+      ...basePlan(),
+      meals: [
+        ...basePlan().meals,
+        { day: 0, meal: "breakfast", simpleIds: ["yogurt"] },
+        { day: 1, meal: "breakfast", simpleIds: ["nope"] }
+      ]
+    }
+    const evaluated = await call(main, "evaluate_plan", { plan })
+    expect(evaluated.isError).toBeFalsy()
+    const body = parse(textsOf(evaluated)[0])
+    expect(body).toMatchObject({ ok: false, errors: [{ code: "unknown_simple", simpleIds: ["nope"], days: [1] }] })
+
+    const listed = await call(main, "shopping_list", { plan })
+    expect(listed.isError).toBeFalsy()
+    const text = textsOf(listed)[0] ?? ""
+    expect(text).toContain("греческий йогурт")
+    expect(text).toContain("завтраки: yogurt")
+    expect(text).toContain("## Простые завтраки")
   }, CASE_MS)
 
   it("search_recipes finds a dish by a word of the title or an item, with links and no texts", async () => {
@@ -183,6 +250,8 @@ describe("MCP server over stdio", () => {
     expect(text).toContain("2026-10-17")
     expect(text).toContain("`fish`")
     expect(text).toContain("evaluate_plan")
+    expect(text).toContain("simple_breakfasts")
+    expect(text).toContain("fresh")
 
     await expect(main.client.getPrompt({ name: "plan_week", arguments: { weekStart: "2026-13-01" } })).rejects.toThrow()
   }, CASE_MS)

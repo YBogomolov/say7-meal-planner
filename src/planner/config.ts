@@ -4,6 +4,9 @@ import { DECODE_OPTIONS, DEFAULT_HOUSEHOLD, HouseholdJson } from "../domain/hous
 import type { Household } from "../domain/household.ts"
 import { AliasesJson, makeAliases, NO_ALIASES } from "./items.ts"
 import { ItemProteinJson, makeProteinTable, NO_PROTEIN } from "./protein.ts"
+import type { SimpleBreakfast } from "../domain/simple-breakfast.ts"
+import type { CatalogueExtras } from "./catalogue.ts"
+import { makeSimpleBreakfasts, NO_SIMPLE_BREAKFASTS, SimpleBreakfastsJson } from "./simple.ts"
 import { makeServingsOverrides, NO_SERVINGS_OVERRIDES, ServingsOverridesJson } from "./servings.ts"
 import type { ServingsOverrides } from "./servings.ts"
 
@@ -105,4 +108,38 @@ export const loadItemProtein = (
         new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
       )
     )
+  })
+
+/**
+ * `<configDir>/simple-breakfasts.json` (spec P7.2.3). A missing file gives an empty list.
+ * The item names are cleaned and mapped through `aliases`, like the items of the catalogue.
+ */
+export const loadSimpleBreakfasts = (
+  configDir: string = DEFAULT_CONFIG_DIR,
+  aliases: Aliases = NO_ALIASES
+): Effect.Effect<ReadonlyArray<SimpleBreakfast>, ConfigError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const path = yield* Path.Path
+    const target = path.join(configDir, "simple-breakfasts.json")
+    const text = yield* readOptional(target)
+    if (text === undefined) {
+      return NO_SIMPLE_BREAKFASTS
+    }
+    return yield* Schema.decodeUnknownEffect(SimpleBreakfastsJson)(text).pipe(
+      Effect.map((records) => makeSimpleBreakfasts(records, aliases)),
+      Effect.mapError((error) =>
+        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      )
+    )
+  })
+
+/** What `loadCatalogue` takes from the config besides the protein table: the simple breakfasts and `household.breakfastExtraIds`. */
+export const loadCatalogueExtras = (
+  configDir: string = DEFAULT_CONFIG_DIR,
+  aliases: Aliases = NO_ALIASES
+): Effect.Effect<CatalogueExtras, ConfigError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function*() {
+    const household = yield* loadHousehold(configDir)
+    const simpleBreakfasts = yield* loadSimpleBreakfasts(configDir, aliases)
+    return { simpleBreakfasts, breakfastExtraIds: household.breakfastExtraIds }
   })

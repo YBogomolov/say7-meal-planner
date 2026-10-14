@@ -5,7 +5,7 @@ import type { ServingsReport } from "../domain/servings-report.ts"
 import { writeTextAtomic } from "./atomic.ts"
 import { loadCatalogue } from "./catalogue.ts"
 import { parseServingsReportCli, SERVINGS_REPORT_USAGE } from "./cli-options.ts"
-import { loadAliases, loadItemProtein, loadServingsOverrides } from "./config.ts"
+import { loadAliases, loadItemProtein, loadCatalogueExtras, loadServingsOverrides } from "./config.ts"
 import { plannerLayer } from "./layers.ts"
 import { servingsAudit } from "./servings.ts"
 
@@ -23,7 +23,8 @@ const main = Effect.gen(function*() {
   const aliases = yield* loadAliases(configDir)
   const overrides = yield* loadServingsOverrides(configDir)
   const proteinTable = yield* loadItemProtein(configDir, aliases)
-  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable)
+  const extras = yield* loadCatalogueExtras(configDir, aliases)
+  const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable, extras)
   for (const id of unknownOverrides) {
     yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
   }

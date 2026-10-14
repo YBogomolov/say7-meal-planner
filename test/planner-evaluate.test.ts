@@ -4,11 +4,12 @@ import { DEFAULT_HOUSEHOLD } from "../src/domain/household.ts"
 import type { Household, Preferences } from "../src/domain/household.ts"
 import { ISSUE_CODES } from "../src/domain/plan-evaluation.ts"
 import type { IssueCode, PlanEvaluation, PlanIssue } from "../src/domain/plan-evaluation.ts"
+import type { SimpleBreakfast } from "../src/domain/simple-breakfast.ts"
 import type { WeekPlan } from "../src/domain/week-plan.ts"
 import { evaluatePlan } from "../src/planner/evaluate.ts"
 import { makeAliases, NO_ALIASES } from "../src/planner/items.ts"
 import { makeProteinTable } from "../src/planner/protein.ts"
-import { baseCatalogue, baseEntries, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, ing, inGrams, planOf } from "./support/planner.ts"
+import { baseCatalogue, baseEntries, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, ing, inGrams, PANCAKES, planOf } from "./support/planner.ts"
 import type { DishOptions, EnrichmentChange, PlanSpec } from "./support/planner.ts"
 
 interface Scenario {
@@ -24,6 +25,8 @@ interface Scenario {
   readonly aliases?: Aliases
   /** The protein table `{ "<item>": g per 100 g }`. Without it the table is empty and `low_protein` is off. */
   readonly protein?: Readonly<Record<string, number>>
+  /** The simple breakfasts of the catalogue (spec P7.2.3). */
+  readonly simple?: ReadonlyArray<SimpleBreakfast>
 }
 
 const evaluate = (scenario: Scenario = {}): PlanEvaluation =>
@@ -35,7 +38,8 @@ const evaluate = (scenario: Scenario = {}): PlanEvaluation =>
     }),
     catalogueOf([...baseEntries(scenario.dishes, scenario.aliases), ...(scenario.extra ?? [])],
       scenario.aliases,
-      makeProteinTable(scenario.protein ?? {}, scenario.aliases ?? NO_ALIASES)
+      makeProteinTable(scenario.protein ?? {}, scenario.aliases ?? NO_ALIASES),
+      scenario.simple ?? []
     ),
     { ...DEFAULT_HOUSEHOLD, ...scenario.household },
     scenario.history ?? []
@@ -77,6 +81,32 @@ const GARNISH = (n: number, overrides: EnrichmentChange = {}) =>
     enrichment: { dishType: "side", mealFit: "side_only", servings: { min: 6, max: 8, source: "page" }, ...overrides },
     ingredients: [inGrams("рис", 100, { category: "grain" })]
   })
+
+/** A fresh breakfast dish: quick, 2 to 4 portions (spec P7.2.2). */
+const FRESH = (n: number, overrides: EnrichmentChange = {}) =>
+  entryOf(n, {
+    title: `Завтрак Квебек ${n}`,
+    enrichment: { mealFit: "full_meal", servings: { min: 2, max: 4, source: "page" }, activeMinutes: 10, fridgeDays: 1, ...overrides },
+    ingredients: [inGrams("творог", 300, { category: "dairy" }), inGrams("яйца", 110, { category: "eggs" })]
+  })
+
+/** A sweet bake that is no meal, but a breakfast candidate (category 50). */
+const BREAKFAST_ONLY = (n: number) =>
+  entryOf(n, {
+    title: `Сырники Рим ${n}`,
+    categories: [PANCAKES],
+    enrichment: { mealFit: "not_a_meal", servings: { min: 2, max: 4, source: "page" }, activeMinutes: 10 },
+    ingredients: [inGrams("творог", 300, { category: "dairy" })]
+  })
+
+const YOGURT: SimpleBreakfast = {
+  id: "yogurt",
+  title: "Йогурт с бананом",
+  items: [
+    { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
+    { item: "мед", grams: 15, category: "sweet", pantry: true }
+  ]
+}
 
 describe("evaluatePlan: the base week", () => {
   const evaluation = evaluate()
@@ -678,7 +708,20 @@ describe("evaluatePlan: every code of the table", () => {
     side_repeated: { household: prefs({ sideGroups: { рис: ["рис"] } }), dishes: { 2: { ingredients: [inGrams("рис", 200)] } } },
     heavy_dinner: { household: prefs({ dinnerAvoidItems: ["сметана"] }) },
     item_limit: { household: prefs({ itemLimits: [{ name: "рис", items: ["рис"], maxDishes: 0 }] }) },
-    low_protein: { protein: { соль: 0 } }
+    low_protein: { protein: { соль: 0 } },
+    fresh_time: {
+      cooking: [...BASE_COOKING, { session: "fresh", recipeId: 8 }],
+      meals: [...BASE_MEALS, { day: 0, meal: "breakfast", recipeIds: [8] }],
+      extra: [FRESH(8, { activeMinutes: 30 })]
+    },
+    fresh_not_breakfast: { cooking: BASE_COOKING.map((entry) => entry.recipeId === 1 ? { ...entry, session: "fresh" } : entry) },
+    unknown_simple: { meals: [...BASE_MEALS, { day: 0, meal: "breakfast", recipeIds: [], simpleIds: ["nope"] }] },
+    simple_not_breakfast: { meals: withMeals({ day: 0, meal: "lunch", recipeIds: [1], simpleIds: ["yogurt"] }), simple: [YOGURT] },
+    breakfast_only_recipe: {
+      cooking: [...BASE_COOKING, { session: "A", recipeId: 8 }],
+      meals: withMeal(0, "lunch", [1, 8]),
+      extra: [BREAKFAST_ONLY(8)]
+    }
   }
 
   it("is triggered by its scenario, as an error or as a warning", () => {
@@ -947,5 +990,257 @@ describe("evaluatePlan: protein (spec P7.1)", () => {
     const soup = low(evaluation).find((issue) => idsOf(issue).join() === "1")
     assert.include(soup?.message ?? "", "Оценка неточная")
     assert.include(soup?.message ?? "", "покрытие 0%")
+  })
+})
+
+describe("evaluatePlan: breakfasts (spec P7.2)", () => {
+  const BREAKFAST: Partial<Household> = { meals: ["breakfast", "lunch", "dinner"], mealPersons: { breakfast: 2 } }
+  const morning = (simpleIds: ReadonlyArray<string> = ["yogurt"], recipeIds: ReadonlyArray<number> = []): Slots =>
+    Array.from({ length: 7 }, (_, day) => ({ day, meal: "breakfast" as const, recipeIds, simpleIds }))
+  const withBreakfast = (scenario: Scenario = {}): Scenario => ({
+    household: BREAKFAST,
+    simple: [YOGURT],
+    meals: [...BASE_MEALS, ...morning()],
+    ...scenario
+  })
+
+  it("has no error and no warning in a week with a simple breakfast every day", () => {
+    const evaluation = evaluate(withBreakfast())
+    assert.deepStrictEqual(codes(evaluation.errors), [])
+    assert.deepStrictEqual(codes(evaluation.warnings), [])
+    assert.strictEqual(evaluation.metrics.slotsRequired, 21)
+    assert.strictEqual(evaluation.metrics.slotsCovered, 21)
+  })
+
+  it("keeps an old household without breakfast working: breakfast slots are not required, and not an error", () => {
+    const evaluation = evaluate({ simple: [YOGURT], meals: [...BASE_MEALS, ...morning()] })
+    assert.deepStrictEqual(codes(evaluation.errors), [])
+    assert.strictEqual(evaluation.metrics.slotsRequired, 14)
+  })
+
+  describe("slot_missing", () => {
+    it("lists the 7 breakfast slots of a household with breakfast", () => {
+      const missing = evaluate({ household: BREAKFAST }).errors.filter((issue) => issue.code === "slot_missing")
+      assert.strictEqual(missing.length, 7)
+      assert.include(missing[0]?.message ?? "", "завтрак")
+    })
+
+    it("does not list a breakfast slot that has only a simple breakfast", () => {
+      assert.notInclude(codes(evaluate(withBreakfast()).errors), "slot_missing")
+    })
+  })
+
+  describe("unknown_simple (E)", () => {
+    it("names the ID and the days", () => {
+      const issue = issueOf(evaluate(withBreakfast({ meals: [...BASE_MEALS, ...morning(["nope"])] })).errors, "unknown_simple")
+      assert.deepStrictEqual(issue.simpleIds, ["nope"])
+      assert.deepStrictEqual(issue.days, [0, 1, 2, 3, 4, 5, 6])
+    })
+
+    it("does not fire for a known ID", () => {
+      assert.notInclude(codes(evaluate(withBreakfast()).errors), "unknown_simple")
+    })
+  })
+
+  describe("simple_not_breakfast (E)", () => {
+    it("fires for a simple breakfast in a lunch slot", () => {
+      const evaluation = evaluate(withBreakfast({ meals: [...BASE_MEALS.filter((slot) => !(slot.day === 2 && slot.meal === "lunch")), { day: 2, meal: "lunch", recipeIds: [3], simpleIds: ["yogurt"] }, ...morning()] }))
+      const issue = issueOf(evaluation.errors, "simple_not_breakfast")
+      assert.deepStrictEqual(issue.simpleIds, ["yogurt"])
+      assert.deepStrictEqual(issue.days, [2])
+    })
+
+    it("does not fire in a breakfast slot", () => {
+      assert.notInclude(codes(evaluate(withBreakfast()).errors), "simple_not_breakfast")
+    })
+  })
+
+  describe("fresh dishes", () => {
+    const FRESH_COOKING: PlanSpec["cooking"] = [...BASE_COOKING, { session: "fresh", recipeId: 8 }]
+    const freshWeek = (days: ReadonlyArray<number>, overrides: EnrichmentChange = {}): Scenario =>
+      withBreakfast({
+        cooking: FRESH_COOKING,
+        meals: [
+          ...BASE_MEALS,
+          ...morning().map((slot) => days.includes(slot.day) ? { ...slot, recipeIds: [8], simpleIds: [] } : slot)
+        ],
+        extra: [FRESH(8, overrides)]
+      })
+
+    it("is allowed in breakfast slots, with no freshness limit, no session day and no session minutes", () => {
+      // The dish is eaten on day 0 to 2. fridgeDays 1 would break `not_fresh` and the session day would break `eaten_before_cooked`.
+      const evaluation = evaluate(freshWeek([0, 1, 2], { fridgeDays: 1 }))
+      assert.deepStrictEqual(codes(evaluation.errors), [])
+      assert.deepStrictEqual(codes(evaluation.warnings), [])
+      assert.deepStrictEqual(evaluation.metrics.activeMinutes, [{ session: "A", minutes: 80 }, { session: "B", minutes: 60 }])
+    })
+
+    it("judges the portions for the busiest day: 3 days of 2 portions are 2 portions", () => {
+      const evaluation = evaluate(freshWeek([0, 1, 2]))
+      const portions = evaluation.metrics.portions.find((item) => item.recipeId === 8)
+      assert.deepStrictEqual(portions, { recipeId: 8, scale: 1, made: { min: 2, max: 4 }, eaten: 2, left: { min: 0, max: 2 } })
+    })
+
+    it("raises portions_short if one cooking day is too small", () => {
+      const issue = issueOf(evaluate(freshWeek([0, 1], { servings: { min: 1, max: 1, source: "page" } })).errors, "portions_short")
+      assert.deepStrictEqual(idsOf(issue), [8])
+    })
+
+    it("keeps too_many_days: a fresh dish also needs variety", () => {
+      assert.include(codes(evaluate(freshWeek([0, 1, 2, 3])).errors), "too_many_days")
+    })
+
+    it("cooked_not_eaten: a fresh dish in no slot", () => {
+      const evaluation = evaluate(withBreakfast({ cooking: FRESH_COOKING, extra: [FRESH(8)] }))
+      assert.include(codes(evaluation.warnings), "cooked_not_eaten")
+    })
+
+    describe("fresh_time (W)", () => {
+      it("fires when the active minutes of 1 day are more than freshMinutesMax, with the days", () => {
+        const issue = issueOf(evaluate(freshWeek([0, 1], { activeMinutes: 21 })).warnings, "fresh_time")
+        assert.deepStrictEqual(idsOf(issue), [8])
+        assert.deepStrictEqual(issue.days, [0, 1])
+        assert.strictEqual(codes(evaluate(freshWeek([0, 1], { activeMinutes: 21 })).warnings).filter((code) => code === "fresh_time").length, 1)
+      })
+
+      it("does not fire at exactly freshMinutesMax", () => {
+        assert.notInclude(codes(evaluate(freshWeek([0, 1], { activeMinutes: 20 })).warnings), "fresh_time")
+      })
+
+      it("adds the fresh dishes of the same day", () => {
+        const evaluation = evaluate(
+          withBreakfast({
+            cooking: [...FRESH_COOKING, { session: "fresh", recipeId: 9 }],
+            meals: [...BASE_MEALS, { day: 0, meal: "breakfast", recipeIds: [8, 9] }, ...morning().slice(1)],
+            extra: [FRESH(8, { activeMinutes: 12 }), FRESH(9, { activeMinutes: 12 })]
+          })
+        )
+        const issue = issueOf(evaluation.warnings, "fresh_time")
+        assert.deepStrictEqual(idsOf(issue), [8, 9])
+      })
+
+      it("uses the household key", () => {
+        const scenario = freshWeek([0], { activeMinutes: 30 })
+        assert.notInclude(codes(evaluate({ ...scenario, household: { ...BREAKFAST, freshMinutesMax: 30 } }).warnings), "fresh_time")
+      })
+    })
+
+    describe("fresh_not_breakfast (E)", () => {
+      it("fires for a fresh dish in a lunch slot, with the days", () => {
+        const evaluation = evaluate(
+          withBreakfast({ cooking: FRESH_COOKING, meals: [...withMeal(5, "dinner", [8]), ...morning()], extra: [FRESH(8)] })
+        )
+        const issue = issueOf(evaluation.errors, "fresh_not_breakfast")
+        assert.deepStrictEqual(issue.days, [5])
+      })
+
+      it("does not fire in a breakfast slot", () => {
+        assert.notInclude(codes(evaluate(freshWeek([0, 1])).errors), "fresh_not_breakfast")
+      })
+    })
+  })
+
+  describe("recipes of a breakfast", () => {
+    it("breakfast_only_recipe: a not_a_meal recipe is fine at breakfast and an error at lunch", () => {
+      const cooking: PlanSpec["cooking"] = [...BASE_COOKING, { session: "A", recipeId: 8 }]
+      const atBreakfast = evaluate(withBreakfast({ cooking, meals: [...BASE_MEALS, ...morning().map((slot) => slot.day < 2 ? { ...slot, recipeIds: [8], simpleIds: [] } : slot)], extra: [BREAKFAST_ONLY(8)] }))
+      assert.deepStrictEqual(codes(atBreakfast.errors), [])
+      const atLunch = evaluate(withBreakfast({ cooking, meals: [...withMeal(0, "lunch", [1, 8]), ...morning()], extra: [BREAKFAST_ONLY(8)] }))
+      assert.deepStrictEqual(idsOf(issueOf(atLunch.errors, "breakfast_only_recipe")), [8])
+    })
+
+    it("slot_not_a_meal does not judge a breakfast slot", () => {
+      const cooking: PlanSpec["cooking"] = [...BASE_COOKING, { session: "A", recipeId: 8 }]
+      const needy = entryOf(8, { enrichment: { mealFit: "needs_side", servings: { min: 6, max: 8, source: "page" } } })
+      const evaluation = evaluate(withBreakfast({ cooking, meals: [...BASE_MEALS, ...morning().map((slot) => slot.day < 2 ? { ...slot, recipeIds: [8], simpleIds: [] } : slot)], extra: [needy] }))
+      assert.notInclude(codes(evaluation.errors), "slot_not_a_meal")
+      // The same dish in a lunch slot is judged.
+      const lunch = evaluate({ cooking, meals: withMeal(0, "lunch", [8]), extra: [needy] })
+      assert.include(codes(lunch.errors), "slot_not_a_meal")
+    })
+
+    it("counts 2 persons for a breakfast slot, 3 for the other meals", () => {
+      const meals = withMeals({ day: 2, meal: "lunch", recipeIds: [1] })
+      const scenario = withBreakfast({ meals: [...meals, ...morning().map((slot) => slot.day === 5 ? { ...slot, recipeIds: [1], simpleIds: [] } : slot)] })
+      const dish = (evaluation: PlanEvaluation) => evaluation.metrics.portions.find((item) => item.recipeId === 1)
+      // Lunch on day 0, 1, 2 (3 × 3) and breakfast on day 5 (2).
+      assert.strictEqual(dish(evaluate(scenario))?.eaten, 11)
+      // A household without `mealPersons` counts 3.
+      assert.strictEqual(dish(evaluate({ ...scenario, household: { meals: BREAKFAST.meals ?? [] } }))?.eaten, 12)
+    })
+  })
+
+  describe("protein", () => {
+    const PROTEIN = { "греческий йогурт": 9, мед: 0, яйца: 12.7, творог: 16 }
+    const low = (evaluation: PlanEvaluation) => evaluation.warnings.filter((issue) => issue.code === "low_protein")
+
+    it("takes the protein of a simple breakfast from the table: 200 g at 9 g/100 g is 18 g, above the minimum 15", () => {
+      const evaluation = evaluate(withBreakfast({ protein: PROTEIN }))
+      assert.strictEqual(evaluation.metrics.proteinPerSlot.find((slot) => slot.meal === "breakfast")?.grams, 18)
+      assert.deepStrictEqual(low(evaluation).filter((issue) => issue.simpleIds.length > 0), [])
+    })
+
+    it("warns for a simple breakfast with little protein, with its ID", () => {
+      const weak: SimpleBreakfast = { id: "weak", title: "Тост с джемом", items: [{ item: "хлеб", grams: 60, category: "bakery", pantry: false }] }
+      const evaluation = evaluate(withBreakfast({ protein: { ...PROTEIN, хлеб: 8 }, simple: [YOGURT, weak], meals: [...BASE_MEALS, ...morning(["weak"])] }))
+      const issue = low(evaluation).find((found) => found.simpleIds.includes("weak"))
+      assert.deepStrictEqual(issue?.days, [0, 1, 2, 3, 4, 5, 6])
+      assert.include(issue?.message ?? "", "завтрак")
+      assert.include(issue?.message ?? "", "4,8 г")
+    })
+
+    it("adds the protein of the recipes and the simple breakfasts of a slot", () => {
+      const weak: SimpleBreakfast = { id: "weak", title: "Тост с джемом", items: [{ item: "хлеб", grams: 60, category: "bakery", pantry: false }] }
+      const meals = [...BASE_MEALS, ...morning(["weak"]).map((slot) => slot.day === 0 ? { ...slot, recipeIds: [8] } : slot)]
+      const evaluation = evaluate(withBreakfast({
+        protein: { ...PROTEIN, хлеб: 8 },
+        simple: [YOGURT, weak],
+        cooking: [...BASE_COOKING, { session: "fresh", recipeId: 8 }],
+        meals,
+        extra: [FRESH(8)]
+      }))
+      // Dish 8: 300 g × 16 / 100 + 110 g × 12.7 / 100 = 62 g for 3 portions (the middle of 2 and 4) = 20.7 g. Plus 4.8 g.
+      assert.strictEqual(evaluation.metrics.proteinPerSlot[0]?.grams, 25.5)
+      assert.strictEqual(evaluation.metrics.proteinPerSlot[0]?.meal, "breakfast")
+    })
+  })
+
+  describe("metrics and taste rules", () => {
+    it("counts the products of the simple breakfasts in buyItemCount and pantryItemCount", () => {
+      const evaluation = evaluate(withBreakfast())
+      assert.strictEqual(evaluation.metrics.buyItemCount, 15)
+      assert.strictEqual(evaluation.metrics.pantryItemCount, 5)
+    })
+
+    it("item_limit counts a simple breakfast as a dish", () => {
+      const sausage: SimpleBreakfast = { id: "sausage", title: "Бутерброд с колбасой", items: [{ item: "колбаса", grams: 50, category: "meat", pantry: false }] }
+      const evaluation = evaluate(withBreakfast({
+        simple: [YOGURT, sausage],
+        meals: [...BASE_MEALS, ...morning(["sausage"])],
+        household: { ...BREAKFAST, ...prefs({ itemLimits: [{ name: "колбасные изделия", items: ["колбаса"], maxDishes: 0 }] }) }
+      }))
+      const issue = issueOf(evaluation.warnings, "item_limit")
+      assert.deepStrictEqual(issue.simpleIds, ["sausage"])
+    })
+
+    it("side_repeated does not count a dish that is eaten only at breakfast", () => {
+      const rice = (n: number) => entryOf(n, { title: `Каша Лима ${n}`, enrichment: { mealFit: "full_meal", servings: { min: 2, max: 4, source: "page" } }, ingredients: [inGrams("рис", 200, { category: "grain" })] })
+      const household = { ...BREAKFAST, ...prefs({ sideGroups: { рис: ["рис"] } }) }
+      const atBreakfast = evaluate(withBreakfast({
+        household,
+        cooking: [...BASE_COOKING, { session: "fresh", recipeId: 8 }],
+        meals: [...BASE_MEALS, ...morning().map((slot) => slot.day === 0 ? { ...slot, recipeIds: [8], simpleIds: [] } : slot)],
+        extra: [rice(8)]
+      }))
+      assert.notInclude(codes(atBreakfast.warnings), "side_repeated")
+      // The same rice dish at lunch is counted.
+      const atLunch = evaluate(withBreakfast({
+        household,
+        cooking: [...BASE_COOKING, { session: "A", recipeId: 8 }],
+        meals: [...withMeal(0, "lunch", [8]), ...morning()],
+        extra: [rice(8)]
+      }))
+      assert.include(codes(atLunch.warnings), "side_repeated")
+    })
   })
 })

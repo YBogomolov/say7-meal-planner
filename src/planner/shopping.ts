@@ -10,13 +10,14 @@ import type {
   ShoppingCategory,
   ShoppingDish,
   ShoppingItem,
-  ShoppingList
+  ShoppingList,
+  ShoppingSimple
 } from "../domain/shopping-list.ts"
-import type { PlanScale, WeekPlan } from "../domain/week-plan.ts"
+import type { WeekPlan } from "../domain/week-plan.ts"
 import { decimalOf, multiply, roundTo, sum } from "./decimal.ts"
 import type { Decimal } from "./decimal.ts"
 import { compareText } from "./items.ts"
-import { isCooked, planDishes } from "./plan-model.ts"
+import { isCooked, isFresh, planDishes, planSimples, portionsEaten, sessionIdOf } from "./plan-model.ts"
 
 /** A tablespoon is 15 ml and a teaspoon is 5 ml (spec P4.5.2). */
 const ML_PER_SPOON: Readonly<Record<"tbsp" | "tsp", number>> = { tbsp: 15, tsp: 5 }
@@ -27,10 +28,14 @@ const TSP_PER_TBSP = 3
 /** The places of the units in `amounts`. `spoons` is `tbsp`, `tsp`, or both of them. */
 const AMOUNT_ORDER = ["g", "ml", "spoons", "pcs", "bunch", "clove", "slice", "pack", "pinch"] as const
 
-/** An ingredient line of one cooked dish, with the scale of the dish. */
+/**
+ * An ingredient line of one cooked dish, with the factor for its quantities.
+ * The factor is the scale of the dish. For a fresh dish it is the scale times the number of cooking days (spec P7.2.2).
+ * For a simple breakfast it is the persons of a slot (spec P7.2.3).
+ */
 export interface ShoppingLine {
   readonly ingredient: CatalogueIngredient
-  readonly scale: PlanScale
+  readonly scale: number
 }
 
 export interface Aggregate {
@@ -43,7 +48,7 @@ const isVolumeUnit = (unit: IngredientUnit | null): boolean => unit === "ml" || 
 /** Whole numbers for mass and volume, 2 decimals for the rest. */
 const placesOf = (unit: IngredientUnit): number => (unit === "g" || unit === "ml" ? 0 : 2)
 
-const scaled = (value: number, scale: PlanScale): Decimal => multiply(decimalOf(value), decimalOf(scale))
+const scaled = (value: number, scale: number): Decimal => multiply(decimalOf(value), decimalOf(scale))
 
 /**
  * Spoons as the shop list writes them: whole tablespoons, and the rest in teaspoons.
@@ -167,10 +172,18 @@ const categoryOf = (lines: ReadonlyArray<ShoppingLine>): IngredientCategory => {
   )
 }
 
+/** A line of a recipe has `recipeId`, and `session` if the dish is cooked in a session (not fresh). A line of a simple breakfast has `simpleId`. */
 interface DishLine extends ShoppingLine {
-  readonly recipeId: RecipeId
-  readonly session: SessionId
+  readonly recipeId?: RecipeId
+  readonly simpleId?: string
+  readonly session?: SessionId
 }
+
+const recipeIdsOf = (lines: ReadonlyArray<DishLine>): Array<RecipeId> =>
+  [...new Set(lines.flatMap((line) => line.recipeId === undefined ? [] : [line.recipeId]))].sort((a, b) => a - b)
+
+const simpleIdsOf = (lines: ReadonlyArray<DishLine>): Array<string> =>
+  [...new Set(lines.flatMap((line) => line.simpleId === undefined ? [] : [line.simpleId]))].sort(compareText)
 
 const groupBy = <A>(values: ReadonlyArray<A>, key: (value: A) => string): ReadonlyMap<string, ReadonlyArray<A>> => {
   const groups = new Map<string, Array<A>>()
@@ -193,7 +206,8 @@ const itemOf = (item: string, lines: ReadonlyArray<DishLine>): ShoppingItem => {
     category: categoryOf(lines),
     amounts,
     approximate,
-    recipeIds: [...new Set(lines.map((line) => line.recipeId))].sort((a, b) => a - b)
+    recipeIds: recipeIdsOf(lines),
+    simpleIds: simpleIdsOf(lines)
   }
 }
 
@@ -221,28 +235,56 @@ const freezeActions = (buyLines: ReadonlyArray<DishLine>, household: Household):
         item,
         session,
         amounts: aggregateAmounts(group).amounts,
-        recipeIds: [...new Set(group.map((line) => line.recipeId))].sort((a, b) => a - b),
+        recipeIds: recipeIdsOf(group),
         text: FREEZE_TEXT(session)
       }))
   })
+
+const SHOPPING_SESSION_ORDER: ReadonlyArray<string> = [...SESSION_IDS, "fresh"]
 
 /**
  * The shopping list of a plan (spec P4.5). Pure.
  *
  * It takes every ingredient of every cooked dish, multiplies by the scale, and groups by the normalised item.
- * A cooked recipe that the catalogue does not have is in `unknownRecipeIds` and adds nothing.
+ * A fresh dish (spec P7.2.2) is cooked on each day that it is eaten: its quantities are multiplied by the scale and by the number of days.
+ * A fresh dish that is in no slot adds nothing. A simple breakfast (spec P7.2.3) adds its items times the persons of each slot.
+ * A cooked recipe that the catalogue does not have is in `unknownRecipeIds`, a simple breakfast that the config does not have
+ * is in `unknownSimpleIds`. They add nothing.
  */
 export const shoppingList = (plan: WeekPlan, catalogue: Catalogue, household: Household): ShoppingList => {
   const dishes = planDishes(plan, catalogue).filter((dish) => dish.cooking !== undefined)
   const cooked = dishes.filter(isCooked)
-  const lines: ReadonlyArray<DishLine> = cooked.flatMap((dish) =>
-    dish.entry.enrichment.ingredients.map((ingredient): DishLine => ({
+  const dishLines: ReadonlyArray<DishLine> = cooked.filter((dish) => !isFresh(dish) || dish.days.length > 0).flatMap((dish) => {
+    const factor = dish.cooking.scale * (isFresh(dish) ? dish.days.length : 1)
+    const session = sessionIdOf(dish.cooking)
+    return dish.entry.enrichment.ingredients.map((ingredient): DishLine => ({
       ingredient,
-      scale: dish.cooking.scale,
+      scale: factor,
       recipeId: dish.recipeId,
-      session: dish.cooking.session
+      ...(session === undefined ? {} : { session })
     }))
-  )
+  })
+  const simples = planSimples(plan, catalogue)
+  const simpleLines: ReadonlyArray<DishLine> = simples.flatMap((simple) => {
+    const persons = portionsEaten(simple.slots, household, false)
+    return (simple.entry?.items ?? []).map((item): DishLine => ({
+      ingredient: {
+        item: item.item,
+        rawItem: item.item,
+        line: 0,
+        detail: null,
+        category: item.category,
+        pantry: item.pantry,
+        quantity: item.grams,
+        unit: "g",
+        grams: item.grams,
+        optional: false
+      },
+      scale: persons,
+      simpleId: simple.simpleId
+    }))
+  })
+  const lines = [...dishLines, ...simpleLines]
   const bySection = groupBy(lines, (line) => sectionOf(line.ingredient))
   const buyLines = bySection.get("buy") ?? []
 
@@ -253,15 +295,30 @@ export const shoppingList = (plan: WeekPlan, catalogue: Catalogue, household: Ho
   })
 
   const shoppingDishes: ReadonlyArray<ShoppingDish> = cooked
-    .map((dish): ShoppingDish => ({
-      recipeId: dish.recipeId,
-      title: dish.entry.title,
-      url: dish.entry.url,
-      session: dish.cooking.session,
-      sessionDay: sessionDay(household, dish.cooking.session),
-      scale: dish.cooking.scale
-    }))
-    .sort((a, b) => SESSION_IDS.indexOf(a.session) - SESSION_IDS.indexOf(b.session) || a.recipeId - b.recipeId)
+    .map((dish): ShoppingDish => {
+      const session = sessionIdOf(dish.cooking)
+      return {
+        recipeId: dish.recipeId,
+        title: dish.entry.title,
+        url: dish.entry.url,
+        session: dish.cooking.session,
+        sessionDay: session === undefined ? null : sessionDay(household, session),
+        freshDays: session === undefined ? dish.days : [],
+        scale: dish.cooking.scale
+      }
+    })
+    .sort((a, b) =>
+      SHOPPING_SESSION_ORDER.indexOf(a.session) - SHOPPING_SESSION_ORDER.indexOf(b.session) || a.recipeId - b.recipeId
+    )
+
+  const shoppingSimples: ReadonlyArray<ShoppingSimple> = simples.flatMap((simple) =>
+    simple.entry === undefined ? [] : [{
+      id: simple.simpleId,
+      title: simple.entry.title,
+      portions: portionsEaten(simple.slots, household, false),
+      days: simple.days
+    }]
+  )
 
   return {
     weekStart: plan.weekStart,
@@ -271,6 +328,8 @@ export const shoppingList = (plan: WeekPlan, catalogue: Catalogue, household: Ho
     check_at_home: itemsOf(bySection.get("check_at_home") ?? []),
     actions: freezeActions(buyLines, household),
     dishes: shoppingDishes,
-    unknownRecipeIds: dishes.filter((dish) => dish.entry === undefined).map((dish) => dish.recipeId)
+    unknownRecipeIds: dishes.filter((dish) => dish.entry === undefined).map((dish) => dish.recipeId),
+    simpleBreakfasts: shoppingSimples,
+    unknownSimpleIds: simples.filter((simple) => simple.entry === undefined).map((simple) => simple.simpleId)
   }
 }

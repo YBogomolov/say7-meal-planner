@@ -4,14 +4,16 @@ import { Effect, FileSystem, Layer, Path, Schema } from "effect"
 import type { Aliases, Catalogue, CatalogueEntry, ProteinTable } from "../../src/domain/catalogue.ts"
 import { EnrichedRecipeJson, NO_USAGE } from "../../src/domain/enriched-recipe.ts"
 import type { EnrichedRecipe, Enrichment, IngredientItem } from "../../src/domain/enriched-recipe.ts"
-import type { MealName, SessionId } from "../../src/domain/household.ts"
+import type { MealName } from "../../src/domain/household.ts"
 import { ParsedRecipeJson } from "../../src/domain/parsed-recipe.ts"
+import type { SimpleBreakfast } from "../../src/domain/simple-breakfast.ts"
 import { WeekPlan } from "../../src/domain/week-plan.ts"
-import type { PlanScale } from "../../src/domain/week-plan.ts"
+import type { CookingSession, PlanScale } from "../../src/domain/week-plan.ts"
 import { makeCatalogue, toCatalogueEntry } from "../../src/planner/catalogue.ts"
 import { NO_ALIASES } from "../../src/planner/items.ts"
 import { NO_PROTEIN } from "../../src/planner/protein.ts"
 import { enrichmentFor, id, parsedRecipe } from "./enrich.ts"
+import type { ParsedOptions } from "./enrich.ts"
 
 /** Synthetic recipes for the planner tests. The titles and the items are invented. */
 
@@ -46,6 +48,8 @@ export interface DishOptions {
   readonly ingredients?: ReadonlyArray<IngredientSpec>
   readonly enrichment?: EnrichmentChange
   readonly commentsCount?: number | null
+  /** The categories of the page. The default is soups (`SOUPS` of the enrich support). */
+  readonly categories?: ParsedOptions["categories"]
 }
 
 /** The enriched recipe of a file `data/enriched/<n>.json`, with test defaults. */
@@ -68,7 +72,7 @@ export const enrichedRecipe = (n: number, options: Pick<DishOptions, "ingredient
 export const entryOf = (n: number, options: DishOptions & { readonly aliases?: Aliases } = {}): CatalogueEntry =>
   toCatalogueEntry(
     {
-      ...parsedRecipe(n, { title: options.title ?? `Тестовое блюдо ${n}` }),
+      ...parsedRecipe(n, { title: options.title ?? `Тестовое блюдо ${n}`, ...(options.categories === undefined ? {} : { categories: options.categories }) }),
       commentsCount: options.commentsCount === undefined ? 3 : options.commentsCount
     },
     enrichedRecipe(n, options),
@@ -78,13 +82,22 @@ export const entryOf = (n: number, options: DishOptions & { readonly aliases?: A
 export const catalogueOf = (
   entries: ReadonlyArray<CatalogueEntry>,
   aliases: Aliases = NO_ALIASES,
-  proteinTable: ProteinTable = NO_PROTEIN
-): Catalogue => makeCatalogue(entries, aliases, undefined, proteinTable)
+  proteinTable: ProteinTable = NO_PROTEIN,
+  simpleBreakfasts: ReadonlyArray<SimpleBreakfast> = []
+): Catalogue => makeCatalogue(entries, aliases, undefined, proteinTable, simpleBreakfasts)
+
+/** The category 50 of the site: a breakfast candidate (spec P7.2.4). */
+export const PANCAKES = { id: 50, slug: "blini", name: "Блины, оладьи, сырники" } as const
 
 export interface PlanSpec {
   readonly weekStart?: string
-  readonly cooking: ReadonlyArray<{ readonly session: SessionId; readonly recipeId: number; readonly scale?: PlanScale }>
-  readonly meals: ReadonlyArray<{ readonly day: number; readonly meal: MealName; readonly recipeIds: ReadonlyArray<number> }>
+  readonly cooking: ReadonlyArray<{ readonly session: CookingSession; readonly recipeId: number; readonly scale?: PlanScale }>
+  readonly meals: ReadonlyArray<{
+    readonly day: number
+    readonly meal: MealName
+    readonly recipeIds: ReadonlyArray<number>
+    readonly simpleIds?: ReadonlyArray<string>
+  }>
   readonly notes?: string | null
 }
 

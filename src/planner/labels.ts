@@ -7,7 +7,7 @@ import type { IsoDate } from "../domain/recipe.ts"
 
 const WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"] as const
 
-export const MEAL_LABELS: Readonly<Record<MealName, string>> = { lunch: "обед", dinner: "ужин" }
+export const MEAL_LABELS: Readonly<Record<MealName, string>> = { breakfast: "завтрак", lunch: "обед", dinner: "ужин" }
 
 /** The headings of the departments of the shop. */
 export const CATEGORY_HEADINGS: Readonly<Record<IngredientCategory, string>> = {

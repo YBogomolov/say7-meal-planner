@@ -89,7 +89,9 @@ describe("renderShoppingList: small lists", () => {
     check_at_home: [],
     actions: [],
     dishes: [],
-    unknownRecipeIds: []
+    unknownRecipeIds: [],
+    simpleBreakfasts: [],
+    unknownSimpleIds: []
   }
 
   it("says that there is nothing to buy, and leaves the empty sections out", () => {
@@ -107,7 +109,7 @@ describe("renderShoppingList: small lists", () => {
   it("escapes brackets in the title of a link", () => {
     const text = renderShoppingList({
       ...empty,
-      dishes: [{ recipeId: id(5), title: "Суп [тест]", url: "https://example.org/5", session: "A", sessionDay: 0, scale: 1 }]
+      dishes: [{ recipeId: id(5), title: "Суп [тест]", url: "https://example.org/5", session: "A", sessionDay: 0, freshDays: [], scale: 1 }]
     })
     assert.include(text, "- [Суп \\[тест\\]](https://example.org/5) (5)")
   })
@@ -213,7 +215,8 @@ describe("renderShoppingText", () => {
     category: "other",
     amounts,
     approximate: false,
-    recipeIds: recipeIds.map(id)
+    recipeIds: recipeIds.map(id),
+    simpleIds: []
   })
   const list: ShoppingList = {
     weekStart: "2026-10-17",
@@ -227,7 +230,9 @@ describe("renderShoppingText", () => {
     check_at_home: [item("мука", [{ unit: "g", value: 300 }])],
     actions: [],
     dishes: [],
-    unknownRecipeIds: []
+    unknownRecipeIds: [],
+    simpleBreakfasts: [],
+    unknownSimpleIds: []
   }
 
   it("writes one line per item to buy, with the amount and without the recipe IDs, and ends with 1 newline", () => {

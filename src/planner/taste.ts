@@ -57,9 +57,9 @@ export const sideGroupsOf = (ingredients: ReadonlyArray<CatalogueIngredient>, ru
 }
 
 /** The buy-ingredients of a dish that are in `items`, as distinct item names. */
-export const buyItemsIn = (ingredients: ReadonlyArray<CatalogueIngredient>, items: ReadonlySet<string>): ReadonlyArray<string> =>
+export const buyItemsIn = (ingredients: ReadonlyArray<Pick<CatalogueIngredient, "item" | "pantry" | "optional">>, items: ReadonlySet<string>): ReadonlyArray<string> =>
   [...new Set(ingredients.filter(isBuyIngredient).map((ingredient) => ingredient.item).filter((item) => items.has(item)))]
 
 /** Does the dish have any of the items as a buy-ingredient? */
-export const hasAnyBuyItem = (ingredients: ReadonlyArray<CatalogueIngredient>, items: ReadonlySet<string>): boolean =>
+export const hasAnyBuyItem = (ingredients: ReadonlyArray<Pick<CatalogueIngredient, "item" | "pantry" | "optional">>, items: ReadonlySet<string>): boolean =>
   buyItemsIn(ingredients, items).length > 0

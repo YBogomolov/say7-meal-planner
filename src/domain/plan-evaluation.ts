@@ -4,7 +4,7 @@ import { DayIndex, MealName, SessionId } from "./household.ts"
 import { RecipeId } from "./recipe.ts"
 import { PlanScale } from "./week-plan.ts"
 
-/** The codes of the rules of spec P4.4 and P4.8. The codes are stable: the callers match on them. */
+/** The codes of the rules of spec P4.4, P4.8, P7.1 and P7.2. The codes are stable: the callers match on them. */
 export const ISSUE_CODES = [
   "unknown_recipe",
   "not_cooked",
@@ -28,7 +28,12 @@ export const ISSUE_CODES = [
   "side_repeated",
   "heavy_dinner",
   "item_limit",
-  "low_protein"
+  "low_protein",
+  "fresh_time",
+  "fresh_not_breakfast",
+  "unknown_simple",
+  "simple_not_breakfast",
+  "breakfast_only_recipe"
 ] as const
 export const IssueCode = Schema.Literals(ISSUE_CODES)
 export type IssueCode = typeof IssueCode.Type
@@ -38,6 +43,8 @@ export const PlanIssue = Schema.Struct({
   code: IssueCode,
   message: Schema.String,
   recipeIds: Schema.Array(RecipeId),
+  /** The simple breakfasts that the problem is about (spec P7.2.3). Empty for most codes. */
+  simpleIds: Schema.Array(Schema.String),
   days: Schema.Array(DayIndex)
 })
 export type PlanIssue = typeof PlanIssue.Type
@@ -50,7 +57,10 @@ export const DishPortions = Schema.Struct({
   scale: PlanScale,
   /** `servings.min × scale` and `servings.max × scale`. */
   made: PortionRange,
-  /** `persons × number of slots with the dish`. */
+  /**
+   * The portions that the persons of the meals eat (spec P7.2.2): the sum of `personsOf(meal)` over the slots with the dish.
+   * For a fresh dish it is the portions of its busiest day, because `made` is for one cooking day.
+   */
   eaten: Schema.Natural,
   /** `made − eaten`. */
   left: PortionRange

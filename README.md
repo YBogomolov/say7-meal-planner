@@ -1,6 +1,6 @@
 # say7 meal planner
 
-This project plans lunches and dinners for one week from the recipes of https://www.say7.info.
+This project plans breakfasts, lunches and dinners for one week from the recipes of https://www.say7.info.
 The full design is in `docs/SPEC.md`.
 
 This README covers phase P1 (the scraper), phase P2 (the parser), phase P3 (the enrichment) and the commands of phase P4 (the plan rules and the shopping list).
@@ -308,8 +308,8 @@ The facts are: the type of dish, the protein families, the ingredients to buy, t
 The planner uses these facts in the later phases.
 
 A recipe is in scope when it has one of these categories:
-Вторые блюда, Салаты, Закуски и бутерброды, Первые блюда, Рыба и морепродукты, Несладкая выпечка, Блины, оладьи, сырники.
-Desserts and sweet bakes are out of scope.
+Вторые блюда, Салаты, Закуски и бутерброды, Первые блюда, Рыба и морепродукты, Несладкая выпечка, Блины, оладьи, сырники, Выпечка из творога.
+The category Выпечка из творога (233) holds breakfast candidates. Other desserts and sweet bakes are out of scope.
 
 The request contains the title, the intro, the yield, the servings text, the numbered ingredient lines, the steps and the category names.
 It contains no comments.
@@ -555,19 +555,20 @@ To use other directories, set these variables:
 | Variable | Meaning |
 |----------|---------|
 | `SAY7_DATA_DIR` | The directory with `parsed/`, `enriched/` and `plans/`. The default is `data` in the project. |
-| `SAY7_CONFIG_DIR` | The directory with `household.json`, `item-aliases.json` and `servings-overrides.json`. The default is `config` in the project. |
+| `SAY7_CONFIG_DIR` | The directory with `household.json`, `item-aliases.json`, `servings-overrides.json`, `item-protein.json` and `simple-breakfasts.json`. The default is `config` in the project. |
 
 ### Tools and prompt
 
 | Name | Action |
 |------|--------|
-| `search_recipes` | Search the catalogue with filters. Returns compact rows with links. |
+| `search_recipes` | Search the catalogue with filters, for example `forMeal: "breakfast"`. Returns compact rows with links. |
 | `get_recipe` | Return the facts and the ingredient lines of one recipe. |
 | `evaluate_plan` | Check a week plan against the rules of the household. |
 | `shopping_list` | Return the shopping list as JSON and as Markdown. |
 | `save_plan` | Write `data/plans/<weekStart>.json` and `data/plans/<weekStart>.md`. |
 | `plan_history` | List the last saved plans. The default is 4. |
 | `household` | Return the household settings. |
+| `simple_breakfasts` | List the simple breakfasts with the protein per portion and the items. |
 | prompt `plan_week` | Give the planning method to the model. Arguments: `weekStart` and optional `proteinFamily`. |
 
 A tool that fails returns `isError: true` and a message in Russian.
@@ -665,6 +666,98 @@ The tool `search_recipes` returns `proteinPerPortion` in each row. The tool `get
 
 To find items that the table does not have, run `npm run items:report`. The report `data/items-report.json` lists them in `missingProtein`. Add them to the table, then run the command again.
 
+### Breakfasts
+
+The household has three meals each day: `breakfast`, `lunch` and `dinner`. Two persons eat breakfast. The third person eats her own simple breakfast. The plan does not count her.
+
+A household whose `meals` has no `breakfast` works as before. The plan needs no breakfast slots then.
+
+These keys of `config/household.json` set the breakfast:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `meals` | `["lunch", "dinner"]` | The meals of a day. The file of the project has `["breakfast", "lunch", "dinner"]`. |
+| `mealPersons` | `{}` | The persons of a meal, for example `{ "breakfast": 2 }`. A meal without a key uses `persons`. |
+| `freshMinutesMax` | 20 | The most active minutes of the fresh dishes of one day. |
+| `breakfastExtraIds` | `[]` | Recipe IDs that are breakfast candidates in addition to the categories below. |
+
+#### Three kinds of breakfast dish
+
+- A dish of a session. Session A or B cooks it. The household eats it as a leftover. The usual rules apply.
+- A fresh dish. Its cooking entry has `"session": "fresh"`. The household cooks it in the morning of each day that it is eaten. The value `scale` is for one cooking day. The shopping list multiplies the quantities by the number of days.
+- A simple breakfast. It has no recipe and no cooking entry. It is a fixed set of products from `config/simple-breakfasts.json`.
+
+A fresh dish and a simple breakfast are allowed only in breakfast slots. A fresh dish has no freshness limit, no session day and no freeze action. Its minutes do not count in the active minutes of a session.
+
+#### Simple breakfasts
+
+The file `config/simple-breakfasts.json` lists the simple breakfasts. A missing file is an empty list.
+
+```json
+[
+  {
+    "id": "tvorog-yagody",
+    "title": "Творог с ягодами и мёдом",
+    "items": [
+      { "item": "творог", "grams": 200, "category": "dairy", "pantry": false },
+      { "item": "мед", "grams": 15, "category": "sweet", "pantry": true }
+    ]
+  }
+]
+```
+
+- The `id` is in kebab-case. Each `id` must be unique.
+- The `grams` value is for one portion. The shopping list multiplies it by the persons of each slot.
+- The item names go through the same cleaning and aliases as the item names of the catalogue.
+- Each item needs an entry in `config/item-protein.json`. The tool `simple_breakfasts` returns the protein per portion.
+
+A slot of the plan can have `recipeIds` and `simpleIds`. It must have at least one of the two. A plan file without `simpleIds` is still valid.
+
+```json
+{ "day": 0, "meal": "breakfast", "recipeIds": [], "simpleIds": ["tvorog-yagody"] }
+```
+
+#### Breakfast candidates
+
+A recipe is a breakfast candidate in these cases:
+
+- It has the category 50 (Блины, оладьи, сырники), 62 (Закуски из яиц), 63 (Бутерброды), 79 (Рецепты запеканок) or 233 (Выпечка из творога).
+- Its ID is in `breakfastExtraIds`.
+
+The catalogue keeps a candidate with `mealFit: not_a_meal`. The field `breakfastEligible` marks it. Such a recipe is valid only in breakfast slots.
+
+The filter `forMeal` of `search_recipes` takes `breakfast`, `lunch` or `dinner`. The value `breakfast` finds the candidates. The values `lunch` and `dinner` find the recipes without `not_a_meal`. If `forMeal` is missing, the search leaves `not_a_meal` recipes out. A `mealFits` filter with `not_a_meal` shows them.
+
+#### Rules of the breakfast
+
+| Code | Level | Meaning |
+|------|-------|---------|
+| `fresh_time` | warning | The active minutes of the fresh dishes of one day are more than `freshMinutesMax`. |
+| `fresh_not_breakfast` | error | A fresh dish is in a lunch or dinner slot. |
+| `unknown_simple` | error | A slot names a simple breakfast that `config/simple-breakfasts.json` does not have. |
+| `simple_not_breakfast` | error | A simple breakfast is in a lunch or dinner slot. |
+| `breakfast_only_recipe` | error | A `not_a_meal` recipe is in a lunch or dinner slot. |
+
+The issue of a rule has the list `simpleIds` next to `recipeIds`.
+
+These rules work in a special way for the breakfast:
+
+- `slot_missing` includes the breakfast slots if `meals` has `breakfast`. A slot with only `simpleIds` is filled.
+- `slot_not_a_meal` does not check breakfast slots.
+- `not_fresh`, `eaten_before_cooked` and the freeze actions skip fresh dishes.
+- The portions eaten use the persons of the meal of each slot. For a fresh dish, the check uses the busiest day, because the dish is cooked again each day.
+- `portions_left` uses the most persons of the meals of the dish.
+- `too_many_days` applies to fresh dishes. It does not apply to simple breakfasts.
+- `low_protein` adds the protein of the recipes and of the simple breakfasts of a slot. The minimum for breakfast is 15 g by default.
+- A simple breakfast has no protein family. `protein_families` counts recipes only.
+- `side_repeated` ignores a dish that is eaten only at breakfast. A simple breakfast has no side group.
+- `item_limit` counts a simple breakfast as a dish.
+- `buyItemCount` and `pantryItemCount` include the items of the simple breakfasts.
+
+The shopping list adds the items of a simple breakfast times the persons of each slot. The items go to `buy` or to `check_at_home` (when `pantry` is true). Each item has `simpleIds` next to `recipeIds`. The Markdown list shows `(блюда: 1, 2; завтраки: tvorog-yagody)` and has the section "Простые завтраки". The menu has the breakfast column first, and the section "Утром (свежие блюда)" lists the fresh dishes.
+
+After you add category 233 to the scope, run `npm run enrich` for the new recipes. Then restart the MCP server.
+
 ### Units of the shopping list
 
 The shopping list shows eggs as pieces with the grams, for example `яйца — 8 шт. (≈ 413 г)`.
@@ -731,7 +824,7 @@ src/planner/   catalogue.ts (loadCatalogue), items.ts, search.ts, evaluate.ts (e
                menu-render.ts                                                                                                   pure function (menu in Markdown)
 src/mcp/       tool.ts, tools.ts, prompt.ts, paths.ts, app.ts   tools, prompt and server
                server.ts                                        entry point (stdio)
-config/        household.json (the household settings), item-aliases.json (item name -> canonical name)
+config/        household.json (the household settings), item-aliases.json (item name -> canonical name), item-protein.json, simple-breakfasts.json
 test/          unit tests, golden tests of the 34 real pages,
                and end-to-end tests against a local HTTP server and a temporary data directory.
                The enrichment tests use a fake API: a fake service, or a local server on 127.0.0.1. No test calls the real API.

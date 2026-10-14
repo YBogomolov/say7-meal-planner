@@ -2,7 +2,7 @@ import { Schema } from "effect"
 import { IngredientCategory, IngredientUnit } from "./enriched-recipe.ts"
 import { DayIndex, SessionId } from "./household.ts"
 import { IsoDate, RecipeId } from "./recipe.ts"
-import { PlanScale } from "./week-plan.ts"
+import { CookingSession, PlanScale } from "./week-plan.ts"
 
 /** The order of the departments in the shop (spec P4.5.3). It lists every `IngredientCategory` once. */
 export const SHOP_ORDER = [
@@ -50,13 +50,16 @@ export type ShoppingAmount = typeof ShoppingAmount.Type
  *   A cereal that has only `ml` is converted: 1 amount in `g`, with `approximate`.
  * - `approximate` is true if the units mix, or if a line without quantity could not add to the sum.
  * - `recipeIds` are the dishes that use the product.
+ * - `simpleIds` are the simple breakfasts that use the product (spec P7.2.3), sorted.
+ *   Their amounts are per portion times the persons of each slot.
  */
 export const ShoppingItem = Schema.Struct({
   item: Schema.NonEmptyString,
   category: IngredientCategory,
   amounts: Schema.Array(ShoppingAmount),
   approximate: Schema.Boolean,
-  recipeIds: Schema.Array(RecipeId)
+  recipeIds: Schema.Array(RecipeId),
+  simpleIds: Schema.Array(Schema.String)
 })
 export type ShoppingItem = typeof ShoppingItem.Type
 
@@ -82,16 +85,30 @@ export const FreezeAction = Schema.Struct({
 })
 export type FreezeAction = typeof FreezeAction.Type
 
-/** A cooked dish, for the legend of the list. The recipe text is not here (spec D6): title and link only. */
+/**
+ * A cooked dish, for the legend of the list. The recipe text is not here (spec D6): title and link only.
+ * A fresh dish (spec P7.2.2) has `session: "fresh"`, `sessionDay: null` and the days that it is cooked and eaten in `freshDays`.
+ * `scale` of a fresh dish is the factor for one cooking day.
+ */
 export const ShoppingDish = Schema.Struct({
   recipeId: RecipeId,
   title: Schema.NonEmptyString,
   url: Schema.NonEmptyString,
-  session: SessionId,
-  sessionDay: DayIndex,
+  session: CookingSession,
+  sessionDay: Schema.NullOr(DayIndex),
+  freshDays: Schema.Array(DayIndex),
   scale: PlanScale
 })
 export type ShoppingDish = typeof ShoppingDish.Type
+
+/** A simple breakfast of the plan, for the legend of the list (spec P7.2.3). `portions` is the sum of the persons of its slots. */
+export const ShoppingSimple = Schema.Struct({
+  id: Schema.NonEmptyString,
+  title: Schema.NonEmptyString,
+  portions: Schema.Natural,
+  days: Schema.Array(DayIndex)
+})
+export type ShoppingSimple = typeof ShoppingSimple.Type
 
 /**
  * The shopping list of a plan (spec P4.5).
@@ -100,6 +117,7 @@ export type ShoppingDish = typeof ShoppingDish.Type
  * - `optional`: not pantry, optional ("по желанию", "для подачи").
  * - `check_at_home`: pantry.
  * - `unknownRecipeIds`: cooked recipes that the catalogue does not have. They add nothing to the list.
+ * - `simpleBreakfasts`: the simple breakfasts of the plan. `unknownSimpleIds`: IDs that `config/simple-breakfasts.json` does not have.
  */
 export const ShoppingList = Schema.Struct({
   weekStart: IsoDate,
@@ -109,6 +127,8 @@ export const ShoppingList = Schema.Struct({
   check_at_home: Schema.Array(ShoppingItem),
   actions: Schema.Array(FreezeAction),
   dishes: Schema.Array(ShoppingDish),
-  unknownRecipeIds: Schema.Array(RecipeId)
+  unknownRecipeIds: Schema.Array(RecipeId),
+  simpleBreakfasts: Schema.Array(ShoppingSimple),
+  unknownSimpleIds: Schema.Array(Schema.String)
 })
 export type ShoppingList = typeof ShoppingList.Type

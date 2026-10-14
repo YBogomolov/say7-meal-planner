@@ -2,6 +2,7 @@ import { Schema } from "effect"
 import type { Catalogue, CatalogueEntry, ProteinTable } from "../domain/catalogue.ts"
 import { DishType, Equipment, MealFit, ProteinFamily } from "../domain/enriched-recipe.ts"
 import type { Reheats } from "../domain/enriched-recipe.ts"
+import { MealName } from "../domain/household.ts"
 import { RecipeId } from "../domain/recipe.ts"
 import { buyItemsOf, cleanItemName, normaliseItem } from "./items.ts"
 import { NO_PROTEIN, portionProtein } from "./protein.ts"
@@ -22,6 +23,9 @@ const NonNegativeNumber = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOr
  * - `includesItems`: the recipe has every one of these items (names are normalised like the items of the catalogue).
  * - `requiresOnly`: the equipment of the recipe is a subset of this list.
  * - `proteinFamilies`, `dishTypes`, `mealFits`: any of the values. An empty list sets no filter.
+ * - `forMeal` (spec P7.2.4): `breakfast` finds the breakfast candidates (`breakfastEligible`, also the `not_a_meal` ones).
+ *   `lunch` and `dinner` find the recipes for those meals: no `not_a_meal` recipe.
+ *   Without `forMeal`, `not_a_meal` recipes are left out, unless `mealFits` names `not_a_meal`.
  */
 export const SearchQuery = Schema.Struct({
   text: Schema.optionalKey(Schema.String),
@@ -29,6 +33,7 @@ export const SearchQuery = Schema.Struct({
   vegetarian: Schema.optionalKey(Schema.Boolean),
   dishTypes: Schema.optionalKey(Schema.Array(DishType)),
   mealFits: Schema.optionalKey(Schema.Array(MealFit)),
+  forMeal: Schema.optionalKey(MealName),
   maxActiveMinutes: Schema.optionalKey(NonNegativeNumber),
   maxTotalMinutes: Schema.optionalKey(NonNegativeNumber),
   maxHeat: Schema.optionalKey(Schema.Literals([0, 1, 2, 3])),
@@ -65,6 +70,8 @@ export interface SearchRow {
   /** The normalised items that are not pantry and not optional, sorted. */
   readonly buyItems: ReadonlyArray<string>
   readonly commentsCount: number | null
+  /** True if the recipe is a breakfast candidate (spec P7.2.4). */
+  readonly breakfastEligible: boolean
   /** Grams of protein per portion, 1 decimal (spec P7.1.6). 0 if the protein table is empty. */
   readonly proteinPerPortion: number
 }
@@ -91,6 +98,7 @@ export const toSearchRow = (entry: CatalogueEntry, proteinTable: ProteinTable = 
     sideHint: enrichment.sideHint,
     buyItems: buyItemsOf(enrichment.ingredients),
     commentsCount: entry.commentsCount,
+    breakfastEligible: entry.breakfastEligible,
     proteinPerPortion: portionProtein(entry, proteinTable).grams
   }
 }
@@ -138,10 +146,17 @@ export const searchRecipes = (catalogue: Catalogue, query: SearchQuery): Readonl
   const excluded = new Set(query.excludeIds ?? [])
   const limit = Math.min(Math.max(Math.trunc(query.limit ?? DEFAULT_LIMIT), 1), MAX_LIMIT)
 
-  const { proteinFamilies, dishTypes, mealFits, requiresOnly } = query
+  const { proteinFamilies, dishTypes, mealFits, requiresOnly, forMeal } = query
+  const fitsMeal = (entry: CatalogueEntry): boolean => {
+    if (forMeal === "breakfast") {
+      return entry.breakfastEligible
+    }
+    return entry.enrichment.mealFit !== "not_a_meal" || (forMeal === undefined && mealFits?.includes("not_a_meal") === true)
+  }
   const matches = (entry: CatalogueEntry): boolean => {
     const { enrichment } = entry
     return !excluded.has(entry.id) &&
+      fitsMeal(entry) &&
       (proteinFamilies === undefined || proteinFamilies.length === 0 ||
         enrichment.proteinFamilies.some((family) => proteinFamilies.includes(family))) &&
       (query.vegetarian === undefined || enrichment.vegetarian === query.vegetarian) &&

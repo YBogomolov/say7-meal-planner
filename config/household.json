@@ -1,7 +1,10 @@
 {
   "persons": 3,
   "days": 7,
-  "meals": ["lunch", "dinner"],
+  "meals": ["breakfast", "lunch", "dinner"],
+  "mealPersons": { "breakfast": 2 },
+  "freshMinutesMax": 20,
+  "breakfastExtraIds": [],
   "sessions": [
     { "id": "A", "dayOffset": 0 },
     { "id": "B", "dayOffset": 4 }

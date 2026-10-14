@@ -1,5 +1,5 @@
 import { SESSION_IDS } from "../domain/household.ts"
-import type { ShoppingAmount, ShoppingItem, ShoppingList } from "../domain/shopping-list.ts"
+import type { ShoppingAmount, ShoppingDish, ShoppingItem, ShoppingList } from "../domain/shopping-list.ts"
 import { CATEGORY_HEADINGS, dateLabel, formatAmount, formatNumber } from "./labels.ts"
 
 /** Pieces first, then grams (see `shopperUnits`): `8 шт. (≈ 413 г)`. */
@@ -20,7 +20,14 @@ const amountsText = (amounts: ReadonlyArray<ShoppingAmount>, approximate: boolea
     : ` — ${pieces}`
 }
 
-const recipesText = (item: ShoppingItem): string => ` (блюда: ${item.recipeIds.join(", ")})`
+/** The dishes that use the item, and the simple breakfasts: ` (блюда: 1, 2; завтраки: tvorog-yagody)`. */
+const recipesText = (item: ShoppingItem): string => {
+  const parts = [
+    ...(item.recipeIds.length === 0 ? [] : [`блюда: ${item.recipeIds.join(", ")}`]),
+    ...(item.simpleIds.length === 0 ? [] : [`завтраки: ${item.simpleIds.join(", ")}`])
+  ]
+  return ` (${parts.join("; ")})`
+}
 
 /** The text of a link in Markdown: the brackets and the backslash get a backslash. */
 export const escapeLinkText = (text: string): string => text.replace(/[\\[\]]/g, (char) => `\\${char}`)
@@ -54,6 +61,31 @@ const plainSection = (heading: string, items: ReadonlyArray<ShoppingItem>, withR
     ""
   ]
 
+const dishLine = (dish: ShoppingDish): string =>
+  `- [${escapeLinkText(dish.title)}](${dish.url}) (${dish.recipeId})${dish.scale === 1 ? "" : `, масштаб ×${formatNumber(dish.scale)}`}`
+
+/** Fresh dishes (spec P7.2.2): the days of cooking, and the scale of one day. */
+const freshDishes = (list: ShoppingList): ReadonlyArray<string> => {
+  const dishes = list.dishes.filter((dish) => dish.session === "fresh")
+  return dishes.length === 0 ? [] : [
+    "Свежие блюда, утром в день еды:",
+    "",
+    ...dishes.map((dish) => `${dishLine(dish)}, дни ${dish.freshDays.join(", ")}`),
+    ""
+  ]
+}
+
+/** Simple breakfasts (spec P7.2.3): the title, the portions and the days. */
+const simpleSection = (list: ShoppingList): ReadonlyArray<string> =>
+  list.simpleBreakfasts.length === 0 ? [] : [
+    "## Простые завтраки",
+    "",
+    ...list.simpleBreakfasts.map((simple) =>
+      `- ${simple.title} (${simple.id}): ${formatNumber(simple.portions)} порц., дни ${simple.days.join(", ")}`
+    ),
+    ""
+  ]
+
 const dishesSection = (list: ShoppingList): ReadonlyArray<string> =>
   list.dishes.length === 0 ? [] : [
     "## Блюда",
@@ -61,22 +93,26 @@ const dishesSection = (list: ShoppingList): ReadonlyArray<string> =>
     ...SESSION_IDS.flatMap((session) => {
       const dishes = list.dishes.filter((dish) => dish.session === session)
       const first = dishes[0]
-      return first === undefined ? [] : [
+      return first === undefined || first.sessionDay === null ? [] : [
         `Сессия ${session}, ${dateLabel(list.weekStart, first.sessionDay)}:`,
         "",
-        ...dishes.map((dish) =>
-          `- [${escapeLinkText(dish.title)}](${dish.url}) (${dish.recipeId})${dish.scale === 1 ? "" : `, масштаб ×${formatNumber(dish.scale)}`}`
-        ),
+        ...dishes.map(dishLine),
         ""
       ]
-    })
+    }),
+    ...freshDishes(list)
   ]
 
-const unknownSection = (list: ShoppingList): ReadonlyArray<string> =>
-  list.unknownRecipeIds.length === 0 ? [] : [
+const unknownSection = (list: ShoppingList): ReadonlyArray<string> => [
+  ...(list.unknownRecipeIds.length === 0 ? [] : [
     `**Внимание:** рецептов ${list.unknownRecipeIds.join(", ")} нет в каталоге. Их продукты не вошли в список.`,
     ""
-  ]
+  ]),
+  ...(list.unknownSimpleIds.length === 0 ? [] : [
+    `**Внимание:** простых завтраков ${list.unknownSimpleIds.join(", ")} нет в config/simple-breakfasts.json. Их продукты не вошли в список.`,
+    ""
+  ])
+]
 
 /**
  * The shopping list as Markdown in Russian (spec P4.5.6). Units: г, кг (from 1000 г), мл, л (from 1000 мл), шт. and the rest.
@@ -93,7 +129,8 @@ export const renderShoppingList = (list: ShoppingList): string =>
     ...freezeSection(list),
     ...plainSection("По желанию", list.optional, true),
     ...plainSection("Проверить дома", list.check_at_home, false),
-    ...dishesSection(list)
+    ...dishesSection(list),
+    ...simpleSection(list)
   ].join("\n").replace(/\n*$/, "\n")
 
 const textLine = (item: ShoppingItem): string => `${item.item}${amountsText(item.amounts, item.approximate)}\n`

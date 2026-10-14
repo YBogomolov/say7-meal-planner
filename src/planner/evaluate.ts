@@ -1,16 +1,16 @@
 import { daysBetween } from "../domain/calendar.ts"
 import type { Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
 import { ProteinFamily } from "../domain/enriched-recipe.ts"
-import { sessionDay } from "../domain/household.ts"
+import { personsOf, sessionDay } from "../domain/household.ts"
 import type { Household } from "../domain/household.ts"
 import type { DishPortions, IssueCode, PlanEvaluation, PlanIssue, PlanMetrics, SlotProtein } from "../domain/plan-evaluation.ts"
 import type { RecipeId } from "../domain/recipe.ts"
 import type { WeekPlan } from "../domain/week-plan.ts"
 import { isBuyIngredient } from "./items.ts"
-import { portionProtein, UNCERTAIN_COVERAGE } from "./protein.ts"
+import { portionProtein, simpleProtein, UNCERTAIN_COVERAGE } from "./protein.ts"
 import { dayLabel, DISH_TYPE_LABELS, EQUIPMENT_LABELS, formatNumber, MEAL_LABELS, PROTEIN_LABELS } from "./labels.ts"
-import { isCooked, planDishes } from "./plan-model.ts"
-import type { CookedDish, PlanDish } from "./plan-model.ts"
+import { compareSlots, isCooked, isFresh, planDishes, planSimples, portionsEaten, sessionIdOf } from "./plan-model.ts"
+import type { CookedDish, PlanDish, PlanSimple } from "./plan-model.ts"
 import { buyItemsIn, hasAnyBuyItem, sideGroupsOf, tasteRulesOf } from "./taste.ts"
 import type { TasteRules } from "./taste.ts"
 
@@ -29,8 +29,9 @@ const finding = (
   code: IssueCode,
   message: string,
   recipeIds: ReadonlyArray<RecipeId>,
-  days: ReadonlyArray<number>
-): Finding => ({ level, issue: { code, message, recipeIds, days } })
+  days: ReadonlyArray<number>,
+  simpleIds: ReadonlyArray<string> = []
+): Finding => ({ level, issue: { code, message, recipeIds, simpleIds, days } })
 
 interface Context {
   readonly plan: WeekPlan
@@ -39,6 +40,8 @@ interface Context {
   readonly history: ReadonlyArray<WeekPlan>
   readonly dishes: ReadonlyArray<PlanDish>
   readonly cooked: ReadonlyArray<CookedDish>
+  /** The simple breakfasts of the plan (spec P7.2.3). */
+  readonly simples: ReadonlyArray<PlanSimple>
   readonly taste: TasteRules
 }
 
@@ -46,11 +49,31 @@ interface Context {
 const nameOf = (dish: PlanDish): string =>
   dish.entry === undefined ? `рецепт ${dish.recipeId}` : `«${dish.entry.title}» (${dish.recipeId})`
 
+/** `«Title» (id)`, or `простой завтрак id` if the config does not have the ID. */
+const simpleName = (simple: PlanSimple): string =>
+  simple.entry === undefined ? `простой завтрак ${simple.simpleId}` : `«${simple.entry.title}» (${simple.simpleId})`
+
 const daysText = (days: ReadonlyArray<number>): string => days.join(", ")
+
+/** Where a dish is cooked, as text: `в сессии A` or `свежим в день еды`. */
+const cookingText = (dish: PlanDish): string =>
+  dish.cooking === undefined || dish.cooking.session === "fresh" ? "свежим в день еды" : `в сессии ${dish.cooking.session}`
 
 const unknownRecipes = ({ dishes }: Context): ReadonlyArray<Finding> =>
   dishes.filter((dish) => dish.entry === undefined).map((dish) =>
     finding("error", "unknown_recipe", `Рецепта ${dish.recipeId} нет в каталоге.`, [dish.recipeId], dish.days)
+  )
+
+const unknownSimple = ({ simples }: Context): ReadonlyArray<Finding> =>
+  simples.filter((simple) => simple.entry === undefined).map((simple) =>
+    finding(
+      "error",
+      "unknown_simple",
+      `Простого завтрака «${simple.simpleId}» нет в config/simple-breakfasts.json (дни ${daysText(simple.days)}).`,
+      [],
+      simple.days,
+      [simple.simpleId]
+    )
   )
 
 const notCooked = ({ dishes }: Context): ReadonlyArray<Finding> =>
@@ -69,15 +92,17 @@ const cookedNotEaten = ({ dishes }: Context): ReadonlyArray<Finding> =>
     finding(
       "warning",
       "cooked_not_eaten",
-      `${nameOf(dish)} готовится в сессии ${dish.cooking?.session}, но не стоит ни в одном приёме пищи.`,
+      `${nameOf(dish)} готовится (${cookingText(dish)}), но не стоит ни в одном приёме пищи.`,
       [dish.recipeId],
       []
     )
   )
 
-/** The slots of `days × meals` that have no dish. */
+/** The slots of `days × meals` that have no dish and no simple breakfast. */
 const slotMissing = ({ plan, household }: Context): ReadonlyArray<Finding> => {
-  const filled = new Set(plan.meals.filter((entry) => entry.recipeIds.length > 0).map((entry) => `${entry.day}/${entry.meal}`))
+  const filled = new Set(
+    plan.meals.filter((entry) => entry.recipeIds.length + entry.simpleIds.length > 0).map((entry) => `${entry.day}/${entry.meal}`)
+  )
   return Array.from({ length: household.days }, (_, day) => day).flatMap((day) =>
     household.meals.flatMap((meal) =>
       filled.has(`${day}/${meal}`) ? [] : [
@@ -90,11 +115,17 @@ const slotMissing = ({ plan, household }: Context): ReadonlyArray<Finding> => {
 const isSide = (entry: CatalogueEntry): boolean =>
   entry.enrichment.dishType === "side" || entry.enrichment.mealFit === "side_only"
 
-/** A slot is a meal if it has a `full_meal` dish, or a `needs_side` dish together with a `side` or `side_only` dish. */
+/**
+ * A slot is a meal if it has a `full_meal` dish, or a `needs_side` dish together with a `side` or `side_only` dish.
+ * A breakfast slot is not judged (spec P7.2.4): a breakfast can be a pancake, a sandwich or a simple breakfast.
+ */
 const slotNotAMeal = ({ plan, catalogue }: Context): ReadonlyArray<Finding> =>
   [...plan.meals]
-    .sort((a, b) => a.day - b.day || (a.meal === b.meal ? 0 : a.meal === "lunch" ? -1 : 1))
+    .sort(compareSlots)
     .flatMap((slot) => {
+      if (slot.meal === "breakfast") {
+        return []
+      }
       const entries = slot.recipeIds.map((id) => catalogue.byId.get(id))
       // A dish that the catalogue does not know is already an error. The slot cannot be judged without it.
       if (entries.length === 0 || entries.some((entry) => entry === undefined)) {
@@ -124,13 +155,17 @@ const eatenBeforeCooked = ({ dishes, household }: Context): ReadonlyArray<Findin
     if (dish.cooking === undefined) {
       return []
     }
-    const cookingDay = sessionDay(household, dish.cooking.session)
+    const session = sessionIdOf(dish.cooking)
+    if (session === undefined) {
+      return []
+    }
+    const cookingDay = sessionDay(household, session)
     const early = dish.days.filter((day) => day < cookingDay)
     return early.length === 0 ? [] : [
       finding(
         "error",
         "eaten_before_cooked",
-        `${nameOf(dish)} готовится в сессии ${dish.cooking.session} (день ${cookingDay}), а стоит в меню раньше: дни ${daysText(early)}.`,
+        `${nameOf(dish)} готовится в сессии ${session} (день ${cookingDay}), а стоит в меню раньше: дни ${daysText(early)}.`,
         [dish.recipeId],
         early
       )
@@ -140,7 +175,7 @@ const eatenBeforeCooked = ({ dishes, household }: Context): ReadonlyArray<Findin
 const portionsOf = (dish: CookedDish, household: Household): DishPortions => {
   const { servings } = dish.entry.enrichment
   const { scale } = dish.cooking
-  const eaten = household.persons * dish.slots.length
+  const eaten = portionsEaten(dish.slots, household, isFresh(dish))
   const made = { min: servings.min * scale, max: servings.max * scale }
   return {
     recipeId: dish.recipeId,
@@ -151,10 +186,18 @@ const portionsOf = (dish: CookedDish, household: Household): DishPortions => {
   }
 }
 
-/** `portions_short` (error), `portions_tight` and `portions_left` (warnings). A short dish is not also tight. */
+/** The persons for the waste limit of a dish: the most persons of any of its meals (`persons` if the dish has no slot). */
+const wastePersons = (dish: CookedDish, household: Household): number =>
+  dish.slots.length === 0 ? household.persons : Math.max(...dish.slots.map((slot) => personsOf(household, slot.meal)))
+
+/**
+ * `portions_short` (error), `portions_tight` and `portions_left` (warnings). A short dish is not also tight.
+ * A fresh dish is judged for its busiest day: `made` is for one cooking day (spec P7.2.2).
+ */
 const portions = ({ cooked, household }: Context): ReadonlyArray<Finding> =>
   cooked.flatMap((dish): ReadonlyArray<Finding> => {
     const { made, eaten, left, scale } = portionsOf(dish, household)
+    const wasteLimit = wastePersons(dish, household) * WASTE_PORTIONS_PER_PERSON
     const ids = [dish.recipeId]
     const scaleText = `масштаб ${formatNumber(scale)}`
     if (eaten > made.max) {
@@ -179,14 +222,12 @@ const portions = ({ cooked, household }: Context): ReadonlyArray<Finding> =>
         )
       ]
     }
-    return left.min > household.persons * WASTE_PORTIONS_PER_PERSON
+    return left.min > wasteLimit
       ? [
         finding(
           "warning",
           "portions_left",
-          `${nameOf(dish)}: останется не меньше ${formatNumber(left.min)} порц. при норме до ${
-            household.persons * WASTE_PORTIONS_PER_PERSON
-          } (${scaleText}). Еда может пропасть.`,
+          `${nameOf(dish)}: останется не меньше ${formatNumber(left.min)} порц. при норме до ${wasteLimit} (${scaleText}). Еда может пропасть.`,
           ids,
           dish.days
         )
@@ -221,14 +262,18 @@ const sameDayTwice = ({ dishes }: Context): ReadonlyArray<Finding> =>
 
 const notFresh = ({ cooked, household }: Context): ReadonlyArray<Finding> =>
   cooked.flatMap((dish) => {
-    const cookingDay = sessionDay(household, dish.cooking.session)
+    const session = sessionIdOf(dish.cooking)
+    if (session === undefined) {
+      return []
+    }
+    const cookingDay = sessionDay(household, session)
     const limit = Math.min(dish.entry.enrichment.fridgeDays, household.fridgeDaysCap)
     const late = dish.days.filter((day) => day - cookingDay > limit)
     return late.length === 0 ? [] : [
       finding(
         "error",
         "not_fresh",
-        `${nameOf(dish)} хранится в холодильнике не больше ${limit} дн. (готовится в сессии ${dish.cooking.session}, день ${cookingDay}), но стоит в меню: ${
+        `${nameOf(dish)} хранится в холодильнике не больше ${limit} дн. (готовится в сессии ${session}, день ${cookingDay}), но стоит в меню: ${
           late.map((day) => `день ${day} (через ${day - cookingDay} дн.)`).join(", ")
         }.`,
         [dish.recipeId],
@@ -288,6 +333,86 @@ const activeTime = (context: Context): ReadonlyArray<Finding> =>
       ]
       : []
   )
+
+/**
+ * `fresh_time` (warning, spec P7.2.2): the active minutes of the fresh dishes of 1 day are above `freshMinutesMax`.
+ * 1 warning for each set of dishes, with the days.
+ */
+const freshTime = ({ cooked, household }: Context): ReadonlyArray<Finding> => {
+  const fresh = cooked.filter(isFresh)
+  const groups = new Map<string, { readonly dishes: ReadonlyArray<CookedDish>; readonly minutes: number; readonly days: Array<number> }>()
+  for (const day of sortedDays(fresh)) {
+    const dishes = fresh.filter((dish) => dish.days.includes(day))
+    const minutes = dishes.reduce((total, dish) => total + activeMinutesOf(dish), 0)
+    if (minutes > household.freshMinutesMax) {
+      const key = dishes.map((dish) => dish.recipeId).join(",")
+      const group = groups.get(key)
+      if (group === undefined) {
+        groups.set(key, { dishes, minutes, days: [day] })
+      } else {
+        group.days.push(day)
+      }
+    }
+  }
+  return [...groups.values()].map((group) =>
+    finding(
+      "warning",
+      "fresh_time",
+      `Свежие блюда ${group.dishes.map(nameOf).join(", ")} (дни ${daysText(group.days)}): ${formatNumber(group.minutes)} мин. активной работы за день при норме ${household.freshMinutesMax}.`,
+      group.dishes.map((dish) => dish.recipeId),
+      group.days
+    )
+  )
+}
+
+/** `fresh_not_breakfast` (error, spec P7.2.2): a fresh dish is allowed only in breakfast slots. */
+const freshNotBreakfast = ({ cooked }: Context): ReadonlyArray<Finding> =>
+  cooked.filter(isFresh).flatMap((dish) => {
+    const days = [...new Set(dish.slots.filter((slot) => slot.meal !== "breakfast").map((slot) => slot.day))]
+    return days.length === 0 ? [] : [
+      finding(
+        "error",
+        "fresh_not_breakfast",
+        `${nameOf(dish)} готовится свежим, а свежие блюда допустимы только на завтрак. Он стоит в обеде или ужине (дни ${daysText(days)}).`,
+        [dish.recipeId],
+        days
+      )
+    ]
+  })
+
+/** `simple_not_breakfast` (error, spec P7.2.3): a simple breakfast is allowed only in breakfast slots. */
+const simpleNotBreakfast = ({ simples }: Context): ReadonlyArray<Finding> =>
+  simples.flatMap((simple) => {
+    const days = [...new Set(simple.slots.filter((slot) => slot.meal !== "breakfast").map((slot) => slot.day))]
+    return days.length === 0 ? [] : [
+      finding(
+        "error",
+        "simple_not_breakfast",
+        `${simpleName(simple)} — простой завтрак, а он допустим только в завтраке. Он стоит в обеде или ужине (дни ${daysText(days)}).`,
+        [],
+        days,
+        [simple.simpleId]
+      )
+    ]
+  })
+
+/** `breakfast_only_recipe` (error, spec P7.2.4): a `not_a_meal` recipe is valid only in breakfast slots. */
+const breakfastOnlyRecipe = ({ dishes }: Context): ReadonlyArray<Finding> =>
+  dishes.flatMap((dish) => {
+    if (dish.entry?.enrichment.mealFit !== "not_a_meal") {
+      return []
+    }
+    const days = [...new Set(dish.slots.filter((slot) => slot.meal !== "breakfast").map((slot) => slot.day))]
+    return days.length === 0 ? [] : [
+      finding(
+        "error",
+        "breakfast_only_recipe",
+        `${nameOf(dish)} не годится для обеда и ужина (not_a_meal), его можно поставить только на завтрак. Он стоит в обеде или ужине (дни ${daysText(days)}).`,
+        [dish.recipeId],
+        days
+      )
+    ]
+  })
 
 /** A wait above `longWaitHoursMax` is an error. Any other wait is a warning. */
 const longWait = ({ cooked, household }: Context): ReadonlyArray<Finding> =>
@@ -355,6 +480,10 @@ const recentRepeat = ({ plan, dishes, history, household }: Context): ReadonlyAr
 const sortedDays = (dishes: ReadonlyArray<PlanDish>): ReadonlyArray<number> =>
   [...new Set(dishes.flatMap((dish) => dish.days))].sort((a, b) => a - b)
 
+/** Does the dish have slots, and are they all breakfast slots? */
+const isBreakfastOnly = (dish: PlanDish): boolean =>
+  dish.slots.length > 0 && dish.slots.every((slot) => slot.meal === "breakfast")
+
 /** A cooked dish of a type that the household does not eat is an error (spec P4.8). */
 const dishTypeExcluded = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
   cooked.filter((dish) => taste.excludedDishTypes.includes(dish.entry.enrichment.dishType)).map((dish) =>
@@ -367,10 +496,13 @@ const dishTypeExcluded = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
     )
   )
 
-/** One warning for each side group that 2 or more cooked dishes have (spec P4.8). */
+/**
+ * One warning for each side group that 2 or more cooked dishes have (spec P4.8).
+ * A dish that is eaten only at breakfast is not counted (spec P7.2): a breakfast has no side. Simple breakfasts have no side group.
+ */
 const sideRepeated = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
   taste.sideGroups.flatMap((group): ReadonlyArray<Finding> => {
-    const dishes = cooked.filter((dish) => sideGroupsOf(dish.entry.enrichment.ingredients, taste).includes(group.name))
+    const dishes = cooked.filter((dish) => !isBreakfastOnly(dish)).filter((dish) => sideGroupsOf(dish.entry.enrichment.ingredients, taste).includes(group.name))
     return dishes.length < 2 ? [] : [
       finding(
         "warning",
@@ -404,32 +536,59 @@ const heavyDinner = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
     ]
   })
 
-/** One warning for each limit that more than `maxDishes` cooked dishes break (spec P4.8). */
-const itemLimit = ({ cooked, taste }: Context): ReadonlyArray<Finding> =>
+/** The items of a simple breakfast in the form that the taste rules read: no item is optional. */
+const simpleIngredients = (simple: PlanSimple) =>
+  (simple.entry?.items ?? []).map((item) => ({ item: item.item, pantry: item.pantry, optional: false }))
+
+/**
+ * One warning for each limit that more than `maxDishes` cooked dishes break (spec P4.8).
+ * A simple breakfast of the plan counts as a dish (spec P7.2): a limit on sausages covers a sandwich with sausage.
+ */
+const itemLimit = ({ cooked, simples, taste }: Context): ReadonlyArray<Finding> =>
   taste.itemLimits.flatMap((limit): ReadonlyArray<Finding> => {
     const dishes = cooked.filter((dish) => hasAnyBuyItem(dish.entry.enrichment.ingredients, limit.items))
-    return dishes.length <= limit.maxDishes ? [] : [
+    const simpleDishes = simples.filter((simple) => hasAnyBuyItem(simpleIngredients(simple), limit.items))
+    const count = dishes.length + simpleDishes.length
+    return count <= limit.maxDishes ? [] : [
       finding(
         "warning",
         "item_limit",
-        `Ограничение «${limit.name}»: в ${dishes.length} блюдах, а допустимо не больше ${limit.maxDishes}: ${dishes.map(nameOf).join(", ")}.`,
+        `Ограничение «${limit.name}»: в ${count} блюдах, а допустимо не больше ${limit.maxDishes}: ${
+          [...dishes.map(nameOf), ...simpleDishes.map(simpleName)].join(", ")
+        }.`,
         dishes.map((dish) => dish.recipeId),
-        sortedDays(dishes)
+        [...new Set([...sortedDays(dishes), ...simpleDishes.flatMap((simple) => simple.days)])].sort((a, b) => a - b),
+        simpleDishes.map((simple) => simple.simpleId)
       )
     ]
   })
 
-/** The protein of every slot that has dishes, sorted by day and meal. A slot with a dish outside the catalogue is left out. */
+/** A dish of a slot for the protein: a recipe or a simple breakfast. */
+interface SlotDish {
+  readonly title: string
+  readonly id: string
+  readonly protein: ReturnType<typeof portionProtein>
+}
+
+/**
+ * The protein of every slot that has dishes, sorted by day and meal. A slot with a recipe outside the catalogue
+ * or a simple breakfast outside the config is left out. The protein of a slot adds its recipes and its simple breakfasts (spec P7.2).
+ */
 const slotProteins = ({ plan, catalogue }: Context) =>
   [...plan.meals]
-    .sort((a, b) => a.day - b.day || (a.meal === b.meal ? 0 : a.meal === "lunch" ? -1 : 1))
+    .sort(compareSlots)
     .flatMap((slot) => {
       const entries = slot.recipeIds.map((id) => catalogue.byId.get(id))
       const known = entries.flatMap((entry) => entry === undefined ? [] : [entry])
-      if (known.length === 0 || known.length !== entries.length) {
+      const simples = slot.simpleIds.map((id) => catalogue.simpleById.get(id))
+      const knownSimples = simples.flatMap((simple) => simple === undefined ? [] : [simple])
+      if (known.length + knownSimples.length === 0 || known.length !== entries.length || knownSimples.length !== simples.length) {
         return []
       }
-      const dishes = known.map((entry) => ({ entry, protein: portionProtein(entry, catalogue.proteinTable) }))
+      const dishes: ReadonlyArray<SlotDish> = [
+        ...known.map((entry): SlotDish => ({ title: entry.title, id: String(entry.id), protein: portionProtein(entry, catalogue.proteinTable) })),
+        ...knownSimples.map((simple): SlotDish => ({ title: simple.title, id: simple.id, protein: simpleProtein(simple, catalogue.proteinTable) }))
+      ]
       return [{
         slot,
         dishes,
@@ -440,7 +599,7 @@ const slotProteins = ({ plan, catalogue }: Context) =>
 
 /**
  * `low_protein` (warning, spec P7.1): the protein of a slot is below the minimum of its meal.
- * 1 warning for each set of dishes (sorted recipe IDs) and meal, with the days.
+ * 1 warning for each set of dishes (sorted recipe IDs and simple breakfast IDs) and meal, with the days.
  * The rule is off if the protein table is empty.
  */
 const lowProtein = (context: Context): ReadonlyArray<Finding> => {
@@ -451,7 +610,7 @@ const lowProtein = (context: Context): ReadonlyArray<Finding> => {
   const groups = new Map<string, Array<ReturnType<typeof slotProteins>[number]>>()
   for (const item of slotProteins(context)) {
     if (item.grams < context.household.proteinMinGrams[item.slot.meal]) {
-      const key = `${item.slot.meal}/${[...item.slot.recipeIds].sort((a, b) => a - b).join(",")}`
+      const key = `${item.slot.meal}/${[...item.slot.recipeIds].sort((a, b) => a - b).join(",")}/${[...item.slot.simpleIds].sort().join(",")}`
       groups.set(key, [...(groups.get(key) ?? []), item])
     }
   }
@@ -464,19 +623,21 @@ const lowProtein = (context: Context): ReadonlyArray<Finding> => {
     const minimum = context.household.proteinMinGrams[meal]
     const days = items.map((item) => item.slot.day)
     const ids = [...first.slot.recipeIds].sort((a, b) => a - b)
+    const simpleIds = [...first.slot.simpleIds].sort()
     const uncertain = first.dishes.filter((dish) => dish.protein.coverage < UNCERTAIN_COVERAGE)
     const note = uncertain.length === 0 ? "" : ` Оценка неточная: в таблице белка нет части продуктов блюд ${
-      uncertain.map((dish) => `«${dish.entry.title}» (${dish.entry.id}, покрытие ${Math.round(dish.protein.coverage * 100)}%)`).join(", ")
+      uncertain.map((dish) => `«${dish.title}» (${dish.id}, покрытие ${Math.round(dish.protein.coverage * 100)}%)`).join(", ")
     }.`
     return [
       finding(
         "warning",
         "low_protein",
         `Мало белка в приёме пищи «${MEAL_LABELS[meal]}» (дни ${daysText(days)}): ${formatNumber(first.grams)} г на порцию при норме не меньше ${minimum} г. Блюда: ${
-          first.dishes.map((dish) => `«${dish.entry.title}» (${dish.entry.id})`).join(", ")
+          first.dishes.map((dish) => `«${dish.title}» (${dish.id})`).join(", ")
         }.${note}`,
         ids,
-        days
+        days,
+        simpleIds
       )
     ]
   })
@@ -484,9 +645,15 @@ const lowProtein = (context: Context): ReadonlyArray<Finding> => {
 
 const metricsOf = (context: Context): PlanMetrics => {
   const { plan, household, cooked } = context
-  const ingredients = cooked.flatMap((dish) => dish.entry.enrichment.ingredients)
+  // The products of the simple breakfasts of the plan count like the products of the cooked dishes (spec P7.2.3).
+  const ingredients = [
+    ...cooked.flatMap((dish) => dish.entry.enrichment.ingredients),
+    ...context.simples.flatMap(simpleIngredients)
+  ]
   const required = household.days * household.meals.length
-  const filled = new Set(plan.meals.filter((entry) => entry.recipeIds.length > 0).map((entry) => `${entry.day}/${entry.meal}`))
+  const filled = new Set(
+    plan.meals.filter((entry) => entry.recipeIds.length + entry.simpleIds.length > 0).map((entry) => `${entry.day}/${entry.meal}`)
+  )
   return {
     buyItemCount: new Set(ingredients.filter(isBuyIngredient).map((ingredient) => ingredient.item)).size,
     pantryItemCount: new Set(ingredients.filter((ingredient) => ingredient.pantry).map((ingredient) => ingredient.item)).size,
@@ -511,6 +678,7 @@ const metricsOf = (context: Context): PlanMetrics => {
 /** The rules of spec P4.4 and P4.8 in the order of the table. Every rule runs: the result lists all the problems. */
 const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
   unknownRecipes,
+  unknownSimple,
   notCooked,
   cookedNotEaten,
   slotMissing,
@@ -530,7 +698,11 @@ const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
   sideRepeated,
   heavyDinner,
   itemLimit,
-  lowProtein
+  lowProtein,
+  freshTime,
+  freshNotBreakfast,
+  simpleNotBreakfast,
+  breakfastOnlyRecipe
 ]
 
 /**
@@ -540,6 +712,9 @@ const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
  * and does not stop at the first error. `history` is the list of saved plans, for `recent_repeat`.
  * The dishes that the catalogue does not know are `unknown_recipe`. The rules that need the catalogue skip them.
  * A meal outside the grid `days × meals` counts as eaten, and is not an error.
+ *
+ * Breakfast (spec P7.2): the persons of a slot come from `mealPersons`. Fresh dishes (`session: "fresh"`) have no session day,
+ * no freshness limit and no share of the session minutes. Simple breakfasts have no protein family and no side group.
  */
 export const evaluatePlan = (
   plan: WeekPlan,
@@ -555,6 +730,7 @@ export const evaluatePlan = (
     history,
     dishes,
     cooked: dishes.filter(isCooked),
+    simples: planSimples(plan, catalogue),
     taste: tasteRulesOf(household.preferences, catalogue.aliases)
   }
   const findings = RULES.flatMap((rule) => rule(context))

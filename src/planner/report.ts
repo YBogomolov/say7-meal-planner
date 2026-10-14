@@ -1,3 +1,4 @@
+import { MEAL_NAMES } from "../domain/household.ts"
 import type { PlanEvaluation, PlanIssue } from "../domain/plan-evaluation.ts"
 import type { IsoDate } from "../domain/recipe.ts"
 import { formatNumber, MEAL_LABELS, PROTEIN_LABELS } from "./labels.ts"
@@ -11,7 +12,7 @@ const proteinLine = (slots: PlanEvaluation["metrics"]["proteinPerSlot"]): string
   if (slots.length === 0) {
     return "нет данных"
   }
-  return (["lunch", "dinner"] as const)
+  return MEAL_NAMES
     .flatMap((meal) => {
       const grams = slots.filter((slot) => slot.meal === meal).map((slot) => slot.grams)
       return grams.length === 0 ? [] : [`${MEAL_LABELS[meal]} ${formatNumber(Math.min(...grams))}–${formatNumber(Math.max(...grams))} г`]

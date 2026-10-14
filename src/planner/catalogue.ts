@@ -1,5 +1,6 @@
 import { Effect, FileSystem, Option, Path, Result, Schema } from "effect"
 import type { Aliases, Catalogue, CatalogueEntry, ProteinTable } from "../domain/catalogue.ts"
+import type { SimpleBreakfast } from "../domain/simple-breakfast.ts"
 import { EnrichedRecipeJson } from "../domain/enriched-recipe.ts"
 import type { EnrichedRecipe } from "../domain/enriched-recipe.ts"
 import { ParsedRecipeJson } from "../domain/parsed-recipe.ts"
@@ -7,8 +8,10 @@ import type { ParsedRecipe } from "../domain/parsed-recipe.ts"
 import { RecipeId } from "../domain/recipe.ts"
 import { ParsedReadError } from "../enrich/store.ts"
 import { StoreError } from "../scraper/store.ts"
+import { isBreakfastEligible } from "./breakfast.ts"
 import { NO_ALIASES, normaliseItem } from "./items.ts"
 import { NO_PROTEIN } from "./protein.ts"
+import { NO_SIMPLE_BREAKFASTS } from "./simple.ts"
 import { applyServingsOverrides, NO_SERVINGS_OVERRIDES } from "./servings.ts"
 import type { ServingsOverrides } from "./servings.ts"
 
@@ -18,8 +21,14 @@ const READ_CONCURRENCY = 16
 /**
  * The catalogue entry of a recipe: the facts of the page and the enrichment, with normalised item names (spec P4.2.2).
  * Pure. The intro and the steps are left out.
+ * `breakfastExtraIds` are the recipes that `household.breakfastExtraIds` adds to the breakfast candidates (spec P7.2.4).
  */
-export const toCatalogueEntry = (parsed: ParsedRecipe, enriched: EnrichedRecipe, aliases: Aliases): CatalogueEntry => {
+export const toCatalogueEntry = (
+  parsed: ParsedRecipe,
+  enriched: EnrichedRecipe,
+  aliases: Aliases,
+  breakfastExtraIds: ReadonlySet<RecipeId> = new Set()
+): CatalogueEntry => {
   const { ingredients, ...enrichment } = enriched.enrichment
   const category = parsed.categories[0]
   return {
@@ -31,7 +40,8 @@ export const toCatalogueEntry = (parsed: ParsedRecipe, enriched: EnrichedRecipe,
     enrichment: {
       ...enrichment,
       ingredients: ingredients.map(({ item, ...rest }) => ({ ...rest, item: normaliseItem(item, aliases), rawItem: item }))
-    }
+    },
+    breakfastEligible: isBreakfastEligible(parsed, breakfastExtraIds)
   }
 }
 
@@ -40,10 +50,19 @@ export const makeCatalogue = (
   entries: ReadonlyArray<CatalogueEntry>,
   aliases: Aliases = NO_ALIASES,
   overridden: ReadonlySet<RecipeId> = new Set(),
-  proteinTable: ProteinTable = NO_PROTEIN
+  proteinTable: ProteinTable = NO_PROTEIN,
+  simpleBreakfasts: ReadonlyArray<SimpleBreakfast> = NO_SIMPLE_BREAKFASTS
 ): Catalogue => {
   const sorted = [...entries].sort((a, b) => a.id - b.id)
-  return { entries: sorted, byId: new Map(sorted.map((entry) => [entry.id, entry])), aliases, overridden, proteinTable }
+  return {
+    entries: sorted,
+    byId: new Map(sorted.map((entry) => [entry.id, entry])),
+    aliases,
+    overridden,
+    proteinTable,
+    simpleBreakfasts,
+    simpleById: new Map(simpleBreakfasts.map((simple) => [simple.id, simple]))
+  }
 }
 
 /** Why `loadCatalogue` leaves a recipe out. */
@@ -55,6 +74,14 @@ export interface SkippedRecipe {
   readonly reason: SkipReason
   /** Russian text that tells what is wrong. */
   readonly message: string
+}
+
+/** What `loadCatalogue` takes from the config besides the aliases, the servings overrides and the protein table. */
+export interface CatalogueExtras {
+  /** `config/simple-breakfasts.json`, loaded (spec P7.2.3). */
+  readonly simpleBreakfasts?: ReadonlyArray<SimpleBreakfast>
+  /** `household.breakfastExtraIds` (spec P7.2.4). */
+  readonly breakfastExtraIds?: ReadonlyArray<RecipeId>
 }
 
 export interface LoadedCatalogue {
@@ -100,17 +127,20 @@ const readRecipeFile = <A, I>(target: string, id: RecipeId, codec: Schema.Codec<
  * Load the catalogue from `<dataDir>/parsed/<id>.json` and `<dataDir>/enriched/<id>.json` (spec P4.2.1).
  *
  * A recipe is in the catalogue if both files decode and `mealFit` is not `not_a_meal`.
+ * A `not_a_meal` recipe stays in the catalogue if it is a breakfast candidate (spec P7.2.4, `breakfastEligible`):
+ * it is valid only in breakfast slots.
  * The other recipes are in `skipped`, with the reason. The recipes without an enriched file (desserts, for example) are there too.
  * The load fails only if one of the two directories does not exist, or cannot be listed.
  * The item names are normalised with `aliases`.
  * `overrides` set `servings.min` and `servings.max` after the decode (see `applyServingsOverrides`).
- * `proteinTable` goes into the catalogue as it is (spec P7.1).
+ * `proteinTable` goes into the catalogue as it is (spec P7.1). So do the simple breakfasts of `extras` (spec P7.2.3).
  */
 export const loadCatalogue = (
   dataDir: string,
   aliases: Aliases = NO_ALIASES,
   overrides: ServingsOverrides = NO_SERVINGS_OVERRIDES,
-  proteinTable: ProteinTable = NO_PROTEIN
+  proteinTable: ProteinTable = NO_PROTEIN,
+  extras: CatalogueExtras = {}
 ): Effect.Effect<LoadedCatalogue, StoreError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
     const path = yield* Path.Path
@@ -119,6 +149,7 @@ export const loadCatalogue = (
     const parsedIds = new Set(yield* listRecipeIds(parsedDir, "Запустите `npm run parse`."))
     const enrichedIds = new Set(yield* listRecipeIds(enrichedDir, "Запустите `npm run enrich`."))
     const ids = [...new Set([...parsedIds, ...enrichedIds])].sort((a, b) => a - b)
+    const extraIds = new Set(extras.breakfastExtraIds ?? [])
 
     const load = (id: RecipeId) =>
       Effect.gen(function*() {
@@ -140,9 +171,10 @@ export const loadCatalogue = (
         if (Result.isFailure(enriched)) {
           return skip("invalid_enriched", enriched.failure)
         }
-        return enriched.success.enrichment.mealFit === "not_a_meal"
-          ? skip("not_a_meal", "Блюдо не годится для обеда или ужина (mealFit: not_a_meal).")
-          : Result.succeed(toCatalogueEntry(parsed.success, enriched.success, aliases))
+        const entry = toCatalogueEntry(parsed.success, enriched.success, aliases, extraIds)
+        return enriched.success.enrichment.mealFit === "not_a_meal" && !entry.breakfastEligible
+          ? skip("not_a_meal", "Блюдо не годится для обеда, ужина и завтрака (mealFit: not_a_meal).")
+          : Result.succeed(entry)
       })
 
     const results = yield* Effect.forEach(ids, load, { concurrency: READ_CONCURRENCY })
@@ -151,7 +183,7 @@ export const loadCatalogue = (
       overrides
     )
     return {
-      catalogue: makeCatalogue(applied.entries, aliases, applied.overridden, proteinTable),
+      catalogue: makeCatalogue(applied.entries, aliases, applied.overridden, proteinTable, extras.simpleBreakfasts),
       skipped: results.flatMap((result) => Result.isFailure(result) ? [result.failure] : []),
       unknownOverrides: applied.unknown
     }

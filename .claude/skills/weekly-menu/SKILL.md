@@ -11,13 +11,13 @@ Plan 1 week of lunches and dinners for the household with the tools of the `say7
 
 1. Read `references/preferences.md`. It holds the family's taste rules that the code does not check yet. They matter as much as the errors of `evaluate_plan`: the first menu of this household passed every code rule and the user still rejected it twice for taste reasons.
 2. Find the week. Day 0 is the shopping day and the day of session A. Default: the next Saturday after today. If the user names a date, use it as day 0, also when it is not a Saturday, and name its weekday in the answer.
-3. Call `household` and `plan_history`. The household is 3 persons × 2 meals × 7 days = 42 portions. Session A covers days 0–3, session B covers days 4–6. Put the dishes of the last plans in `excludeIds`, and prefer a protein family that the last plans used little.
+3. Call `household`, `plan_history` and `simple_breakfasts`. Lunch and dinner are for 3 persons, breakfast for 2 (`mealPersons`): the third person makes her own simple breakfast and is not in the plan. Session A covers days 0–3, session B covers days 4–6. Put the dishes of the last plans in `excludeIds`, and prefer a protein family that the last plans used little.
 
 If the `say7` tools are not available, tell the user that the MCP server is not connected (`claude mcp list`) and stop.
 
 ## Build the menu
 
-Think of the week as 4 groups of slots, and choose dishes for each:
+Think of the week as 5 groups of slots, and choose dishes for each:
 
 | Group | Slots | Portions |
 |---|---|---|
@@ -25,6 +25,9 @@ Think of the week as 4 groups of slots, and choose dishes for each:
 | A dinners | days 0–3 dinner | 12 |
 | B lunches | days 4–6 lunch | 9 |
 | B dinners | days 4–6 dinner | 9 |
+| Breakfasts | days 0–6 breakfast | 14 (2 a day) |
+
+Every meal needs protein: `low_protein` warns below 15 g at breakfast and 20 g at lunch and dinner per portion (`proteinPerPortion` in the search rows; the slot sums its dishes). Treat it like the taste warnings: fix it, for example with a protein side or a richer dish.
 
 Lunches are the main, filling meal. Dinners are light (see the preferences). This split is the main reason to search lunches and dinners separately: a dish that is fine for lunch can be wrong for dinner.
 
@@ -38,6 +41,14 @@ How to search:
 - Read `buyItems` of each candidate: it is the fastest way to see rice, mayonnaise, cream or a repeated side dish. For a dinner with `сметана`, `сливки` or `сыр` in `buyItems`, call `get_recipe` and look at the amounts: a filling with cream and a lot of cheese is not light.
 - "A side dish does not repeat" means the starchy or vegetable base of the plate: potato in any form counts as potato, any pasta counts as pasta.
 - If no recipe matches a wish exactly (for example «курица с грибами и гречкой»), put 2 recipes in 1 slot: a `needs_side` main and a side recipe (`recipeIds: [main, side]`). Tell the user that you did this.
+
+Breakfasts:
+- Mix 3 kinds over the week. Use a varied pattern, for example 2–3 simple breakfasts, 2 days of a session dish, 2 fresh mornings.
+  - Simple breakfasts from `simple_breakfasts` go into `simpleIds` of the slot (no cooking entry). They are quick and give enough protein.
+  - Session dishes (`session` "A" or "B"): сырники, запеканки, filled pancakes. They are reheated in the morning, so they must reheat well (`reheats`) and stay fresh (`fridgeDays`).
+  - Fresh dishes (`session: "fresh"`): omelettes, eggs, quick pancakes, cooked in the morning of each day they are eaten; `scale` is per morning (2 portions). The active time of 1 morning must stay within `freshMinutesMax` (20 min, rule `fresh_time`).
+- Search with `forMeal: "breakfast"`. Some breakfast recipes are `not_a_meal` (sweet pancakes): they are allowed only at breakfast.
+- Do not repeat the same breakfast on more than 2 days. Sweet breakfasts (pancakes with jam) need a protein part in the same slot (a simple breakfast with cottage cheese or yogurt, or eggs).
 
 Rules of thumb that the code does not state:
 - 2 dishes per group is the right size: in session A each dish covers 2 days, in session B one covers 2 days and the other 1 day. That gives about 8 dishes a week. More dishes make more cooking and more products to buy (the test week with 9 dishes and 4 side recipes needed 32 products), fewer dishes make the week monotonous (1 dish on all 3 days of session B is too much). Prefer a `full_meal` dish to a main plus a separate side recipe; use a side recipe when the main dish needs it. Alternate the dishes so that a dish is not at lunch and dinner on the same day (`same_day_twice`).
@@ -65,8 +76,8 @@ Rules of thumb that the code does not state:
 Do not call `save_plan` before the user approves. Show the draft in Russian:
 
 1. One line: status of `evaluate_plan`, protein families, `buyItemCount`.
-2. A table: day (weekday and date) × lunch, dinner. The first time a dish appears, write it as a link `[title](url)`; on later days, use a short name.
-3. The sessions: for each dish the scale, portions made vs. eaten. Active minutes per session.
+2. A table: day (weekday and date) × breakfast, lunch, dinner. The first time a dish appears, write it as a link `[title](url)`; on later days, use a short name.
+3. The sessions: for each dish the scale, portions made vs. eaten. Active minutes per session. Then the fresh breakfasts («утром»): dish, days, minutes per morning.
 4. The shopping list, grouped (vegetables, meat and fish, dairy, other), with the freezing action and "проверить дома".
 5. «Что смущает»: 1–3 honest doubts (odd amounts, seasonal products, items that are hard to buy in Varna) with a concrete alternative.
 6. A question: approve or change.

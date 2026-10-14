@@ -4,10 +4,10 @@ import { RecipeId } from "../domain/recipe.ts"
 import { WeekPlan } from "../domain/week-plan.ts"
 import { writeTextAtomic } from "../planner/atomic.ts"
 import { loadCatalogue, makeCatalogue } from "../planner/catalogue.ts"
-import { loadAliases, loadHousehold, loadItemProtein, loadServingsOverrides } from "../planner/config.ts"
+import { loadAliases, loadCatalogueExtras, loadHousehold, loadItemProtein, loadServingsOverrides } from "../planner/config.ts"
 import { evaluatePlan } from "../planner/evaluate.ts"
 import { loadHistory, savePlan } from "../planner/plans.ts"
-import { portionProtein } from "../planner/protein.ts"
+import { portionProtein, simpleProtein } from "../planner/protein.ts"
 import { renderMenu } from "../planner/menu-render.ts"
 import { searchRecipes, SearchQuery } from "../planner/search.ts"
 import { shoppingList } from "../planner/shopping.ts"
@@ -26,6 +26,7 @@ export const HistoryInput = Schema.Struct({
   limit: Schema.optionalKey(Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 1, maximum: MAX_HISTORY_LIMIT }))))
 })
 export const HouseholdInput = Schema.Struct({})
+export const SimpleBreakfastsInput = Schema.Struct({})
 
 /** The state that the tools share: the directories and the catalogue, loaded once at the start. */
 export interface World {
@@ -53,10 +54,16 @@ export const loadWorld = (
     const aliases = yield* loadAliases(configDir)
     const overrides = yield* loadServingsOverrides(configDir)
     const proteinTable = yield* loadItemProtein(configDir, aliases)
-    const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides, proteinTable))
+    const extras = yield* loadCatalogueExtras(configDir, aliases)
+    const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides, proteinTable, extras))
     if (loaded._tag === "Failure") {
       warn(loaded.failure.message)
-      return { dataDir, configDir, catalogue: makeCatalogue([], aliases, undefined, proteinTable), skipped: 0 }
+      return {
+        dataDir,
+        configDir,
+        catalogue: makeCatalogue([], aliases, undefined, proteinTable, extras.simpleBreakfasts),
+        skipped: 0
+      }
     }
     for (const id of loaded.success.unknownOverrides) {
       warn(`в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
@@ -66,14 +73,14 @@ export const loadWorld = (
 
 const json = (value: unknown): string => JSON.stringify(value)
 
-/** The seven tools of spec P5.3. Each returns titles, links and facts, never the intro or the steps of a recipe (spec D6). */
+/** The eight tools of spec P5.3 and P7.2.6. Each returns titles, links and facts, never the intro or the steps of a recipe (spec D6). */
 export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSystem | Path.Path>> => {
   const { dataDir, configDir, catalogue } = world
 
   const searchTool = defineTool({
     name: "search_recipes",
     description:
-      "Поиск рецептов в каталоге по фильтрам (все необязательны). Возвращает компактные строки: id, название, ссылку, тип блюда, порции, время, нагрев, дни в холодильнике, продукты к покупке, белок на порцию в граммах (proteinPerPortion, оценка по таблице белка). Сортировка: popular или fewest_items. По умолчанию 20 строк, не больше 100.",
+      "Поиск рецептов в каталоге по фильтрам (все необязательны). Возвращает компактные строки: id, название, ссылку, тип блюда, порции, время, нагрев, дни в холодильнике, продукты к покупке, белок на порцию в граммах (proteinPerPortion, оценка по таблице белка). Фильтр forMeal: breakfast (кандидаты на завтрак, в том числе блюда not_a_meal, которые годятся только для завтрака), lunch или dinner (без блюд not_a_meal); без forMeal блюда not_a_meal не показываются. Поле breakfastEligible показывает, годится ли блюдо для завтрака. Сортировка: popular или fewest_items. По умолчанию 20 строк, не больше 100.",
     input: SearchQuery,
     run: (query) =>
       Effect.succeed([
@@ -101,7 +108,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const evaluateTool = defineTool({
     name: "evaluate_plan",
     description:
-      "Проверяет план недели по правилам семьи (коды ошибок и предупреждений, показатели: buyItemCount, порции, активное время, белки, proteinPerSlot — белок по приёмам пищи в граммах; предупреждение low_protein, если белка в приёме мало). План с ошибками (ok: false) нельзя считать готовым.",
+      "Проверяет план недели по правилам семьи (коды ошибок и предупреждений, показатели: buyItemCount, порции, активное время сессий, белки, proteinPerSlot — белок по приёмам пищи в граммах; предупреждение low_protein, если белка в приёме мало). Завтраки: слот breakfast может содержать recipeIds и simpleIds (простые завтраки из simple_breakfasts); блюдо с session fresh готовится в день еды и допустимо только на завтрак (fresh_time, fresh_not_breakfast, unknown_simple, simple_not_breakfast, breakfast_only_recipe). План с ошибками (ok: false) нельзя считать готовым.",
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function*() {
@@ -114,7 +121,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const shoppingTool = defineTool({
     name: "shopping_list",
     description:
-      "Список покупок для плана: JSON (разделы buy, optional, check_at_home, actions, dishes) и тот же список в Markdown. Ответ: JSON с полями list и markdown.",
+      "Список покупок для плана: JSON (разделы buy, optional, check_at_home, actions, dishes, simpleBreakfasts) и тот же список в Markdown. Свежие блюда умножаются на число дней, простые завтраки — на число персон слота; в позиции recipeIds — блюда, simpleIds — простые завтраки. Ответ: JSON с полями list и markdown.",
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function*() {
@@ -127,7 +134,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const saveTool = defineTool({
     name: "save_plan",
     description:
-      "Сохраняет план в data/plans/<weekStart>.json и меню в data/plans/<weekStart>.md (таблица дней, сессии готовки, оценка, список покупок). Сохраняется и план с ошибками правил: проверьте его через evaluate_plan до сохранения. План той же недели заменяется.",
+      "Сохраняет план в data/plans/<weekStart>.json и меню в data/plans/<weekStart>.md (таблица дней с завтраками, сессии готовки и свежие блюда, оценка, список покупок). Сохраняется и план с ошибками правил: проверьте его через evaluate_plan до сохранения. План той же недели заменяется.",
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function*() {
@@ -156,7 +163,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const historyTool = defineTool({
     name: "plan_history",
     description:
-      `Последние сохранённые планы (по умолчанию ${DEFAULT_HISTORY_LIMIT}), новые первыми: weekStart, блюда (id, название, сессия, масштаб) и заметки.`,
+      `Последние сохранённые планы (по умолчанию ${DEFAULT_HISTORY_LIMIT}), новые первыми: weekStart, блюда (id, название, сессия A, B или fresh, масштаб), простые завтраки (simpleIds) и заметки.`,
     input: HistoryInput,
     run: ({ limit }) =>
       Effect.gen(function*() {
@@ -167,6 +174,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
             plans: last.map((plan) => ({
               weekStart: plan.weekStart,
               notes: plan.notes,
+              simpleIds: [...new Set(plan.meals.flatMap((meal) => meal.simpleIds))].sort(),
               dishes: plan.cooking.map((entry) => ({
                 id: entry.recipeId,
                 title: catalogue.byId.get(entry.recipeId)?.title ?? null,
@@ -182,10 +190,32 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
 
   const householdTool = defineTool({
     name: "household",
-    description: "Настройки семьи: персоны, дни, приёмы пищи, сессии готовки, лимиты нагрева, времени и белков.",
+    description: "Настройки семьи: персоны, дни, приёмы пищи (в том числе завтрак), персоны по приёмам (mealPersons), сессии готовки, лимиты нагрева, времени (в том числе freshMinutesMax для свежих блюд завтрака) и белков (proteinMinGrams).",
     input: HouseholdInput,
     run: () => loadHousehold(configDir).pipe(Effect.map((household) => [json(household)]))
   })
 
-  return [searchTool, getRecipeTool, evaluateTool, shoppingTool, saveTool, historyTool, householdTool]
+  const simpleTool = defineTool({
+    name: "simple_breakfasts",
+    description:
+      "Простые завтраки из config/simple-breakfasts.json: id, название, белок на порцию в граммах (proteinPerPortion, coverage — покрытие оценки, 0–1) и продукты на одну порцию (item, grams, category, pantry). Положите id в simpleIds слота breakfast; готовить и записывать в cooking не нужно.",
+    input: SimpleBreakfastsInput,
+    run: () =>
+      Effect.succeed([
+        json({
+          simpleBreakfasts: catalogue.simpleBreakfasts.map((simple) => {
+            const protein = simpleProtein(simple, catalogue.proteinTable)
+            return {
+              id: simple.id,
+              title: simple.title,
+              proteinPerPortion: protein.grams,
+              coverage: protein.coverage,
+              items: simple.items
+            }
+          })
+        })
+      ])
+  })
+
+  return [searchTool, getRecipeTool, evaluateTool, shoppingTool, saveTool, historyTool, householdTool, simpleTool]
 }

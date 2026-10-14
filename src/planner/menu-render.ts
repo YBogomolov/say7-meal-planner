@@ -21,6 +21,10 @@ const dishLink = (catalogue: Catalogue, id: RecipeId): string => {
   return entry === undefined ? `рецепт ${id} (нет в каталоге)` : `[${escapeLinkText(entry.title)}](${entry.url})`
 }
 
+/** A simple breakfast as plain text (it has no page): the title, or a note for an ID that the config does not have. */
+const simpleText = (catalogue: Catalogue, id: string): string =>
+  catalogue.simpleById.get(id)?.title ?? `простой завтрак ${id} (нет в config)`
+
 const tableCell = (text: string): string => text.replaceAll("|", "\\|")
 
 const tableSection = ({ plan, catalogue, household }: MenuInput): ReadonlyArray<string> => {
@@ -33,9 +37,11 @@ const tableSection = ({ plan, catalogue, household }: MenuInput): ReadonlyArray<
     ...days.map((day) => {
       const cells = household.meals.map((meal) => {
         const slot = plan.meals.find((entry) => entry.day === day && entry.meal === meal)
-        return slot === undefined || slot.recipeIds.length === 0
+        return slot === undefined || slot.recipeIds.length + slot.simpleIds.length === 0
           ? "—"
-          : tableCell(slot.recipeIds.map((id) => dishLink(catalogue, id)).join(" + "))
+          : tableCell(
+            [...slot.recipeIds.map((id) => dishLink(catalogue, id)), ...slot.simpleIds.map((id) => simpleText(catalogue, id))].join(" + ")
+          )
       })
       return `| ${dateLabel(plan.weekStart, day)} | ${cells.join(" | ")} |`
     }),
@@ -43,31 +49,60 @@ const tableSection = ({ plan, catalogue, household }: MenuInput): ReadonlyArray<
   ]
 }
 
-const sessionsSection = ({ plan, catalogue, household, evaluation }: MenuInput): ReadonlyArray<string> => [
-  "## Сессии готовки",
-  "",
-  ...household.sessions.flatMap((session) => {
-    const dishes = plan.cooking.filter((entry) => entry.session === session.id)
-    const minutes = evaluation.metrics.activeMinutes.find((item) => item.session === session.id)?.minutes ?? 0
-    return [
-      `### Сессия ${session.id}: ${dateLabel(plan.weekStart, session.dayOffset)}`,
-      "",
-      ...(dishes.length === 0
-        ? ["Блюд нет."]
-        : dishes.map((entry) => {
-          const active = catalogue.byId.get(entry.recipeId)?.enrichment.activeMinutes
-          const facts = [
-            `масштаб ×${formatNumber(entry.scale)}`,
-            ...(active === undefined ? [] : [`активно ${formatNumber(active)} мин.`])
-          ]
-          return `- ${dishLink(catalogue, entry.recipeId)}: ${facts.join(", ")}`
-        })),
-      "",
-      `Активное время сессии: ${formatNumber(minutes)} мин. (норма ${formatNumber(household.activeMinutesPerSession)} мин.).`,
-      ""
-    ]
-  })
-]
+/** Fresh dishes (spec P7.2.2): cooked in the morning of each day that they are eaten. */
+const freshSection = ({ plan, catalogue }: MenuInput): ReadonlyArray<string> => {
+  const fresh = plan.cooking.filter((entry) => entry.session === "fresh")
+  if (fresh.length === 0) {
+    return []
+  }
+  return [
+    "### Утром (свежие блюда)",
+    "",
+    ...fresh.map((entry) => {
+      const days = [...new Set(plan.meals.filter((meal) => meal.recipeIds.includes(entry.recipeId)).map((meal) => meal.day))].sort(
+        (a, b) => a - b
+      )
+      const active = catalogue.byId.get(entry.recipeId)?.enrichment.activeMinutes
+      const facts = [
+        `масштаб ×${formatNumber(entry.scale)} на каждый день`,
+        ...(active === undefined ? [] : [`активно ${formatNumber(active)} мин. в день`]),
+        `дни ${days.join(", ")}`
+      ]
+      return `- ${dishLink(catalogue, entry.recipeId)}: ${facts.join(", ")}`
+    }),
+    ""
+  ]
+}
+
+const sessionsSection = (input: MenuInput): ReadonlyArray<string> => {
+  const { plan, catalogue, household, evaluation } = input
+  return [
+    "## Сессии готовки",
+    "",
+    ...household.sessions.flatMap((session) => {
+      const dishes = plan.cooking.filter((entry) => entry.session === session.id)
+      const minutes = evaluation.metrics.activeMinutes.find((item) => item.session === session.id)?.minutes ?? 0
+      return [
+        `### Сессия ${session.id}: ${dateLabel(plan.weekStart, session.dayOffset)}`,
+        "",
+        ...(dishes.length === 0
+          ? ["Блюд нет."]
+          : dishes.map((entry) => {
+            const active = catalogue.byId.get(entry.recipeId)?.enrichment.activeMinutes
+            const facts = [
+              `масштаб ×${formatNumber(entry.scale)}`,
+              ...(active === undefined ? [] : [`активно ${formatNumber(active)} мин.`])
+            ]
+            return `- ${dishLink(catalogue, entry.recipeId)}: ${facts.join(", ")}`
+          })),
+        "",
+        `Активное время сессии: ${formatNumber(minutes)} мин. (норма ${formatNumber(household.activeMinutesPerSession)} мин.).`,
+        ""
+      ]
+    }),
+    ...freshSection(input)
+  ]
+}
 
 const issueBlock = (heading: string, issues: ReadonlyArray<PlanIssue>): ReadonlyArray<string> =>
   issues.length === 0 ? [] : [`${heading}:`, "", ...issues.map((issue) => `- [${issue.code}] ${issue.message}`), ""]
