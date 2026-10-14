@@ -223,6 +223,7 @@ Ingredient item:
    - Batch: 1075 of 1076 valid. 1 decode failure (878: an ingredient line without an item). `--retry-failed` (sync): 1 of 1 valid. Total: 1076 of 1076 valid (100 %). Acceptance passed.
    - Tokens (batch): input 709 836, output 740 166, cache read 6 493 404, cache write 12 092. Estimated cost: 0.2538 USD (batch) + 0.0012 USD (retry) = 0.255 USD.
    - Gold set on the full-run outputs: 338/340 (99.4 %). Failed checks: `activeMinutes` of 38 (40, expected 50–100) and 1653 (25, expected 30–70).
+7. Scope extension P7.2.5 (2026-10-14, `claude-haiku-5-5`, same prompt): category 233 added. 1105 in scope, 29 new requests, 29 of 29 valid. Estimated cost: 0.0078 USD.
 
 ### P4 — catalogue, plan rules, shopping list
 
