@@ -1,4 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js"
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import {
   CallToolRequestSchema,
   GetPromptRequestSchema,
@@ -22,12 +22,13 @@ export const SERVER_VERSION = "0.1.0"
 
 /**
  * The MCP server with the tools of spec P5.3 and the prompt `plan_week`, on top of the loaded `world`.
- * It uses the low-level `Server` and its request handlers, so that the JSON Schemas of the tools come from Effect Schema.
+ * `McpServer.registerTool` accepts only Zod schemas. So the handlers go on the low-level `server` of `McpServer`,
+ * and the JSON Schemas of the tools come from Effect Schema.
  * `log` writes to stderr (stdout is the protocol).
  */
-export const createServer = (world: World, log: (message: string) => void): Server => {
+export const createServer = (world: World, log: (message: string) => void): McpServer => {
   const tools = makeTools(world)
-  const server = new Server(
+  const mcpServer = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
       capabilities: { tools: {}, prompts: {} },
@@ -35,6 +36,7 @@ export const createServer = (world: World, log: (message: string) => void): Serv
         "Планировщик меню на неделю по рецептам say7.info. Начните с промпта plan_week или с инструментов household и plan_history. Инструменты возвращают названия, ссылки и факты, без текстов рецептов."
     }
   )
+  const { server } = mcpServer
 
   server.setRequestHandler(ListToolsRequestSchema, () => ({
     tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
@@ -72,5 +74,5 @@ export const createServer = (world: World, log: (message: string) => void): Serv
     }
   })
 
-  return server
+  return mcpServer
 }

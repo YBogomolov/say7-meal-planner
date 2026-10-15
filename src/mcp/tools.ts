@@ -51,10 +51,8 @@ export const loadWorld = (
   warn: (message: string) => void
 ): Effect.Effect<World, { readonly message: string }, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
-    const aliases = yield* loadAliases(configDir)
-    const overrides = yield* loadServingsOverrides(configDir)
-    const proteinTable = yield* loadItemProtein(configDir, aliases)
-    const extras = yield* loadCatalogueExtras(configDir, aliases)
+    const [aliases, overrides] = yield* Effect.all([loadAliases(configDir), loadServingsOverrides(configDir)])
+    const [proteinTable, extras] = yield* Effect.all([loadItemProtein(configDir, aliases), loadCatalogueExtras(configDir, aliases)])
     const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides, proteinTable, extras))
     if (loaded._tag === "Failure") {
       warn(loaded.failure.message)
@@ -112,8 +110,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function*() {
-        const household = yield* loadHousehold(configDir)
-        const history = yield* loadHistory(dataDir)
+        const [household, history] = yield* Effect.all([loadHousehold(configDir), loadHistory(dataDir)])
         return [json(evaluatePlan(plan, catalogue, household, history.plans))]
       })
   })
