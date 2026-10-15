@@ -4,7 +4,7 @@ import { RecipeId } from "../domain/recipe.ts"
 import { WeekPlan } from "../domain/week-plan.ts"
 import { writeTextAtomic } from "../planner/atomic.ts"
 import { loadCatalogue, makeCatalogue } from "../planner/catalogue.ts"
-import { loadAliases, loadCatalogueExtras, loadHousehold, loadItemProtein, loadServingsOverrides } from "../planner/config.ts"
+import { loadHousehold, loadPlannerConfig } from "../planner/config.ts"
 import { evaluatePlan } from "../planner/evaluate.ts"
 import { loadHistory, savePlan } from "../planner/plans.ts"
 import { portionProtein, simpleProtein } from "../planner/protein.ts"
@@ -51,8 +51,7 @@ export const loadWorld = (
   warn: (message: string) => void
 ): Effect.Effect<World, { readonly message: string }, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
-    const [aliases, overrides] = yield* Effect.all([loadAliases(configDir), loadServingsOverrides(configDir)])
-    const [proteinTable, extras] = yield* Effect.all([loadItemProtein(configDir, aliases), loadCatalogueExtras(configDir, aliases)])
+    const { aliases, overrides, proteinTable, extras } = yield* loadPlannerConfig(configDir)
     const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides, proteinTable, extras))
     if (loaded._tag === "Failure") {
       warn(loaded.failure.message)
@@ -110,7 +109,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function*() {
-        const [household, history] = yield* Effect.all([loadHousehold(configDir), loadHistory(dataDir)])
+        const [household, history] = yield* Effect.all([loadHousehold(configDir), loadHistory(dataDir)], { concurrency: "unbounded" })
         return [json(evaluatePlan(plan, catalogue, household, history.plans))]
       })
   })
@@ -136,8 +135,9 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     run: ({ plan }) =>
       Effect.gen(function*() {
         const path = yield* Path.Path
-        const household = yield* loadHousehold(configDir)
-        const history = yield* loadHistory(dataDir)
+        const [household, history] = yield* Effect.all([loadHousehold(configDir), loadHistory(dataDir)], {
+          concurrency: "unbounded"
+        })
         const saved = yield* savePlan(dataDir, plan)
         const evaluation = evaluatePlan(saved.plan, catalogue, household, history.plans)
         const list = shoppingList(saved.plan, catalogue, household)

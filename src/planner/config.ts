@@ -139,7 +139,34 @@ export const loadCatalogueExtras = (
   aliases: Aliases = NO_ALIASES
 ): Effect.Effect<CatalogueExtras, ConfigError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function*() {
-    const household = yield* loadHousehold(configDir)
-    const simpleBreakfasts = yield* loadSimpleBreakfasts(configDir, aliases)
+    const [household, simpleBreakfasts] = yield* Effect.all(
+      [loadHousehold(configDir), loadSimpleBreakfasts(configDir, aliases)],
+      { concurrency: "unbounded" }
+    )
     return { simpleBreakfasts, breakfastExtraIds: household.breakfastExtraIds }
+  })
+
+/** The config that every CLI and the MCP server pass to `loadCatalogue`. The files load concurrently; the protein table and the extras need `aliases`. */
+export const loadPlannerConfig = (
+  configDir: string = DEFAULT_CONFIG_DIR
+): Effect.Effect<
+  {
+    readonly aliases: Aliases
+    readonly overrides: ServingsOverrides
+    readonly proteinTable: ProteinTable
+    readonly extras: CatalogueExtras
+  },
+  ConfigError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function*() {
+    const [aliases, overrides] = yield* Effect.all(
+      [loadAliases(configDir), loadServingsOverrides(configDir)],
+      { concurrency: "unbounded" }
+    )
+    const [proteinTable, extras] = yield* Effect.all(
+      [loadItemProtein(configDir, aliases), loadCatalogueExtras(configDir, aliases)],
+      { concurrency: "unbounded" }
+    )
+    return { aliases, overrides, proteinTable, extras }
   })

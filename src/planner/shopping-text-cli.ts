@@ -2,7 +2,7 @@ import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import { Console, Effect, FileSystem, Path } from "effect"
 import { loadCatalogue } from "./catalogue.ts"
 import { parseShoppingTextCli, SHOPPING_TEXT_USAGE } from "./cli-options.ts"
-import { loadAliases, loadItemProtein, loadCatalogueExtras, loadHousehold, loadServingsOverrides } from "./config.ts"
+import { loadHousehold, loadPlannerConfig } from "./config.ts"
 import { plannerLayer } from "./layers.ts"
 import { decodePlanJson, PlanInvalidError } from "./plans.ts"
 import { shoppingList } from "./shopping.ts"
@@ -30,11 +30,10 @@ const main = Effect.gen(function*() {
     Effect.mapError((error) => new PlanInvalidError({ message: `Файл ${file} не читается: ${error.message}` }))
   )
   const plan = yield* decodePlanJson(text)
-  const household = yield* loadHousehold(configDir)
-  const aliases = yield* loadAliases(configDir)
-  const overrides = yield* loadServingsOverrides(configDir)
-  const proteinTable = yield* loadItemProtein(configDir, aliases)
-  const extras = yield* loadCatalogueExtras(configDir, aliases)
+  const [household, { aliases, overrides, proteinTable, extras }] = yield* Effect.all(
+    [loadHousehold(configDir), loadPlannerConfig(configDir)],
+    { concurrency: "unbounded" }
+  )
   const { catalogue, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable, extras)
   for (const id of unknownOverrides) {
     yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)

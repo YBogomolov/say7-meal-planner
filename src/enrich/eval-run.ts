@@ -28,15 +28,17 @@ export const evaluate = (gold: ReadonlyArray<GoldEntry>): Effect.Effect<EvalRepo
     const store = yield* EnrichStore
     const entries = yield* Effect.forEach(gold, (entry): Effect.Effect<StoredEntry, StoreError> =>
       Effect.gen(function*() {
-        const stored = yield* store.readEnriched(entry.id)
-        const parsed = yield* Effect.option(store.readParsed(entry.id))
+        const [stored, parsed] = yield* Effect.all(
+          [store.readEnriched(entry.id), Effect.option(store.readParsed(entry.id))],
+          { concurrency: "unbounded" }
+        )
         return {
           gold: entry,
           stored,
           enrichment: Option.map(stored, (file) => file.enrichment),
           lines: Option.map(parsed, (recipe) => recipe.ingredientGroups.flatMap((group) => group.items))
         }
-      }))
+      }), { concurrency: 8 })
     const report = buildEvalReport(entries, DateTime.formatIso(yield* DateTime.now))
     yield* store.writeEval(report)
     for (const line of formatEvalReport(report)) {

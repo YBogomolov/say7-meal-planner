@@ -6,7 +6,7 @@ import { writeTextAtomic } from "./atomic.ts"
 import type { SkipReason, SkippedRecipe } from "./catalogue.ts"
 import { loadCatalogue, SKIP_REASONS } from "./catalogue.ts"
 import { ITEMS_REPORT_USAGE, parseItemsReportCli } from "./cli-options.ts"
-import { loadAliases, loadItemProtein, loadCatalogueExtras, loadServingsOverrides } from "./config.ts"
+import { loadPlannerConfig } from "./config.ts"
 import { itemsReport } from "./items.ts"
 import { plannerLayer } from "./layers.ts"
 import { missingProteinItems } from "./protein.ts"
@@ -38,10 +38,7 @@ const main = Effect.gen(function*() {
   }
   const { dataDir, configDir } = command.options
   const path = yield* Path.Path
-  const aliases = yield* loadAliases(configDir)
-  const overrides = yield* loadServingsOverrides(configDir)
-  const proteinTable = yield* loadItemProtein(configDir, aliases)
-  const extras = yield* loadCatalogueExtras(configDir, aliases)
+  const { aliases, overrides, proteinTable, extras } = yield* loadPlannerConfig(configDir)
   const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable, extras)
   for (const id of unknownOverrides) {
     yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
