@@ -6,9 +6,8 @@ import type { ParsedRecipe } from "../domain/parsed-recipe.ts"
 import { RawIndexJson } from "../domain/raw-index.ts"
 import type { RawIndex } from "../domain/raw-index.ts"
 import type { RecipeId } from "../domain/recipe.ts"
-import { IndexInvalidError, StoreError } from "../scraper/store.ts"
-
-const TEMP_SUFFIX = ".tmp"
+import { IndexInvalidError } from "../scraper/store.ts"
+import { io, StoreError, writeTextAtomic, TEMP_SUFFIX } from "../store/fs.ts"
 
 /**
  * `data/raw/` for reading and `data/parsed/` for writing.
@@ -47,21 +46,11 @@ export class ParseStore extends Context.Service<
         const parsedPath = (id: RecipeId) => path.join(parsedDir, `${id}.json`)
         const reportPath = path.join(parsedDir, "_report.json")
 
-        const io = <A>(target: string, effect: Effect.Effect<A, { readonly message: string }>) =>
-          effect.pipe(Effect.mapError((error) => new StoreError({ path: target, message: error.message })))
-
-        /** Write to `<target>.tmp` in the same directory, then rename over `target`. */
-        const writeAtomic = (target: string, text: string) => {
-          const temp = `${target}${TEMP_SUFFIX}`
-          return io(
-            target,
-            fs.makeDirectory(parsedDir, { recursive: true }).pipe(
-              Effect.andThen(fs.writeFileString(temp, text)),
-              Effect.andThen(fs.rename(temp, target)),
-              Effect.onError(() => fs.remove(temp, { force: true }).pipe(Effect.ignore))
-            )
+        const writeAtomic = (target: string, text: string) =>
+          writeTextAtomic(target, text).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path)
           )
-        }
 
         const prepare = Effect.gen(function* () {
           yield* io(parsedDir, fs.makeDirectory(parsedDir, { recursive: true }))

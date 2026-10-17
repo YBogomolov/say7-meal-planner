@@ -1,7 +1,6 @@
 import { Effect, FileSystem, Path, Result, Schema } from "effect"
 import { PLAN_DECODE_OPTIONS, WeekPlan, WeekPlanJson } from "../domain/week-plan.ts"
-import { StoreError } from "../scraper/store.ts"
-import { writeTextAtomic } from "./atomic.ts"
+import { StoreError, writeTextAtomic } from "../store/fs.ts"
 
 const PLAN_FILE = /^(\d{4}-\d{2}-\d{2})\.json$/
 

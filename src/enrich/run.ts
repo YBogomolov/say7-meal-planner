@@ -4,7 +4,7 @@ import type { EnrichedRecipe, Enrichment, ModelName, TokenUsage } from "../domai
 import type { BatchState, EnrichFailure, EnrichReport, FailureKind, RunMode } from "../domain/enrich-report.ts"
 import type { ParsedRecipe } from "../domain/parsed-recipe.ts"
 import type { RecipeId } from "../domain/recipe.ts"
-import type { StoreError } from "../scraper/store.ts"
+import type { StoreError } from "../store/fs.ts"
 import { Llm } from "./api.ts"
 import { judgeCompletion, retryRequest } from "./decode.ts"
 import { formatDryRun, summariseDryRun } from "./dry-run.ts"

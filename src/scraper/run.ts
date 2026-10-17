@@ -10,7 +10,8 @@ import type { PlannedFetch } from "./plan.ts"
 import { isAllowed, parseRobots } from "./robots.ts"
 import { parseSitemap, recipePath, SitemapError } from "./sitemap.ts"
 import { RawStore } from "./store.ts"
-import type { IndexInvalidError, StoreError } from "./store.ts"
+import type { IndexInvalidError } from "./store.ts"
+import type { StoreError } from "../store/fs.ts"
 
 export class RobotsError extends Schema.TaggedError<RobotsError>()("RobotsError", {
   message: Schema.String,

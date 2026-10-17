@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ParsedReadError } from "../src/enrich/store.ts"
-import { StoreError } from "../src/scraper/store.ts"
+import { StoreError } from "../src/store/fs.ts"
 import { getRecipeDetails, loadCatalogue, makeCatalogue, toCatalogueEntry } from "../src/planner/catalogue.ts"
 import { makeAliases } from "../src/planner/items.ts"
 import { DESSERTS, id, SOUPS } from "./support/enrich.ts"

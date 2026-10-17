@@ -8,9 +8,8 @@ import type { EnrichedRecipe } from "../domain/enriched-recipe.ts"
 import { ParsedRecipeJson } from "../domain/parsed-recipe.ts"
 import type { ParsedRecipe } from "../domain/parsed-recipe.ts"
 import { RecipeId } from "../domain/recipe.ts"
-import { StoreError } from "../scraper/store.ts"
+import { io, StoreError, writeTextAtomic, TEMP_SUFFIX } from "../store/fs.ts"
 
-const TEMP_SUFFIX = ".tmp"
 const RECIPE_FILE = /^([1-9]\d*)\.json$/
 
 /** The parsed file of a recipe cannot be read, or it is not a valid `ParsedRecipe`. */
@@ -69,21 +68,11 @@ export class EnrichStore extends Context.Service<
         const batchPath = path.join(outDir, "_batch.json")
         const evalPath = path.join(outDir, "_eval.json")
 
-        const io = <A>(target: string, effect: Effect.Effect<A, { readonly message: string }>) =>
-          effect.pipe(Effect.mapError((error) => new StoreError({ path: target, message: error.message })))
-
-        /** Write to `<target>.tmp` in the same directory, then rename over `target`. */
-        const writeAtomic = (target: string, text: string) => {
-          const temp = `${target}${TEMP_SUFFIX}`
-          return io(
-            target,
-            fs.makeDirectory(outDir, { recursive: true }).pipe(
-              Effect.andThen(fs.writeFileString(temp, text)),
-              Effect.andThen(fs.rename(temp, target)),
-              Effect.onError(() => fs.remove(temp, { force: true }).pipe(Effect.ignore))
-            )
+        const writeAtomic = (target: string, text: string) =>
+          writeTextAtomic(target, text).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path)
           )
-        }
 
         const writeJson = <A, I>(target: string, codec: Schema.Codec<A, I>, value: A) =>
           Schema.encodeEffect(codec)(value).pipe(

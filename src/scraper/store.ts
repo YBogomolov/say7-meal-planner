@@ -2,11 +2,7 @@ import { Context, Effect, FileSystem, Layer, Option, Path, Schema } from "effect
 import { emptyRawIndex, RawIndexJson } from "../domain/raw-index.ts"
 import type { RawIndex } from "../domain/raw-index.ts"
 import { RecipeId } from "../domain/recipe.ts"
-
-export class StoreError extends Schema.TaggedError<StoreError>()("StoreError", {
-  path: Schema.String,
-  message: Schema.String,
-}) {}
+import { io, StoreError, writeFileAtomic, TEMP_SUFFIX } from "../store/fs.ts"
 
 /** `index.json` exists but is not valid. The scraper never overwrites it. */
 export class IndexInvalidError extends Schema.TaggedError<IndexInvalidError>()("IndexInvalidError", {
@@ -21,7 +17,6 @@ export interface StoreContents {
 }
 
 const PAGE_FILE = /^(\d+)\.html$/
-const TEMP_SUFFIX = ".tmp"
 
 /** `data/raw/`: one UTF-8 HTML file per recipe, plus `index.json`. */
 export class RawStore extends Context.Service<
@@ -46,21 +41,11 @@ export class RawStore extends Context.Service<
         const indexPath = path.join(rawDir, "index.json")
         const pagePath = (id: RecipeId) => path.join(rawDir, `${id}.html`)
 
-        const io = <A>(target: string, effect: Effect.Effect<A, { readonly message: string }>) =>
-          effect.pipe(Effect.mapError((error) => new StoreError({ path: target, message: error.message })))
-
-        /** Write to `<target>.tmp` in the same directory, then rename over `target`. */
-        const writeAtomic = (target: string, data: Uint8Array) => {
-          const temp = `${target}${TEMP_SUFFIX}`
-          return io(
-            target,
-            fs.makeDirectory(rawDir, { recursive: true }).pipe(
-              Effect.andThen(fs.writeFile(temp, data)),
-              Effect.andThen(fs.rename(temp, target)),
-              Effect.onError(() => fs.remove(temp, { force: true }).pipe(Effect.ignore))
-            )
+        const writeAtomic = (target: string, data: Uint8Array) =>
+          writeFileAtomic(target, data).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path)
           )
-        }
 
         const readIndex = Effect.gen(function* () {
           const present = yield* io(indexPath, fs.exists(indexPath))

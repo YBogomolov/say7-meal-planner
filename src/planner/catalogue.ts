@@ -7,7 +7,7 @@ import { ParsedRecipeJson } from "../domain/parsed-recipe.ts"
 import type { ParsedRecipe } from "../domain/parsed-recipe.ts"
 import { RecipeId } from "../domain/recipe.ts"
 import { ParsedReadError } from "../enrich/store.ts"
-import { StoreError } from "../scraper/store.ts"
+import { io, StoreError } from "../store/fs.ts"
 import { isBreakfastEligible } from "./breakfast.ts"
 import { NO_ALIASES, normaliseItem } from "./items.ts"
 import { NO_PROTEIN } from "./protein.ts"
@@ -94,9 +94,6 @@ export interface LoadedCatalogue {
   /** IDs in the servings overrides that are not in the catalogue (a warning, not a failure). Sorted. */
   readonly unknownOverrides: ReadonlyArray<RecipeId>
 }
-
-const io = <A>(target: string, effect: Effect.Effect<A, { readonly message: string }>) =>
-  effect.pipe(Effect.mapError((error) => new StoreError({ path: target, message: error.message })))
 
 /** The recipe IDs of the files `<dir>/<id>.json`. The directory must exist. */
 const listRecipeIds = (dir: string, hint: string) =>
