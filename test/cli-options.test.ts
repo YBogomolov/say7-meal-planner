@@ -1,101 +1,105 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Option, Result } from "effect"
-import { DEFAULT_BASE_URL, DEFAULT_DATA_DIR, DEFAULT_DELAY_MS, originOf, parseCli } from "../src/scraper/cli-options.ts"
+import { Effect, Option } from "effect"
+import {
+  DEFAULT_BASE_URL,
+  DEFAULT_DATA_DIR,
+  DEFAULT_DELAY_MS,
+  makeScrapeCommand,
+  originOf,
+} from "../src/scraper/cli-options.ts"
 import type { CliOptions } from "../src/scraper/cli-options.ts"
+import { commandTester } from "./support/cli.ts"
 
-const run = (...argv: ReadonlyArray<string>): CliOptions => {
-  const result = parseCli(argv)
-  if (Result.isFailure(result)) {
-    return assert.fail(`expected success, got: ${result.failure.message}`)
-  }
-  if (result.success._tag !== "Run") {
-    return assert.fail("expected a run command")
-  }
-  return result.success.options
-}
+const scrape = commandTester<CliOptions>()(makeScrapeCommand)
 
-const failure = (...argv: ReadonlyArray<string>): string => {
-  const result = parseCli(argv)
-  return Result.isFailure(result) ? result.failure.message : assert.fail("expected a failure")
-}
+describe("scrape command", () => {
+  it.effect("uses the defaults of the spec", () =>
+    Effect.gen(function* () {
+      const options = yield* scrape.parsed([])
+      assert.isTrue(Option.isNone(options.limit))
+      assert.isTrue(Option.isNone(options.ids))
+      assert.isFalse(options.force)
+      assert.strictEqual(options.delayMs, DEFAULT_DELAY_MS)
+      assert.strictEqual(options.delayMs, 2500)
+      assert.strictEqual(options.baseUrl, DEFAULT_BASE_URL)
+      assert.strictEqual(options.baseUrl, "https://www.say7.info")
+      assert.strictEqual(options.dataDir, DEFAULT_DATA_DIR)
+      assert.strictEqual(options.dataDir, "data")
+    })
+  )
 
-describe("parseCli", () => {
-  it("uses the defaults of the spec", () => {
-    const options = run()
-    assert.isTrue(Option.isNone(options.limit))
-    assert.isTrue(Option.isNone(options.ids))
-    assert.isFalse(options.force)
-    assert.strictEqual(options.delayMs, DEFAULT_DELAY_MS)
-    assert.strictEqual(options.delayMs, 2500)
-    assert.strictEqual(options.baseUrl, DEFAULT_BASE_URL)
-    assert.strictEqual(options.baseUrl, "https://www.say7.info")
-    assert.strictEqual(options.dataDir, DEFAULT_DATA_DIR)
-    assert.strictEqual(options.dataDir, "data")
-  })
+  it.effect("reads every flag", () =>
+    Effect.gen(function* () {
+      const options = yield* scrape.parsed([
+        "--limit",
+        "20",
+        "--ids",
+        "12, 7,1590",
+        "--force",
+        "--delay-ms",
+        "0",
+        "--base-url",
+        "http://127.0.0.1:8080/",
+        "--data-dir",
+        "/tmp/out",
+      ])
+      assert.strictEqual(Option.getOrNull(options.limit), 20)
+      assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [12, 7, 1590])
+      assert.isTrue(options.force)
+      assert.strictEqual(options.delayMs, 0)
+      assert.strictEqual(options.baseUrl, "http://127.0.0.1:8080")
+      assert.strictEqual(options.dataDir, "/tmp/out")
+    })
+  )
 
-  it("reads every flag", () => {
-    const options = run(
-      "--limit",
-      "20",
-      "--ids",
-      "12, 7,1590",
-      "--force",
-      "--delay-ms",
-      "0",
-      "--base-url",
-      "http://127.0.0.1:8080/",
-      "--data-dir",
-      "/tmp/out"
-    )
-    assert.strictEqual(Option.getOrNull(options.limit), 20)
-    assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [12, 7, 1590])
-    assert.isTrue(options.force)
-    assert.strictEqual(options.delayMs, 0)
-    assert.strictEqual(options.baseUrl, "http://127.0.0.1:8080")
-    assert.strictEqual(options.dataDir, "/tmp/out")
-  })
+  it.effect("accepts the --flag=value form", () =>
+    Effect.gen(function* () {
+      assert.strictEqual(Option.getOrNull((yield* scrape.parsed(["--limit=5"])).limit), 5)
+    })
+  )
 
-  it("accepts the --flag=value form", () => {
-    assert.strictEqual(Option.getOrNull(run("--limit=5").limit), 5)
-  })
+  it.effect("shows the help for --help and -h, and names every flag", () =>
+    Effect.gen(function* () {
+      const long = yield* scrape.help(["--help"])
+      const short = yield* scrape.help(["-h"])
+      assert.strictEqual(short, long)
+      for (const flag of ["--limit", "--ids", "--force", "--delay-ms", "--base-url", "--data-dir"]) {
+        assert.include(long, flag)
+      }
+    })
+  )
 
-  it("asks for help", () => {
-    const result = parseCli(["--help"])
-    assert.isTrue(Result.isSuccess(result) && result.success._tag === "Help")
-    const short = parseCli(["-h"])
-    assert.isTrue(Result.isSuccess(short) && short.success._tag === "Help")
-  })
+  it.effect.each([
+    { argv: ["--limit", "0"] },
+    { argv: ["--limit", "-3"] },
+    { argv: ["--limit", "abc"] },
+    { argv: ["--limit", "1.5"] },
+    { argv: ["--ids", "1,x"] },
+    { argv: ["--ids", "1,,2"] },
+    { argv: ["--ids", ""] },
+    { argv: ["--ids", "0"] },
+    { argv: ["--delay-ms", "fast"] },
+    { argv: ["--delay-ms", "1.5"] },
+    { argv: ["--base-url", "ftp://example.com"] },
+    { argv: ["--base-url", "not a url"] },
+    { argv: ["--base-url", "https://example.com/path"] },
+    { argv: ["--base-url", "https://example.com/?x=1"] },
+    { argv: ["--data-dir", ""] },
+    { argv: ["--unknown", "1"] },
+  ])("rejects %j", ({ argv }) => scrape.rejection(argv))
 
-  it.each([
-    ["--limit", "0"],
-    ["--limit", "-3"],
-    ["--limit", "abc"],
-    ["--limit", "1.5"],
-    ["--ids", "1,x"],
-    ["--ids", "1,,2"],
-    ["--ids", ""],
-    ["--ids", "0"],
-    ["--delay-ms", "fast"],
-    ["--delay-ms", "1.5"],
-    ["--base-url", "ftp://example.com"],
-    ["--base-url", "not a url"],
-    ["--base-url", "https://example.com/path"],
-    ["--base-url", "https://example.com/?x=1"],
-    ["--data-dir", ""],
-    ["--unknown", "1"],
-  ])("rejects %s %s", (flag, value) => {
-    const result = parseCli([flag, value])
-    assert.isTrue(Result.isFailure(result))
-  })
+  it.effect("rejects positional arguments and a missing value", () =>
+    Effect.gen(function* () {
+      yield* scrape.rejection(["extra"])
+      yield* scrape.rejection(["--limit"])
+    })
+  )
 
-  it("rejects positional arguments and a missing value", () => {
-    assert.include(failure("extra"), "positional")
-    assert.isTrue(Result.isFailure(parseCli(["--limit"])))
-  })
-
-  it("explains which option is wrong", () => {
-    assert.include(failure("--limit", "0"), "limit")
-  })
+  it.effect("explains which option is wrong", () =>
+    Effect.gen(function* () {
+      assert.include(yield* scrape.rejection(["--limit", "0"]), "limit")
+    })
+  )
 })
 
 describe("originOf", () => {

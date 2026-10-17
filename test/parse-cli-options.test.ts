@@ -1,81 +1,82 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Option, Result } from "effect"
-import { parseParseCli } from "../src/parser/cli-options.ts"
+import { Effect, Option } from "effect"
+import { makeParseCommand } from "../src/parser/cli-options.ts"
 import type { ParseCliOptions } from "../src/parser/cli-options.ts"
-import { parseFixturesCli } from "../src/parser/fixtures.ts"
+import { makeFixturesCommand } from "../src/parser/fixtures.ts"
+import type { FixturesCliOptions } from "../src/parser/fixtures.ts"
+import { commandTester } from "./support/cli.ts"
 
-const run = (...argv: ReadonlyArray<string>): ParseCliOptions => {
-  const result = parseParseCli(argv)
-  if (Result.isFailure(result)) {
-    return assert.fail(`expected success, got: ${result.failure.message}`)
-  }
-  if (result.success._tag !== "Run") {
-    return assert.fail("expected a run command")
-  }
-  return result.success.options
-}
+const parse = commandTester<ParseCliOptions>()(makeParseCommand)
+const fixtures = commandTester<FixturesCliOptions>()(makeFixturesCommand)
 
-describe("parseParseCli", () => {
-  it("uses the defaults: all pages and the directory data", () => {
-    const options = run()
-    assert.isTrue(Option.isNone(options.ids))
-    assert.strictEqual(options.dataDir, "data")
-  })
+describe("parse command", () => {
+  it.effect("uses the defaults: all pages and the directory data", () =>
+    Effect.gen(function* () {
+      const options = yield* parse.parsed([])
+      assert.isTrue(Option.isNone(options.ids))
+      assert.strictEqual(options.dataDir, "data")
+    })
+  )
 
-  it("reads --ids and --data-dir", () => {
-    const options = run("--ids", "1590, 7,18", "--data-dir", "/tmp/out")
-    assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [1590, 7, 18])
-    assert.strictEqual(options.dataDir, "/tmp/out")
-  })
+  it.effect("reads --ids and --data-dir", () =>
+    Effect.gen(function* () {
+      const options = yield* parse.parsed(["--ids", "1590, 7,18", "--data-dir", "/tmp/out"])
+      assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [1590, 7, 18])
+      assert.strictEqual(options.dataDir, "/tmp/out")
+    })
+  )
 
-  it("accepts the --flag=value form", () => {
-    assert.strictEqual(run("--data-dir=/tmp/x").dataDir, "/tmp/x")
-  })
+  it.effect("accepts the --flag=value form", () =>
+    Effect.gen(function* () {
+      assert.strictEqual((yield* parse.parsed(["--data-dir=/tmp/x"])).dataDir, "/tmp/x")
+    })
+  )
 
-  it("asks for help", () => {
-    for (const flag of ["--help", "-h"]) {
-      const result = parseParseCli([flag])
-      assert.isTrue(Result.isSuccess(result) && result.success._tag === "Help")
-    }
-  })
+  it.effect("shows the help for --help and -h", () =>
+    Effect.gen(function* () {
+      const long = yield* parse.help(["--help"])
+      assert.strictEqual(yield* parse.help(["-h"]), long)
+      assert.include(long, "--ids")
+      assert.include(long, "--data-dir")
+    })
+  )
 
-  it.each([
-    ["--ids", "1,x"],
-    ["--ids", "0"],
-    ["--ids", ""],
-    ["--data-dir", ""],
-    ["--limit", "5"],
-    ["--force", ""],
-  ])("rejects %s %s", (flag, value) => {
-    assert.isTrue(Result.isFailure(parseParseCli(value === "" && flag === "--force" ? [flag] : [flag, value])))
-  })
+  it.effect.each([
+    { argv: ["--ids", "1,x"] },
+    { argv: ["--ids", "0"] },
+    { argv: ["--ids", ""] },
+    { argv: ["--data-dir", ""] },
+    { argv: ["--limit", "5"] },
+    { argv: ["--force"] },
+    { argv: ["extra"] },
+    { argv: ["--ids"] },
+  ])("rejects %j", ({ argv }) => parse.rejection(argv))
 
-  it("rejects positional arguments and a missing value", () => {
-    assert.isTrue(Result.isFailure(parseParseCli(["extra"])))
-    assert.isTrue(Result.isFailure(parseParseCli(["--ids"])))
-  })
-
-  it("names the wrong option", () => {
-    const result = parseParseCli(["--ids", "abc"])
-    assert.isTrue(Result.isFailure(result) && result.failure.message.includes("ids"))
-  })
+  it.effect("names the wrong option", () =>
+    Effect.gen(function* () {
+      assert.include(yield* parse.rejection(["--ids", "abc"]), "ids")
+    })
+  )
 })
 
-describe("parseFixturesCli", () => {
-  it("uses the directory data by default", () => {
-    const result = parseFixturesCli([])
-    assert.isTrue(Result.isSuccess(result) && result.success._tag === "Run" && result.success.dataDir === "data")
-  })
+describe("fixtures:refresh command", () => {
+  it.effect("uses the directory data by default", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* fixtures.parsed([]), { dataDir: "data" })
+    })
+  )
 
-  it("reads --data-dir and --help", () => {
-    const run = parseFixturesCli(["--data-dir", "/tmp/d"])
-    assert.isTrue(Result.isSuccess(run) && run.success._tag === "Run" && run.success.dataDir === "/tmp/d")
-    const help = parseFixturesCli(["-h"])
-    assert.isTrue(Result.isSuccess(help) && help.success._tag === "Help")
-  })
+  it.effect("reads --data-dir and --help", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* fixtures.parsed(["--data-dir", "/tmp/d"]), { dataDir: "/tmp/d" })
+      assert.include(yield* fixtures.help(["-h"]), "--data-dir")
+    })
+  )
 
-  it("rejects other options", () => {
-    assert.isTrue(Result.isFailure(parseFixturesCli(["--ids", "1"])))
-    assert.isTrue(Result.isFailure(parseFixturesCli(["extra"])))
-  })
+  it.effect("rejects other options", () =>
+    Effect.gen(function* () {
+      yield* fixtures.rejection(["--ids", "1"])
+      yield* fixtures.rejection(["extra"])
+    })
+  )
 })

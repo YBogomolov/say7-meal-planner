@@ -1,16 +1,7 @@
-import { Console, Effect, FileSystem, Option, Path, Result, Schema } from "effect"
-import { parseArgs } from "node:util"
+import { Console, Effect, FileSystem, Option, Path, Schema } from "effect"
+import { Command } from "effect/cli"
+import { DEFAULT_DATA_DIR, dataDirFlag } from "../cli/flags.ts"
 import { RecipeId } from "../domain/recipe.ts"
-import { CliError, DEFAULT_DATA_DIR } from "../scraper/cli-options.ts"
-
-export const FIXTURES_USAGE = `Usage: npm run fixtures:refresh -- [options]
-
-Copy the pages listed in test/fixtures/real-ids.json from <data-dir>/raw/ to test/fixtures/real/.
-The golden tests of the parser read these files. The directory test/fixtures/real/ is git-ignored.
-
-Options:
-  --data-dir <path>  Directory of the downloaded data (default ${DEFAULT_DATA_DIR}).
-  -h, --help         Show this text.`
 
 export class FixtureError extends Schema.TaggedError<FixtureError>()("FixtureError", {
   path: Schema.String,
@@ -22,38 +13,22 @@ export const FixtureIdsJson = Schema.fromJsonString(
   Schema.UniqueArray(RecipeId).pipe(Schema.check(Schema.isNonEmpty()))
 )
 
-export type FixturesCommand = { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly dataDir: string }
+export interface FixturesCliOptions {
+  readonly dataDir: string
+}
 
-const FixturesArgs = Schema.Struct({
-  help: Schema.optional(Schema.Boolean),
-  "data-dir": Schema.optional(Schema.NonEmptyString),
-})
-
-/** Parse the command line (`process.argv.slice(2)`). */
-export const parseFixturesCli = (argv: ReadonlyArray<string>): Result.Result<FixturesCommand, CliError> =>
-  Result.try({
-    try: () =>
-      parseArgs({
-        args: [...argv],
-        options: {
-          "data-dir": { type: "string" },
-          help: { type: "boolean", short: "h" },
-        },
-        allowPositionals: false,
-        strict: true,
-      }).values,
-    catch: (cause) =>
-      new CliError({
-        message: cause instanceof Error ? cause.message : String(cause),
-      }),
-  }).pipe(
-    Result.flatMap((values) =>
-      Schema.decodeUnknownResult(FixturesArgs)(values).pipe(
-        Result.mapError((error) => new CliError({ message: `Invalid option.\n${error.message}` }))
-      )
-    ),
-    Result.map((args): FixturesCommand =>
-      args.help === true ? { _tag: "Help" } : { _tag: "Run", dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR }
+/** `npm run fixtures:refresh`. The handler gets the parsed options. */
+export const makeFixturesCommand = <E, R>(handler: (options: FixturesCliOptions) => Effect.Effect<void, E, R>) =>
+  Command.make(
+    "fixtures:refresh",
+    { dataDir: dataDirFlag(`Directory of the downloaded data (default ${DEFAULT_DATA_DIR}).`) },
+    handler
+  ).pipe(
+    Command.withDescription(
+      [
+        "Copy the pages listed in test/fixtures/real-ids.json from <data-dir>/raw/ to test/fixtures/real/.",
+        "The golden tests of the parser read these files. The directory test/fixtures/real/ is git-ignored.",
+      ].join("\n  ")
     )
   )
 

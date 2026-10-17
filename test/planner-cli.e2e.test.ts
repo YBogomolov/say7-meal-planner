@@ -133,10 +133,10 @@ describe("npm run plan:check, as a child process", () => {
           assert.include(missing.stderr, "не читается")
           const usage = yield* run(PLAN_CLI, [], root)
           assert.strictEqual(usage.code, 2)
-          assert.include(usage.stderr, "ровно один файл")
+          assert.include(usage.stderr, "Missing required argument: файл")
           const help = yield* run(PLAN_CLI, ["--help"], root)
           assert.strictEqual(help.code, 0)
-          assert.include(help.stdout, "npm run plan:check")
+          assert.include(help.stdout, "plan:check")
         })
       ),
     SLOW_TEST_MS
@@ -199,7 +199,7 @@ describe("npm run shopping:text, as a child process", () => {
           assert.include(badDate.stderr, "ГГГГ-ММ-ДД")
           const help = yield* run(SHOPPING_TEXT_CLI, ["--help"], root)
           assert.strictEqual(help.code, 0)
-          assert.include(help.stdout, "npm run shopping:text")
+          assert.include(help.stdout, "shopping:text")
         })
       ),
     SLOW_TEST_MS

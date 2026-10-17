@@ -1,9 +1,12 @@
 import { readFileSync } from "node:fs"
 import { assert, describe, it } from "@effect/vitest"
-import { Result, Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { GoldJson } from "../src/domain/gold.ts"
-import { parseEnrichCli, USAGE } from "../src/enrich/cli-options.ts"
-import { EVAL_USAGE, parseEvalCli } from "../src/enrich/eval-cli-options.ts"
+import { makeEnrichCommand } from "../src/enrich/cli-options.ts"
+import type { EnrichCliCommand } from "../src/enrich/cli-options.ts"
+import { makeEvalCommand } from "../src/enrich/eval-cli-options.ts"
+import type { EvalCliOptions } from "../src/enrich/eval-cli-options.ts"
+import { commandTester } from "./support/cli.ts"
 
 /** The README is the only guide of the user. These tests keep its commands true. */
 
@@ -21,6 +24,12 @@ const commands = (script: "enrich" | "enrich:eval"): ReadonlyArray<ReadonlyArray
     const prefix = `npm run ${script} -- `
     return text.startsWith(prefix) ? [text.slice(prefix.length).split(/\s+/)] : []
   })
+
+const enrich = commandTester<EnrichCliCommand>()(makeEnrichCommand)
+const evaluation = commandTester<EvalCliOptions>()(makeEvalCommand)
+
+/** The flags that effect/cli adds to every command. */
+const GLOBAL_FLAGS = ["--help", "--version", "--wizard", "--completions", "--log-level"]
 
 const flagsOf = (usage: string): ReadonlyArray<string> => [...new Set(usage.match(/--[a-z][a-z-]*/g) ?? [])]
 
@@ -46,20 +55,25 @@ describe("README section Enrichment", () => {
     assert.deepStrictEqual(evaluation, ["--out-dir data/eval/haiku", "--out-dir data/eval/sonnet"])
   })
 
-  it("has commands that the parser of the flags accepts", () => {
-    for (const args of commands("enrich")) {
-      const result = parseEnrichCli(args)
-      assert.isTrue(Result.isSuccess(result), `npm run enrich -- ${args.join(" ")}`)
-    }
-    for (const args of commands("enrich:eval")) {
-      const result = parseEvalCli(args)
-      assert.isTrue(Result.isSuccess(result), `npm run enrich:eval -- ${args.join(" ")}`)
-    }
-  })
+  it.effect("has commands that the commands of the scripts accept", () =>
+    Effect.gen(function* () {
+      for (const args of commands("enrich")) {
+        yield* enrich.parsed(args)
+      }
+      for (const args of commands("enrich:eval")) {
+        yield* evaluation.parsed(args)
+      }
+    })
+  )
 
-  it("describes every flag of npm run enrich and of npm run enrich:eval", () => {
-    for (const flag of [...flagsOf(USAGE), ...flagsOf(EVAL_USAGE)]) {
-      assert.include(section, `\`${flag}`, flag)
-    }
-  })
+  it.effect("describes every flag of npm run enrich and of npm run enrich:eval", () =>
+    Effect.gen(function* () {
+      const help = [yield* enrich.help(), yield* evaluation.help()]
+      for (const flag of help.flatMap((text) => flagsOf(text))) {
+        if (!GLOBAL_FLAGS.includes(flag)) {
+          assert.include(section, `\`${flag}`, flag)
+        }
+      }
+    })
+  )
 })

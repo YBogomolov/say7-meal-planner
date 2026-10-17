@@ -1,30 +1,12 @@
-import { Option, Result, Schema } from "effect"
-import { parseArgs } from "node:util"
+import { Effect, Option, Result, Schema } from "effect"
+import { Command, Flag } from "effect/cli"
 import { join } from "node:path"
-import { DEFAULT_MODEL, MODEL_NAMES, ModelName } from "../domain/enriched-recipe.ts"
+import { DEFAULT_DATA_DIR, dataDirFlag, idsFlag, limitFlag, switchFlag } from "../cli/flags.ts"
+import { UsageError } from "../cli/run.ts"
+import { DEFAULT_MODEL, MODEL_NAMES } from "../domain/enriched-recipe.ts"
+import type { ModelName } from "../domain/enriched-recipe.ts"
 import type { RecipeId } from "../domain/recipe.ts"
-import { CliError, DEFAULT_DATA_DIR, RecipeIdsFromString } from "../scraper/cli-options.ts"
 import type { DryRunOptions, EnrichOptions } from "./run.ts"
-
-export const USAGE = `Usage: npm run enrich -- [--model <name>] [options]
-       npm run enrich -- --dry-run [options]
-
-Enrich the parsed recipes in <data-dir>/parsed/ with the Anthropic API.
-Each recipe in scope gives one file <id>.json in <out-dir>. The file _report.json has the totals, the failures and the cost.
-The key is in the variable ANTHROPIC_API_KEY, or in the file .env.
-
-Options:
-  --model <name>     One of: ${MODEL_NAMES.join(", ")}. Default: ${DEFAULT_MODEL}. Without --model, --dry-run estimates every model.
-  --ids <id,id,...>  Process only these recipe IDs.
-  --limit <n>        Process the first n recipes that need a call.
-  --sync             Use one request for each recipe. Without this flag, a run of more than 20 recipes uses a batch.
-  --retry-failed     Process the failures of <out-dir>/_report.json in sync mode.
-                     Do not use it with --ids or --limit.
-  --data-dir <path>  Directory of the downloaded data (default ${DEFAULT_DATA_DIR}).
-  --out-dir <path>   Directory for the results (default <data-dir>/enriched).
-  --dry-run          Build and check the requests of all recipes in scope. Print the sizes and the estimated cost
-                     of each model (or of the model of --model). Send no request, need no key, write no file.
-  -h, --help         Show this text.`
 
 export interface EnrichCliOptions extends EnrichOptions {
   readonly dataDir: string
@@ -38,95 +20,90 @@ export interface DryRunCliOptions extends DryRunOptions {
 }
 
 export type EnrichCliCommand =
-  | { readonly _tag: "Help" }
   | { readonly _tag: "Run"; readonly options: EnrichCliOptions }
   | { readonly _tag: "DryRun"; readonly options: DryRunCliOptions }
 
-const PositiveIntFromString = Schema.String.pipe(
-  Schema.check(
-    Schema.isPattern(/^[1-9]\d*$/, {
-      message: "Expected a whole number above 0",
-    })
-  ),
-  Schema.decodeTo(Schema.FiniteFromString),
-  Schema.decodeTo(Schema.Int)
-)
+/** The flags, as the parser of effect/cli gives them. */
+interface RawEnrichFlags {
+  readonly model: Option.Option<ModelName>
+  readonly ids: Option.Option<ReadonlySet<RecipeId>>
+  readonly limit: Option.Option<number>
+  readonly sync: boolean
+  readonly retryFailed: boolean
+  readonly dryRun: boolean
+  readonly dataDir: string
+  readonly outDir: Option.Option<string>
+}
 
-const CliArgs = Schema.Struct({
-  model: Schema.optional(ModelName),
-  ids: Schema.optional(RecipeIdsFromString),
-  limit: Schema.optional(PositiveIntFromString),
-  sync: Schema.optional(Schema.Boolean),
-  "retry-failed": Schema.optional(Schema.Boolean),
-  "dry-run": Schema.optional(Schema.Boolean),
-  help: Schema.optional(Schema.Boolean),
-  "data-dir": Schema.optional(Schema.NonEmptyString),
-  "out-dir": Schema.optional(Schema.NonEmptyString),
-})
-
-const usageError = (message: string) => Result.fail(new CliError({ message }))
-
-/** Parse the command line (`process.argv.slice(2)`). */
-export const parseEnrichCli = (argv: ReadonlyArray<string>): Result.Result<EnrichCliCommand, CliError> =>
-  Result.try({
-    try: () =>
-      parseArgs({
-        args: [...argv],
-        options: {
-          model: { type: "string" },
-          ids: { type: "string" },
-          limit: { type: "string" },
-          sync: { type: "boolean" },
-          "retry-failed": { type: "boolean" },
-          "dry-run": { type: "boolean" },
-          "data-dir": { type: "string" },
-          "out-dir": { type: "string" },
-          help: { type: "boolean", short: "h" },
-        },
-        allowPositionals: false,
-        strict: true,
-      }).values,
-    catch: (cause) =>
-      new CliError({
-        message: cause instanceof Error ? cause.message : String(cause),
-      }),
-  }).pipe(
-    Result.flatMap((values) =>
-      Schema.decodeUnknownResult(CliArgs)(values).pipe(
-        Result.mapError((error) => new CliError({ message: `Invalid option.\n${error.message}` }))
-      )
-    ),
-    Result.flatMap((args): Result.Result<EnrichCliCommand, CliError> => {
-      if (args.help === true) {
-        return Result.succeed({ _tag: "Help" })
-      }
-      const retryFailed = args["retry-failed"] === true
-      if (retryFailed && (args.ids !== undefined || args.limit !== undefined)) {
-        return usageError(
-          "--retry-failed processes all failures of the last report. Do not use it with --ids or --limit."
-        )
-      }
-      const dataDir = args["data-dir"] ?? DEFAULT_DATA_DIR
-      const common = {
-        ids: Option.fromUndefinedOr(args.ids).pipe(Option.map((ids): ReadonlySet<RecipeId> => new Set(ids))),
-        limit: Option.fromUndefinedOr(args.limit),
-        sync: args.sync === true,
-        retryFailed,
-        dataDir,
-        outDir: args["out-dir"] ?? join(dataDir, "enriched"),
-      }
-      if (args["dry-run"] === true) {
-        return Result.succeed({
+/** Apply the rules that go across flags: the default model, the default `--out-dir`, and `--retry-failed`. */
+export const enrichCommandOf = (raw: RawEnrichFlags): Result.Result<EnrichCliCommand, UsageError> => {
+  if (raw.retryFailed && (Option.isSome(raw.ids) || Option.isSome(raw.limit))) {
+    return Result.fail(
+      new UsageError({
+        message: "--retry-failed processes all failures of the last report. Do not use it with --ids or --limit.",
+      })
+    )
+  }
+  const common = {
+    ids: raw.ids,
+    limit: raw.limit,
+    sync: raw.sync,
+    retryFailed: raw.retryFailed,
+    dataDir: raw.dataDir,
+    outDir: Option.getOrElse(raw.outDir, () => join(raw.dataDir, "enriched")),
+  }
+  return Result.succeed(
+    raw.dryRun
+      ? {
           _tag: "DryRun",
           options: {
             ...common,
-            models: args.model === undefined ? MODEL_NAMES : [args.model],
+            models: Option.match(raw.model, { onNone: () => MODEL_NAMES, onSome: (model) => [model] }),
           },
-        })
-      }
-      return Result.succeed({
-        _tag: "Run",
-        options: { ...common, model: args.model ?? DEFAULT_MODEL },
-      })
-    })
+        }
+      : { _tag: "Run", options: { ...common, model: Option.getOrElse(raw.model, () => DEFAULT_MODEL) } }
+  )
+}
+
+/** `npm run enrich`. The handler gets a run or a dry run. */
+export const makeEnrichCommand = <E, R>(handler: (command: EnrichCliCommand) => Effect.Effect<void, E, R>) =>
+  Command.make(
+    "enrich",
+    {
+      model: Flag.Literals("model", MODEL_NAMES).pipe(
+        Flag.optional,
+        Flag.withDescription(
+          `One of: ${MODEL_NAMES.join(", ")}. Default: ${DEFAULT_MODEL}. Without --model, --dry-run estimates every model.`
+        )
+      ),
+      ids: idsFlag("Process only these recipe IDs (id,id,...)."),
+      limit: limitFlag("Process the first n recipes that need a call."),
+      sync: switchFlag(
+        "sync",
+        "Use one request for each recipe. Without this flag, a run of more than 20 recipes uses a batch."
+      ),
+      retryFailed: switchFlag(
+        "retry-failed",
+        "Process the failures of <out-dir>/_report.json in sync mode. Do not use it with --ids or --limit."
+      ),
+      dataDir: dataDirFlag(`Directory of the downloaded data (default ${DEFAULT_DATA_DIR}).`),
+      outDir: Flag.String("out-dir").pipe(
+        Flag.withSchema(Schema.NonEmptyString),
+        Flag.optional,
+        Flag.withDescription("Directory for the results (default <data-dir>/enriched).")
+      ),
+      dryRun: switchFlag(
+        "dry-run",
+        "Build and check the requests of all recipes in scope. Print the sizes and the estimated cost of each model (or of the model of --model). Send no request, need no key, write no file."
+      ),
+    },
+    (raw) => Effect.fromResult(enrichCommandOf(raw)).pipe(Effect.flatMap(handler))
+  ).pipe(
+    Command.withDescription(
+      [
+        "Enrich the parsed recipes in <data-dir>/parsed/ with the Anthropic API.",
+        "Each recipe in scope gives one file <id>.json in <out-dir>. The file _report.json has the totals, the failures and the cost.",
+        "The key is in the variable ANTHROPIC_API_KEY, or in the file .env.",
+      ].join("\n  ")
+    )
   )

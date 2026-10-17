@@ -1,156 +1,161 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Result } from "effect"
+import { Effect } from "effect"
 import {
-  ITEMS_REPORT_USAGE,
-  parseItemsReportCli,
-  parsePlanCheckCli,
-  parseShoppingTextCli,
-  PLAN_CHECK_USAGE,
-  SHOPPING_TEXT_USAGE,
+  makeItemsReportCommand,
+  makePlanCheckCommand,
+  makeServingsReportCommand,
+  makeShoppingTextCommand,
 } from "../src/planner/cli-options.ts"
+import type { ItemsReportOptions, PlanCheckOptions, ShoppingTextOptions } from "../src/planner/cli-options.ts"
 import { formatEvaluation } from "../src/planner/report.ts"
 import { evaluatePlan } from "../src/planner/evaluate.ts"
 import { DEFAULT_HOUSEHOLD } from "../src/domain/household.ts"
 import { baseCatalogue, basePlan, BASE_COOKING, BASE_MEALS, planOf } from "./support/planner.ts"
+import { commandTester } from "./support/cli.ts"
 import { readFileSync } from "node:fs"
 
-describe("parsePlanCheckCli", () => {
-  it("takes 1 file and the defaults of the directories", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["plan.json"])), {
-      _tag: "Run",
-      options: { file: "plan.json", dataDir: "data", configDir: "config" },
-    })
-  })
+const planCheck = commandTester<PlanCheckOptions>()(makePlanCheckCommand)
+const itemsReport = commandTester<ItemsReportOptions>()(makeItemsReportCommand)
+const servingsReport = commandTester<ItemsReportOptions>()(makeServingsReportCommand)
+const shoppingText = commandTester<ShoppingTextOptions>()(makeShoppingTextCommand)
 
-  it("takes the directories", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["--data-dir", "d", "p.json", "--config-dir", "c"])), {
-      _tag: "Run",
-      options: { file: "p.json", dataDir: "d", configDir: "c" },
+describe("plan:check command", () => {
+  it.effect("takes 1 file and the defaults of the directories", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* planCheck.parsed(["plan.json"]), {
+        file: "plan.json",
+        dataDir: "data",
+        configDir: "config",
+      })
     })
-  })
+  )
 
-  it("shows the help", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["--help"])), {
-      _tag: "Help",
+  it.effect("takes the directories", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* planCheck.parsed(["--data-dir", "d", "p.json", "--config-dir", "c"]), {
+        file: "p.json",
+        dataDir: "d",
+        configDir: "c",
+      })
     })
-    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["-h"])), {
-      _tag: "Help",
-    })
-  })
+  )
 
-  it("rejects no file, 2 files, an unknown option and an empty directory", () => {
-    for (const argv of [
-      [],
-      ["a.json", "b.json"],
-      ["a.json", "--limit", "3"],
-      ["a.json", "--data-dir", ""],
-      ["a.json", "--data-dir"],
-    ]) {
-      const result = parsePlanCheckCli(argv)
-      assert.isTrue(Result.isFailure(result), argv.join(" "))
-      if (Result.isFailure(result)) {
-        assert.strictEqual(result.failure._tag, "CliError")
-      }
-    }
-    const none = parsePlanCheckCli([])
-    assert.include(Result.isFailure(none) ? none.failure.message : "", "ровно один файл")
-  })
+  it.effect("shows the help", () =>
+    Effect.gen(function* () {
+      const long = yield* planCheck.help(["--help"])
+      assert.strictEqual(yield* planCheck.help(["-h"]), long)
+      assert.include(long, "plan:check")
+      assert.include(long, "--data-dir")
+      assert.include(long, "--config-dir")
+    })
+  )
+
+  it.effect.each([
+    { argv: [] },
+    { argv: ["a.json", "b.json"] },
+    { argv: ["a.json", "--limit", "3"] },
+    { argv: ["a.json", "--data-dir", ""] },
+    { argv: ["a.json", "--data-dir"] },
+  ])("rejects no file, 2 files, an unknown option and an empty directory: %j", ({ argv }) => planCheck.rejection(argv))
 })
 
-describe("parseItemsReportCli", () => {
-  it("takes the defaults and the directories", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli([])), {
-      _tag: "Run",
-      options: { dataDir: "data", configDir: "config" },
+describe("items:report command", () => {
+  it.effect("takes the defaults and the directories", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* itemsReport.parsed([]), { dataDir: "data", configDir: "config" })
+      assert.deepStrictEqual(yield* itemsReport.parsed(["--data-dir", "x", "--config-dir", "y"]), {
+        dataDir: "x",
+        configDir: "y",
+      })
     })
-    assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli(["--data-dir", "x", "--config-dir", "y"])), {
-      _tag: "Run",
-      options: { dataDir: "x", configDir: "y" },
-    })
-  })
+  )
 
-  it("rejects a file, and an unknown option", () => {
-    assert.isTrue(Result.isFailure(parseItemsReportCli(["plan.json"])))
-    assert.isTrue(Result.isFailure(parseItemsReportCli(["--force"])))
-  })
-
-  it("shows the help", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli(["--help"])), {
-      _tag: "Help",
+  it.effect("rejects a file, and an unknown option", () =>
+    Effect.gen(function* () {
+      yield* itemsReport.rejection(["plan.json"])
+      yield* itemsReport.rejection(["--force"])
+      yield* itemsReport.rejection(["--with-optional"])
     })
-  })
+  )
+
+  it.effect("shows the help", () =>
+    Effect.gen(function* () {
+      const text = yield* itemsReport.help()
+      assert.include(text, "items:report")
+      assert.include(text, "--data-dir")
+      assert.include(text, "--config-dir")
+    })
+  )
 })
 
-describe("parseShoppingTextCli", () => {
-  it("takes the week start and the defaults", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["2026-10-17"])), {
-      _tag: "Run",
-      options: {
+describe("servings:report command", () => {
+  it.effect("takes the same options as items:report", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* servingsReport.parsed([]), { dataDir: "data", configDir: "config" })
+      assert.deepStrictEqual(yield* servingsReport.parsed(["--config-dir", "y"]), {
+        dataDir: "data",
+        configDir: "y",
+      })
+      yield* servingsReport.rejection(["plan.json"])
+      assert.include(yield* servingsReport.help(), "servings:report")
+    })
+  )
+})
+
+describe("shopping:text command", () => {
+  it.effect("takes the week start and the defaults", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* shoppingText.parsed(["2026-10-17"]), {
         weekStart: "2026-10-17",
         withOptional: false,
         dataDir: "data",
         configDir: "config",
-      },
+      })
     })
-  })
+  )
 
-  it("takes --with-optional and the directories, in any order", () => {
-    assert.deepStrictEqual(
-      Result.getOrThrow(
-        parseShoppingTextCli(["--with-optional", "2026-10-17", "--data-dir", "d", "--config-dir", "c"])
-      ),
-      {
-        _tag: "Run",
-        options: {
+  it.effect("takes --with-optional and the directories, in any order", () =>
+    Effect.gen(function* () {
+      assert.deepStrictEqual(
+        yield* shoppingText.parsed(["--with-optional", "2026-10-17", "--data-dir", "d", "--config-dir", "c"]),
+        {
           weekStart: "2026-10-17",
           withOptional: true,
           dataDir: "d",
           configDir: "c",
-        },
-      }
-    )
-  })
-
-  it("shows the help", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["-h"])), {
-      _tag: "Help",
+        }
+      )
     })
-  })
+  )
 
-  it("rejects no date, 2 positionals, a date that is not a real day, and the option of another command", () => {
-    for (const argv of [
-      [],
-      ["2026-10-17", "2026-10-24"],
-      ["2026-02-30"],
-      ["17.10.2026"],
-      ["2026-10-17", "--force"],
-      ["2026-10-17", "--data-dir"],
-    ]) {
-      const result = parseShoppingTextCli(argv)
-      assert.isTrue(Result.isFailure(result), argv.join(" "))
-      if (Result.isFailure(result)) {
-        assert.strictEqual(result.failure._tag, "CliError")
-      }
-    }
-    const badDate = parseShoppingTextCli(["2026-02-30"])
-    assert.include(Result.isFailure(badDate) ? badDate.failure.message : "", "ГГГГ-ММ-ДД")
-    assert.isTrue(Result.isFailure(parseItemsReportCli(["--with-optional"])))
-  })
+  it.effect("shows the help", () =>
+    Effect.gen(function* () {
+      const text = yield* shoppingText.help(["-h"])
+      assert.include(text, "shopping:text")
+      assert.include(text, "--with-optional")
+    })
+  )
+
+  it.effect.each([
+    { argv: [] },
+    { argv: ["2026-10-17", "2026-10-24"] },
+    { argv: ["2026-02-30"] },
+    { argv: ["17.10.2026"] },
+    { argv: ["2026-10-17", "--force"] },
+    { argv: ["2026-10-17", "--data-dir"] },
+  ])("rejects no date, 2 positionals, a date that is not a real day, and an unknown option: %j", ({ argv }) =>
+    shoppingText.rejection(argv)
+  )
+
+  it.effect("explains a date that is not a real day", () =>
+    Effect.gen(function* () {
+      assert.include(yield* shoppingText.rejection(["2026-02-30"]), "ГГГГ-ММ-ДД")
+    })
+  )
 })
 
-describe("usage texts and package.json", () => {
-  it("name the options that the parsers accept", () => {
-    for (const text of [PLAN_CHECK_USAGE, ITEMS_REPORT_USAGE]) {
-      assert.include(text, "--data-dir")
-      assert.include(text, "--config-dir")
-    }
-    assert.include(PLAN_CHECK_USAGE, "npm run plan:check")
-    assert.include(ITEMS_REPORT_USAGE, "npm run items:report")
-    assert.include(SHOPPING_TEXT_USAGE, "npm run shopping:text")
-    assert.include(SHOPPING_TEXT_USAGE, "--with-optional")
-  })
-
-  it("has the scripts items:report and plan:check", () => {
+describe("package.json", () => {
+  it("has the scripts of the planner commands", () => {
     const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts
     assert.strictEqual(scripts["items:report"], "tsx src/planner/items-cli.ts")
     assert.strictEqual(scripts["plan:check"], "tsx src/planner/plan-cli.ts")

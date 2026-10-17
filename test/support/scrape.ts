@@ -1,11 +1,13 @@
-import { Console, Duration, Effect, Result } from "effect"
+import { Console, Duration, Effect } from "effect"
 import type { Scope } from "effect"
-import { parseCli } from "../../src/scraper/cli-options.ts"
+import { makeScrapeCommand } from "../../src/scraper/cli-options.ts"
+import type { CliOptions } from "../../src/scraper/cli-options.ts"
 import { USER_AGENT } from "../../src/scraper/http.ts"
 import type { HttpConfig } from "../../src/scraper/http.ts"
 import { scraperLayer } from "../../src/scraper/layers.ts"
 import { scrape } from "../../src/scraper/run.ts"
 import type { ScrapeSummary } from "../../src/scraper/run.ts"
+import { commandTester } from "./cli.ts"
 import { REAL_ROBOTS_TXT, startTestSite, textReply, win1251Reply } from "./site.ts"
 import type { TestSite } from "./site.ts"
 import { encodeWindows1251 } from "./win1251.ts"
@@ -137,21 +139,23 @@ export const scrapeWith = (
   args: ReadonlyArray<string> = [],
   log: ConsoleLog = newConsoleLog()
 ) => {
-  const parsed = parseCli(["--delay-ms", "0", ...args, "--base-url", site.origin, "--data-dir", dataDir])
-  if (Result.isFailure(parsed) || parsed.success._tag !== "Run") {
-    return Effect.die(`bad test flags: ${args.join(" ")}`)
-  }
-  const options = parsed.success.options
   const capture = {
     ...globalThis.console,
     log: (...parts: ReadonlyArray<unknown>) => void log.lines.push(parts.join(" ")),
     warn: (...parts: ReadonlyArray<unknown>) => void log.warnings.push(parts.join(" ")),
     error: (...parts: ReadonlyArray<unknown>) => void log.errors.push(parts.join(" ")),
   }
-  return scrape(options).pipe(
-    Effect.provide(scraperLayer({ ...options, http: fastHttp })),
-    Effect.provideService(Console.Console, capture)
-  )
+  return Effect.gen(function* () {
+    const options = yield* commandTester<CliOptions>()(makeScrapeCommand).parsed([
+      ...(args.includes("--delay-ms") ? [] : ["--delay-ms", "0"]),
+      ...args,
+      "--base-url",
+      site.origin,
+      "--data-dir",
+      dataDir,
+    ])
+    return yield* scrape(options).pipe(Effect.provide(scraperLayer({ ...options, http: fastHttp })))
+  }).pipe(Effect.provideService(Console.Console, capture))
 }
 
 export const summaryOf = (fetched: number, skipped: number, notFound = 0, errors = 0, deferred = 0): ScrapeSummary => ({
