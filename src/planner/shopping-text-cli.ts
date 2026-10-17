@@ -40,9 +40,11 @@ const main = Effect.gen(function* () {
     { concurrency: "unbounded" }
   )
   const { catalogue, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable, extras)
-  for (const id of unknownOverrides) {
-    yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
-  }
+  yield* Effect.forEach(
+    unknownOverrides,
+    (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
+    { discard: true }
+  )
   // Only the text goes to stdout, so that the output can be piped to `pbcopy`.
   const output = renderShoppingText(shoppingList(plan, catalogue, household), {
     withOptional,

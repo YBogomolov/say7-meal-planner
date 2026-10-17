@@ -45,8 +45,6 @@ export const evaluate = (gold: ReadonlyArray<GoldEntry>): Effect.Effect<EvalRepo
     )
     const report = buildEvalReport(entries, DateTime.formatIso(yield* DateTime.now))
     yield* store.writeEval(report)
-    for (const line of formatEvalReport(report)) {
-      yield* Console.log(line)
-    }
+    yield* Effect.forEach(formatEvalReport(report), (line) => Console.log(line), { discard: true })
     return report
   })

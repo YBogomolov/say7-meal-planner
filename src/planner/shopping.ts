@@ -1,3 +1,4 @@
+import { Array as Arr } from "effect"
 import type { Catalogue, CatalogueIngredient } from "../domain/catalogue.ts"
 import type { IngredientCategory, IngredientUnit } from "../domain/enriched-recipe.ts"
 import { SESSION_IDS, sessionDay } from "../domain/household.ts"
@@ -95,19 +96,14 @@ export const aggregateAmounts = (lines: ReadonlyArray<ShoppingLine>): Aggregate 
       approximate: hasMass && hasVolume,
     }
   }
-  const sums = new Map<IngredientUnit, Array<Decimal>>()
-  let withoutQuantity = 0
-  for (const { ingredient, scale } of lines) {
-    if (ingredient.quantity === null) {
-      withoutQuantity += 1
-      continue
-    }
-    const unit = ingredient.unit ?? "pcs"
-    sums.set(unit, [...(sums.get(unit) ?? []), scaled(ingredient.quantity, scale)])
-  }
-  const parts = (unit: IngredientUnit): ReadonlyArray<Decimal> => sums.get(unit) ?? []
-  const hasMillilitres = sums.has("ml")
-  const hasSpoons = sums.has("tbsp") || sums.has("tsp")
+  const quantified = lines.flatMap(({ ingredient, scale }) =>
+    ingredient.quantity === null ? [] : [{ unit: ingredient.unit ?? "pcs", value: scaled(ingredient.quantity, scale) }]
+  )
+  const withoutQuantity = lines.length - quantified.length
+  const sums = Arr.groupBy(quantified, ({ unit }) => unit)
+  const parts = (unit: IngredientUnit): ReadonlyArray<Decimal> => (sums[unit] ?? []).map(({ value }) => value)
+  const hasMillilitres = sums["ml"] !== undefined
+  const hasSpoons = sums["tbsp"] !== undefined || sums["tsp"] !== undefined
   const spoonParts = (unit: "tbsp" | "tsp", factor: number): ReadonlyArray<Decimal> =>
     parts(unit).map((value) => multiply(value, decimalOf(factor)))
   const groups = AMOUNT_ORDER.map((place): ReadonlyArray<ShoppingAmount> => {
@@ -188,12 +184,9 @@ const sectionOf = (ingredient: CatalogueIngredient): Section =>
 
 /** The department that most lines name. A tie goes to the department that comes first in the shop. */
 const categoryOf = (lines: ReadonlyArray<ShoppingLine>): IngredientCategory => {
-  const counts = new Map<IngredientCategory, number>()
-  for (const { ingredient } of lines) {
-    counts.set(ingredient.category, (counts.get(ingredient.category) ?? 0) + 1)
-  }
+  const counts = Arr.groupBy(lines, ({ ingredient }) => ingredient.category)
   return SHOP_ORDER.reduce((best, category) =>
-    (counts.get(category) ?? 0) > (counts.get(best) ?? 0) ? category : best
+    (counts[category]?.length ?? 0) > (counts[best]?.length ?? 0) ? category : best
   )
 }
 
@@ -210,20 +203,6 @@ const recipeIdsOf = (lines: ReadonlyArray<DishLine>): Array<RecipeId> =>
 const simpleIdsOf = (lines: ReadonlyArray<DishLine>): Array<string> =>
   [...new Set(lines.flatMap((line) => (line.simpleId === undefined ? [] : [line.simpleId])))].sort(compareText)
 
-const groupBy = <A>(values: ReadonlyArray<A>, key: (value: A) => string): ReadonlyMap<string, ReadonlyArray<A>> => {
-  const groups = new Map<string, Array<A>>()
-  for (const value of values) {
-    const name = key(value)
-    const group = groups.get(name)
-    if (group === undefined) {
-      groups.set(name, [value])
-    } else {
-      group.push(value)
-    }
-  }
-  return groups
-}
-
 const itemOf = (item: string, lines: ReadonlyArray<DishLine>): ShoppingItem => {
   const { amounts, approximate } = shopperUnits(item, aggregateAmounts(lines))
   return {
@@ -237,7 +216,7 @@ const itemOf = (item: string, lines: ReadonlyArray<DishLine>): ShoppingItem => {
 }
 
 const itemsOf = (lines: ReadonlyArray<DishLine>): ReadonlyArray<ShoppingItem> =>
-  [...groupBy(lines, (line) => line.ingredient.item)]
+  Object.entries(Arr.groupBy(lines, (line) => line.ingredient.item))
     .map(([item, group]) => itemOf(item, group))
     .sort((a, b) => compareText(a.item, b.item))
 
@@ -256,7 +235,7 @@ const freezeActions = (buyLines: ReadonlyArray<DishLine>, household: Household):
     const raw = buyLines.filter(
       (line) => line.session === session && RAW_PROTEIN_CATEGORIES.includes(line.ingredient.category)
     )
-    return [...groupBy(raw, (line) => line.ingredient.item)]
+    return Object.entries(Arr.groupBy(raw, (line) => line.ingredient.item))
       .sort(([a], [b]) => compareText(a, b))
       .map(([item, group]): FreezeAction => ({
         kind: "freeze",
@@ -315,8 +294,8 @@ export const shoppingList = (plan: WeekPlan, catalogue: Catalogue, household: Ho
     }))
   })
   const lines = [...dishLines, ...simpleLines]
-  const bySection = groupBy(lines, (line) => sectionOf(line.ingredient))
-  const buyLines = bySection.get("buy") ?? []
+  const bySection = Arr.groupBy(lines, (line) => sectionOf(line.ingredient))
+  const buyLines = bySection.buy ?? []
 
   const buyItems = itemsOf(buyLines)
   const buy: ReadonlyArray<ShoppingCategory> = SHOP_ORDER.flatMap((category) => {
@@ -359,8 +338,8 @@ export const shoppingList = (plan: WeekPlan, catalogue: Catalogue, household: Ho
     weekStart: plan.weekStart,
     shoppingDay: household.shoppingDayOffset,
     buy,
-    optional: itemsOf(bySection.get("optional") ?? []),
-    check_at_home: itemsOf(bySection.get("check_at_home") ?? []),
+    optional: itemsOf(bySection.optional ?? []),
+    check_at_home: itemsOf(bySection.check_at_home ?? []),
     actions: freezeActions(buyLines, household),
     dishes: shoppingDishes,
     unknownRecipeIds: dishes.filter((dish) => dish.entry === undefined).map((dish) => dish.recipeId),

@@ -1,3 +1,4 @@
+import { Array as Arr } from "effect"
 import { daysBetween } from "../domain/calendar.ts"
 import type { Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
 import { ProteinFamily } from "../domain/enriched-recipe.ts"
@@ -398,28 +399,17 @@ const activeTime = (context: Context): ReadonlyArray<Finding> =>
  */
 const freshTime = ({ cooked, household }: Context): ReadonlyArray<Finding> => {
   const fresh = cooked.filter(isFresh)
-  const groups = new Map<
-    string,
-    {
-      readonly dishes: ReadonlyArray<CookedDish>
-      readonly minutes: number
-      readonly days: Array<number>
-    }
-  >()
-  for (const day of sortedDays(fresh)) {
-    const dishes = fresh.filter((dish) => dish.days.includes(day))
-    const minutes = dishes.reduce((total, dish) => total + activeMinutesOf(dish), 0)
-    if (minutes > household.freshMinutesMax) {
-      const key = dishes.map((dish) => dish.recipeId).join(",")
-      const group = groups.get(key)
-      if (group === undefined) {
-        groups.set(key, { dishes, minutes, days: [day] })
-      } else {
-        group.days.push(day)
-      }
-    }
-  }
-  return [...groups.values()].map((group) =>
+  const overloaded = sortedDays(fresh)
+    .map((day) => {
+      const dishes = fresh.filter((dish) => dish.days.includes(day))
+      return { day, dishes, minutes: dishes.reduce((total, dish) => total + activeMinutesOf(dish), 0) }
+    })
+    .filter(({ minutes }) => minutes > household.freshMinutesMax)
+  // The prefix keeps a key of 1 recipe ID from being an integer index, which would change the order of the groups.
+  const groups = Object.values(
+    Arr.groupBy(overloaded, ({ dishes }) => `recipes:${dishes.map((dish) => dish.recipeId).join(",")}`)
+  ).map((group) => ({ dishes: group[0].dishes, minutes: group[0].minutes, days: group.map(({ day }) => day) }))
+  return groups.map((group) =>
     finding(
       "warning",
       "fresh_time",
@@ -725,14 +715,15 @@ const lowProtein = (context: Context): ReadonlyArray<Finding> => {
   if (context.catalogue.proteinTable.size === 0) {
     return []
   }
-  const groups = new Map<string, Array<ReturnType<typeof slotProteins>[number]>>()
-  for (const item of slotProteins(context)) {
-    if (item.grams < context.household.proteinMinGrams[item.slot.meal]) {
-      const key = `${item.slot.meal}/${[...item.slot.recipeIds].sort((a, b) => a - b).join(",")}/${[...item.slot.simpleIds].sort().join(",")}`
-      groups.set(key, [...(groups.get(key) ?? []), item])
-    }
-  }
-  return [...groups.values()].flatMap((items): ReadonlyArray<Finding> => {
+  const low = slotProteins(context).filter((item) => item.grams < context.household.proteinMinGrams[item.slot.meal])
+  const groups = Object.values(
+    Arr.groupBy(
+      low,
+      (item) =>
+        `${item.slot.meal}/${[...item.slot.recipeIds].sort((a, b) => a - b).join(",")}/${[...item.slot.simpleIds].sort().join(",")}`
+    )
+  )
+  return groups.flatMap((items): ReadonlyArray<Finding> => {
     const first = items[0]
     if (first === undefined) {
       return []

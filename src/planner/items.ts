@@ -1,6 +1,5 @@
-import { Schema } from "effect"
+import { Array as Arr, Schema } from "effect"
 import type { Aliases, Catalogue, CatalogueIngredient } from "../domain/catalogue.ts"
-import type { RecipeId } from "../domain/recipe.ts"
 
 /** JSON text codec for `config/item-aliases.json`: `{ "<variant>": "<canonical>" }`. */
 export const AliasesJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.String))
@@ -56,19 +55,18 @@ export interface ItemReportRow {
  * The rows are sorted by the number of recipes (most first), then by name.
  */
 export const itemsReport = (catalogue: Catalogue): ReadonlyArray<ItemReportRow> => {
-  const recipesOf = new Map<string, Set<RecipeId>>()
-  const variantsOf = new Map<string, Set<string>>()
-  for (const entry of catalogue.entries) {
-    for (const ingredient of entry.enrichment.ingredients) {
-      recipesOf.set(ingredient.item, (recipesOf.get(ingredient.item) ?? new Set()).add(entry.id))
-      variantsOf.set(ingredient.item, (variantsOf.get(ingredient.item) ?? new Set()).add(ingredient.rawItem))
-    }
-  }
-  return [...recipesOf.entries()]
-    .map(([item, recipes]): ItemReportRow => ({
+  const rows = catalogue.entries.flatMap((entry) =>
+    entry.enrichment.ingredients.map((ingredient) => ({
+      item: ingredient.item,
+      recipeId: entry.id,
+      rawItem: ingredient.rawItem,
+    }))
+  )
+  return Object.entries(Arr.groupBy(rows, (row) => row.item))
+    .map(([item, group]): ItemReportRow => ({
       item,
-      recipes: recipes.size,
-      variants: [...(variantsOf.get(item) ?? [])].sort(compareText),
+      recipes: new Set(group.map((row) => row.recipeId)).size,
+      variants: Arr.dedupe(group.map((row) => row.rawItem)).sort(compareText),
     }))
     .sort((a, b) => b.recipes - a.recipes || compareText(a.item, b.item))
 }

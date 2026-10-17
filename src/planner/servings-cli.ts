@@ -28,9 +28,11 @@ const main = Effect.gen(function* () {
     proteinTable,
     extras
   )
-  for (const id of unknownOverrides) {
-    yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
-  }
+  yield* Effect.forEach(
+    unknownOverrides,
+    (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
+    { discard: true }
+  )
   const audit = servingsAudit(catalogue)
   const report: ServingsReport = {
     version: 1,

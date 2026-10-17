@@ -41,17 +41,21 @@ const main = Effect.gen(function* () {
     proteinTable,
     extras
   )
-  for (const id of unknownOverrides) {
-    yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
-  }
+  yield* Effect.forEach(
+    unknownOverrides,
+    (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
+    { discard: true }
+  )
 
   const evaluation = evaluatePlan(plan, catalogue, household, history.plans)
   yield* Console.log(
     `Каталог: ${catalogue.entries.length} рецептов, пропущено ${skipped.length}. Сохранённых планов: ${history.plans.length}.`
   )
-  for (const entry of history.skipped) {
-    yield* Console.warn(`предупреждение: файл плана пропущен: ${entry.file}. ${entry.message}`)
-  }
+  yield* Effect.forEach(
+    history.skipped,
+    (entry) => Console.warn(`предупреждение: файл плана пропущен: ${entry.file}. ${entry.message}`),
+    { discard: true }
+  )
   yield* Console.log("")
   yield* Console.log(formatEvaluation(plan.weekStart, evaluation))
   yield* Console.log("---\n")

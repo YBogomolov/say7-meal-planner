@@ -1,4 +1,4 @@
-import { Console, DateTime, Effect, Option, Ref, Result, Schema, Stream } from "effect"
+import { Array as Arr, Console, DateTime, Effect, Option, Ref, Result, Schema, Stream } from "effect"
 import { ENRICHMENT_VERSION, addUsage, NO_USAGE } from "../domain/enriched-recipe.ts"
 import type { EnrichedRecipe, Enrichment, ModelName, TokenUsage } from "../domain/enriched-recipe.ts"
 import type { BatchState, EnrichFailure, EnrichReport, FailureKind, RunMode } from "../domain/enrich-report.ts"
@@ -130,19 +130,11 @@ const loadSelection = (
       (id) => Effect.result(store.readParsed(id)).pipe(Effect.map((result) => ({ id, result }))),
       { concurrency: 8 }
     )
-    const recipes: Array<ParsedRecipe> = []
-    const unreadable: Array<EnrichFailure> = []
-    for (const { id, result } of loaded) {
-      if (Result.isSuccess(result)) {
-        recipes.push(result.success)
-      } else {
-        unreadable.push({
-          id,
-          kind: "unreadable",
-          message: result.failure.message,
-        })
-      }
-    }
+    const [recipes, unreadable] = Arr.separate(
+      loaded.map(({ id, result }) =>
+        Result.mapError(result, (error): EnrichFailure => ({ id, kind: "unreadable", message: error.message }))
+      )
+    )
     return { recipes, unreadable }
   })
 
@@ -201,9 +193,7 @@ export const dryRun = (options: DryRunOptions): Effect.Effect<DryRunSummary, Enr
       sync: options.sync,
       retryFailed: options.retryFailed,
     })
-    for (const line of formatDryRun(summary)) {
-      yield* Console.log(line)
-    }
+    yield* Effect.forEach(formatDryRun(summary), (line) => Console.log(line), { discard: true })
     return summary
   })
 
@@ -433,9 +423,8 @@ const finishBatch = (
       )
     )
 
-    const all: Array<RecipeOutcome> = []
-    for (const recipe of state.recipes) {
-      all.push(
+    const all = state.recipes.map(
+      (recipe): RecipeOutcome =>
         outcomes.get(recipe.id) ?? {
           _tag: "Failed",
           id: recipe.id,
@@ -443,8 +432,7 @@ const finishBatch = (
           message: "The results of the batch have no line for this recipe",
           usage: NO_USAGE,
         }
-      )
-    }
+    )
     const report = buildReport({
       generatedAt: yield* nowIso,
       model: state.model,

@@ -1,3 +1,4 @@
+import { Array as Arr } from "effect"
 import type { Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
 import { MEAL_NAMES, personsOf } from "../domain/household.ts"
 import type { Household, MealName, SessionId } from "../domain/household.ts"
@@ -74,14 +75,12 @@ export interface PlanSimple {
 
 /** Every simple breakfast in `meals`, sorted by ID, each once. */
 export const planSimples = (plan: WeekPlan, catalogue: Catalogue): ReadonlyArray<PlanSimple> => {
-  const slotsOf = new Map<string, Array<Slot>>()
-  for (const meal of plan.meals) {
-    for (const simpleId of new Set(meal.simpleIds)) {
-      slotsOf.set(simpleId, [...(slotsOf.get(simpleId) ?? []), { day: meal.day, meal: meal.meal }])
-    }
-  }
-  return [...slotsOf.keys()].sort().map((simpleId): PlanSimple => {
-    const slots = [...(slotsOf.get(simpleId) ?? [])].sort(compareSlots)
+  const simpleIds = Arr.dedupe(plan.meals.flatMap((meal) => meal.simpleIds)).sort()
+  return simpleIds.map((simpleId): PlanSimple => {
+    const slots = plan.meals
+      .filter((meal) => meal.simpleIds.includes(simpleId))
+      .map((meal): Slot => ({ day: meal.day, meal: meal.meal }))
+      .sort(compareSlots)
     return {
       simpleId,
       entry: catalogue.simpleById.get(simpleId),
@@ -96,24 +95,18 @@ export const planSimples = (plan: WeekPlan, catalogue: Catalogue): ReadonlyArray
  * A cooking entry that repeats a recipe (a plan that skipped the decoder) counts once, the first entry.
  */
 export const planDishes = (plan: WeekPlan, catalogue: Catalogue): ReadonlyArray<PlanDish> => {
-  const cookingOf = new Map<RecipeId, CookingEntry>()
-  for (const entry of plan.cooking) {
-    if (!cookingOf.has(entry.recipeId)) {
-      cookingOf.set(entry.recipeId, entry)
-    }
-  }
-  const slotsOf = new Map<RecipeId, Array<Slot>>()
-  for (const meal of plan.meals) {
-    for (const recipeId of new Set(meal.recipeIds)) {
-      slotsOf.set(recipeId, [...(slotsOf.get(recipeId) ?? []), { day: meal.day, meal: meal.meal }])
-    }
-  }
-  const ids = [...new Set([...cookingOf.keys(), ...slotsOf.keys()])].sort((a, b) => a - b)
+  const ids = Arr.dedupe([
+    ...plan.cooking.map((entry) => entry.recipeId),
+    ...plan.meals.flatMap((meal) => meal.recipeIds),
+  ]).sort((a, b) => a - b)
   return ids.map((recipeId): PlanDish => {
-    const slots = [...(slotsOf.get(recipeId) ?? [])].sort(compareSlots)
+    const slots = plan.meals
+      .filter((meal) => meal.recipeIds.includes(recipeId))
+      .map((meal): Slot => ({ day: meal.day, meal: meal.meal }))
+      .sort(compareSlots)
     return {
       recipeId,
-      cooking: cookingOf.get(recipeId),
+      cooking: plan.cooking.find((entry) => entry.recipeId === recipeId),
       entry: catalogue.byId.get(recipeId),
       slots,
       days: [...new Set(slots.map((slot) => slot.day))],
