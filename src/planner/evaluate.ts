@@ -3,7 +3,7 @@ import { daysBetween } from "../domain/calendar.ts"
 import type { Catalogue, CatalogueEntry } from "../domain/catalogue.ts"
 import { ProteinFamily } from "../domain/enriched-recipe.ts"
 import { personsOf, sessionDay } from "../domain/household.ts"
-import type { Household } from "../domain/household.ts"
+import type { Household, MealName } from "../domain/household.ts"
 import type {
   DishPortions,
   IssueCode,
@@ -146,6 +146,7 @@ const isSide = (entry: CatalogueEntry): boolean =>
 /**
  * A slot is a meal if it has a `full_meal` dish, or a `needs_side` dish together with a `side` or `side_only` dish.
  * A breakfast slot is not judged (spec P7.2.4): a breakfast can be a pancake, a sandwich or a simple breakfast.
+ * A dinner slot with a light dinner (spec P7.4.1) is a meal.
  */
 const slotNotAMeal = ({ plan, catalogue }: Context): ReadonlyArray<Finding> =>
   [...plan.meals].sort(compareSlots).flatMap((slot) => {
@@ -159,6 +160,7 @@ const slotNotAMeal = ({ plan, catalogue }: Context): ReadonlyArray<Finding> =>
     }
     const known = entries.flatMap((entry) => (entry === undefined ? [] : [entry]))
     const complete =
+      (slot.meal === "dinner" && known.some((entry) => entry.lightDinner)) ||
       known.some((entry) => entry.enrichment.mealFit === "full_meal") ||
       known.some(
         (needy, index) =>
@@ -437,17 +439,22 @@ const freshNotBreakfast = ({ cooked }: Context): ReadonlyArray<Finding> =>
         ]
   })
 
-/** `simple_not_breakfast` (error, spec P7.2.3): a simple breakfast is allowed only in breakfast slots. */
-const simpleNotBreakfast = ({ simples }: Context): ReadonlyArray<Finding> =>
+/** `simple_meal_not_allowed` (error, spec P7.4.3): a simple entry is allowed only in slots whose meal is in its `meals`. */
+const simpleMealNotAllowed = ({ simples }: Context): ReadonlyArray<Finding> =>
   simples.flatMap((simple) => {
-    const days = [...new Set(simple.slots.filter((slot) => slot.meal !== "breakfast").map((slot) => slot.day))]
+    // An unknown entry is the error `unknown_simple`.
+    if (simple.entry === undefined) {
+      return []
+    }
+    const { meals } = simple.entry
+    const days = [...new Set(simple.slots.filter((slot) => !meals.includes(slot.meal)).map((slot) => slot.day))]
     return days.length === 0
       ? []
       : [
           finding(
             "error",
-            "simple_not_breakfast",
-            `${simpleName(simple)} — простой завтрак, а он допустим только в завтраке. Он стоит в обеде или ужине (дни ${daysText(days)}).`,
+            "simple_meal_not_allowed",
+            `${simpleName(simple)} допустим только в приёмах пищи: ${meals.map((meal) => MEAL_LABELS[meal]).join(", ")}. Он стоит в другом приёме пищи (дни ${daysText(days)}).`,
             [],
             days,
             [simple.simpleId]
@@ -455,20 +462,26 @@ const simpleNotBreakfast = ({ simples }: Context): ReadonlyArray<Finding> =>
         ]
   })
 
-/** `breakfast_only_recipe` (error, spec P7.2.4): a `not_a_meal` recipe is valid only in breakfast slots. */
+/**
+ * `breakfast_only_recipe` (error, spec P7.2.4): a `not_a_meal` recipe is valid only in breakfast slots.
+ * A light dinner (spec P7.4.1) is valid in dinner slots too.
+ */
 const breakfastOnlyRecipe = ({ dishes }: Context): ReadonlyArray<Finding> =>
   dishes.flatMap((dish) => {
     if (dish.entry?.enrichment.mealFit !== "not_a_meal") {
       return []
     }
-    const days = [...new Set(dish.slots.filter((slot) => slot.meal !== "breakfast").map((slot) => slot.day))]
+    const allowed: ReadonlyArray<MealName> = dish.entry.lightDinner ? ["breakfast", "dinner"] : ["breakfast"]
+    const days = [...new Set(dish.slots.filter((slot) => !allowed.includes(slot.meal)).map((slot) => slot.day))]
     return days.length === 0
       ? []
       : [
           finding(
             "error",
             "breakfast_only_recipe",
-            `${nameOf(dish)} не годится для обеда и ужина (not_a_meal), его можно поставить только на завтрак. Он стоит в обеде или ужине (дни ${daysText(days)}).`,
+            dish.entry.lightDinner
+              ? `${nameOf(dish)} — лёгкий ужин (not_a_meal), его можно поставить только на завтрак и ужин. Он стоит в обеде (дни ${daysText(days)}).`
+              : `${nameOf(dish)} не годится для обеда и ужина (not_a_meal), его можно поставить только на завтрак. Он стоит в обеде или ужине (дни ${daysText(days)}).`,
             [dish.recipeId],
             days
           ),
@@ -819,7 +832,7 @@ const RULES: ReadonlyArray<(context: Context) => ReadonlyArray<Finding>> = [
   lowProtein,
   freshTime,
   freshNotBreakfast,
-  simpleNotBreakfast,
+  simpleMealNotAllowed,
   breakfastOnlyRecipe,
 ]
 

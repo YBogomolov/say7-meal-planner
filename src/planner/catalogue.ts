@@ -23,12 +23,14 @@ const READ_CONCURRENCY = 16
  * The catalogue entry of a recipe: the facts of the page and the enrichment, with normalised item names (spec P4.2.2).
  * Pure. The intro and the steps are left out.
  * `breakfastExtraIds` are the recipes that `household.breakfastExtraIds` adds to the breakfast candidates (spec P7.2.4).
+ * `lightDinnerIds` are the light dinners (spec P7.4.1): they are also breakfast candidates.
  */
 export const toCatalogueEntry = (
   parsed: ParsedRecipe,
   enriched: EnrichedRecipe,
   aliases: Aliases,
-  breakfastExtraIds: ReadonlySet<RecipeId> = new Set()
+  breakfastExtraIds: ReadonlySet<RecipeId> = new Set(),
+  lightDinnerIds: ReadonlySet<RecipeId> = new Set()
 ): CatalogueEntry => {
   const { ingredients, ...enrichment } = enriched.enrichment
   const category = parsed.categories[0]
@@ -46,7 +48,8 @@ export const toCatalogueEntry = (
         rawItem: item,
       })),
     },
-    breakfastEligible: isBreakfastEligible(parsed, breakfastExtraIds),
+    breakfastEligible: isBreakfastEligible(parsed, breakfastExtraIds, lightDinnerIds),
+    lightDinner: lightDinnerIds.has(parsed.id),
   }
 }
 
@@ -87,6 +90,8 @@ export interface CatalogueExtras {
   readonly simpleBreakfasts?: ReadonlyArray<SimpleBreakfast>
   /** `household.breakfastExtraIds` (spec P7.2.4). */
   readonly breakfastExtraIds?: ReadonlyArray<RecipeId>
+  /** `household.lightDinnerIds` (spec P7.4.1). */
+  readonly lightDinnerIds?: ReadonlyArray<RecipeId>
 }
 
 /** The config that `loadCatalogue` takes (what `loadPlannerConfig` returns). Every part is optional: the default is empty. */
@@ -140,8 +145,8 @@ const readRecipeFile = <A, I>(target: string, id: RecipeId, codec: Schema.Codec<
  * Load the catalogue from `<dataDir>/parsed/<id>.json` and `<dataDir>/enriched/<id>.json` (spec P4.2.1).
  *
  * A recipe is in the catalogue if both files decode and `mealFit` is not `not_a_meal`.
- * A `not_a_meal` recipe stays in the catalogue if it is a breakfast candidate (spec P7.2.4, `breakfastEligible`):
- * it is valid only in breakfast slots.
+ * A `not_a_meal` recipe stays in the catalogue if it is a breakfast candidate (spec P7.2.4, `breakfastEligible`)
+ * or a light dinner (spec P7.4.1, `lightDinner`): it is valid only in breakfast slots, and light dinners also in dinner slots.
  * The other recipes are in `skipped`, with the reason. The recipes without an enriched file (desserts, for example) are there too.
  * The load fails only if one of the two directories does not exist, or cannot be listed.
  * The item names are normalised with `config.aliases`.
@@ -161,6 +166,7 @@ export const loadCatalogue = (
     const enrichedIds = new Set(yield* listRecipeIds(enrichedDir, "Запустите `npm run enrich`."))
     const ids = [...new Set([...parsedIds, ...enrichedIds])].sort((a, b) => a - b)
     const extraIds = new Set(extras.breakfastExtraIds ?? [])
+    const lightDinnerIds = new Set(extras.lightDinnerIds ?? [])
 
     const load = (id: RecipeId) =>
       Effect.gen(function* () {
@@ -184,8 +190,8 @@ export const loadCatalogue = (
         if (Result.isFailure(enriched)) {
           return skip("invalid_enriched", enriched.failure)
         }
-        const entry = toCatalogueEntry(parsed.success, enriched.success, aliases, extraIds)
-        return enriched.success.enrichment.mealFit === "not_a_meal" && !entry.breakfastEligible
+        const entry = toCatalogueEntry(parsed.success, enriched.success, aliases, extraIds, lightDinnerIds)
+        return enriched.success.enrichment.mealFit === "not_a_meal" && !entry.breakfastEligible && !entry.lightDinner
           ? skip("not_a_meal", "Блюдо не годится для обеда, ужина и завтрака (mealFit: not_a_meal).")
           : Result.succeed(entry)
       })

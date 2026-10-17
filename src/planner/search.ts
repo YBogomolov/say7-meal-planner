@@ -24,7 +24,7 @@ const NonNegativeNumber = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOr
  * - `requiresOnly`: the equipment of the recipe is a subset of this list.
  * - `proteinFamilies`, `dishTypes`, `mealFits`: any of the values. An empty list sets no filter.
  * - `forMeal` (spec P7.2.4): `breakfast` finds the breakfast candidates (`breakfastEligible`, also the `not_a_meal` ones).
- *   `lunch` and `dinner` find the recipes for those meals: no `not_a_meal` recipe.
+ *   `lunch` and `dinner` find the recipes for those meals: no `not_a_meal` recipe, except the light dinners for `dinner` (spec P7.4.1).
  *   Without `forMeal`, `not_a_meal` recipes are left out, unless `mealFits` names `not_a_meal`.
  */
 export const SearchQuery = Schema.Struct({
@@ -72,6 +72,8 @@ export interface SearchRow {
   readonly commentsCount: number | null
   /** True if the recipe is a breakfast candidate (spec P7.2.4). */
   readonly breakfastEligible: boolean
+  /** True if the recipe is a light dinner (spec P7.4.1): valid in dinner slots also if `mealFit` is `not_a_meal`. */
+  readonly lightDinner: boolean
   /** Grams of protein per portion, 1 decimal (spec P7.1.6). 0 if the protein table is empty. */
   readonly proteinPerPortion: number
 }
@@ -99,6 +101,7 @@ export const toSearchRow = (entry: CatalogueEntry, proteinTable: ProteinTable = 
     buyItems: buyItemsOf(enrichment.ingredients),
     commentsCount: entry.commentsCount,
     breakfastEligible: entry.breakfastEligible,
+    lightDinner: entry.lightDinner,
     proteinPerPortion: portionProtein(entry, proteinTable).grams,
   }
 }
@@ -155,6 +158,9 @@ export const searchRecipes = (catalogue: Catalogue, query: SearchQuery): Readonl
   const fitsMeal = (entry: CatalogueEntry): boolean => {
     if (forMeal === "breakfast") {
       return entry.breakfastEligible
+    }
+    if (forMeal === "dinner" && entry.lightDinner) {
+      return true
     }
     return (
       entry.enrichment.mealFit !== "not_a_meal" || (forMeal === undefined && mealFits?.includes("not_a_meal") === true)

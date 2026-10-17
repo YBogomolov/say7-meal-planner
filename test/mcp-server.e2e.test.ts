@@ -68,6 +68,7 @@ beforeAll(async () => {
       {
         id: "yogurt",
         title: "Йогурт с бананом",
+        meals: ["breakfast", "dinner"],
         items: [
           {
             item: "греческий йогурт",
@@ -140,6 +141,7 @@ describe("MCP server over stdio", () => {
           {
             id: "yogurt",
             title: "Йогурт с бананом",
+            meals: ["breakfast", "dinner"],
             proteinPerPortion: 18,
             coverage: 1,
             items: [

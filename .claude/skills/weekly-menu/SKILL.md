@@ -38,6 +38,7 @@ How to search:
 - In every search, set `requiresOnly` to the `equipment` list of `household` and `maxHeat: 1`.
 - Lunches: `dishTypes: ["main"]`, `mealFits: ["full_meal"]` or a `needs_side` dish plus a side recipe. A lunch is a real piece of meat or poultry with a side dish. Sausages and other processed meat are a weak lunch: use them at most once, never as the only lunch of a session.
 - Dinners: fish (`proteinFamilies: ["fish"]`), `vegetarian: true` with `dishTypes: ["main", "savory_bake", "pancakes"]`. Vary the kind of dinner: at most 1 pie or quiche per session, and mix it with a fish dish, a cottage cheese dish, an omelette or filled pancakes. Pies are tempting because they give many portions, but 3 pies in a week are both monotonous and heavy (dough and butter). A dinner has no pasta, couscous, bulgur or rice. Potato at dinner is allowed (for example fish baked with potato); vegetables are also a good side for fish. Fish dinners every week are fine.
+- Light dinners: simple entries of `simple_breakfasts` that have `dinner` in `meals` (cottage cheese with sour cream, sandwiches) go into `simpleIds` of a dinner slot. Recipes with `lightDinner: true` (cottage cheese casseroles that last 3–4 days; search with `forMeal: "dinner"`) are good light dinners too, and are allowed in dinner slots even when `mealFit` is `not_a_meal`. Use them on busy days and do not repeat the same one on more than 3 days.
 - `proteinFamilies` of a recipe can list several families (mixed mince is `["pork", "beef"]`). Use only dishes whose families are all inside the 1–2 families of the week.
 - Read `buyItems` of each candidate: it is the fastest way to see rice, mayonnaise, cream or a repeated side dish. For a dinner with `сметана`, `сливки` or `сыр` in `buyItems`, call `get_recipe` and look at the amounts: a filling with cream and a lot of cheese is not light.
 - "A side dish does not repeat" means the starchy or vegetable base of the plate: potato in any form counts as potato, any pasta counts as pasta.
@@ -49,7 +50,7 @@ Breakfasts:
   - Simple breakfasts from `simple_breakfasts` go into `simpleIds` of the slot (no cooking entry). They are quick and give enough protein.
   - Session dishes (`session` "A" or "B"): сырники, запеканки, filled pancakes. They are reheated in the morning, so they must reheat well (`reheats`) and stay fresh (`fridgeDays`).
   - Fresh dishes (`session: "fresh"`): omelettes, eggs, quick pancakes, cooked in the morning of each day they are eaten; `scale` is per morning (2 portions). The active time of 1 morning must stay within `freshMinutesMax` (20 min, rule `fresh_time`).
-- Search with `forMeal: "breakfast"`. Some breakfast recipes are `not_a_meal` (sweet pancakes): they are allowed only at breakfast.
+- Search with `forMeal: "breakfast"`. Some breakfast recipes are `not_a_meal` (sweet pancakes): they are allowed only at breakfast, unless the recipe has `lightDinner: true` (then also at dinner). A simple entry is allowed only in the meals of its `meals` (else `simple_meal_not_allowed`).
 - Do not repeat the same breakfast on more than 2 days. Sweet breakfasts (pancakes with jam) need a protein part in the same slot (a simple breakfast with cottage cheese or yogurt, or eggs).
 
 Rules of thumb that the code does not state:

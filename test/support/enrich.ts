@@ -150,6 +150,7 @@ export const runOptions = (overrides: Partial<EnrichOptions> = {}): EnrichOption
   limit: Option.none(),
   sync: false,
   retryFailed: false,
+  extraScopeIds: new Set(),
   ...overrides,
 })
 

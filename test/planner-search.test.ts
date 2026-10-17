@@ -269,6 +269,7 @@ describe("searchRecipes: the row", () => {
       "fridgeDays",
       "heat",
       "id",
+      "lightDinner",
       "longWaitHours",
       "mealFit",
       "proteinFamilies",

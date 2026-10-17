@@ -82,7 +82,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const searchTool = defineTool({
     name: "search_recipes",
     description:
-      "Поиск рецептов в каталоге по фильтрам (все необязательны). Возвращает компактные строки: id, название, ссылку, тип блюда, порции, время, нагрев, дни в холодильнике, продукты к покупке, белок на порцию в граммах (proteinPerPortion, оценка по таблице белка). Фильтр forMeal: breakfast (кандидаты на завтрак, в том числе блюда not_a_meal, которые годятся только для завтрака), lunch или dinner (без блюд not_a_meal); без forMeal блюда not_a_meal не показываются. Поле breakfastEligible показывает, годится ли блюдо для завтрака. Сортировка: popular или fewest_items. По умолчанию 20 строк, не больше 100.",
+      "Поиск рецептов в каталоге по фильтрам (все необязательны). Возвращает компактные строки: id, название, ссылку, тип блюда, порции, время, нагрев, дни в холодильнике, продукты к покупке, белок на порцию в граммах (proteinPerPortion, оценка по таблице белка). Фильтр forMeal: breakfast (кандидаты на завтрак, в том числе блюда not_a_meal, которые годятся только для завтрака), lunch или dinner (без блюд not_a_meal, кроме лёгких ужинов для dinner); без forMeal блюда not_a_meal не показываются. Лёгкие ужины из household.lightDinnerIds (запеканки из творога и подобное, готовятся один раз на 3–4 дня) входят в forMeal dinner и в завтраки, даже если у них mealFit not_a_meal. Поле breakfastEligible показывает, годится ли блюдо для завтрака, поле lightDinner — лёгкий ли это ужин. Сортировка: popular или fewest_items. По умолчанию 20 строк, не больше 100.",
     input: SearchQuery,
     run: (query) =>
       Effect.succeed([
@@ -115,7 +115,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const evaluateTool = defineTool({
     name: "evaluate_plan",
     description:
-      "Проверяет план недели по правилам семьи (коды ошибок и предупреждений, показатели: buyItemCount, порции, активное время сессий, белки, proteinPerSlot — белок по приёмам пищи в граммах; предупреждение low_protein, если белка в приёме мало). Завтраки: слот breakfast может содержать recipeIds и simpleIds (простые завтраки из simple_breakfasts); блюдо с session fresh готовится в день еды и допустимо только на завтрак (fresh_time, fresh_not_breakfast, unknown_simple, simple_not_breakfast, breakfast_only_recipe). План с ошибками (ok: false) нельзя считать готовым.",
+      "Проверяет план недели по правилам семьи (коды ошибок и предупреждений, показатели: buyItemCount, порции, активное время сессий, белки, proteinPerSlot — белок по приёмам пищи в граммах; предупреждение low_protein, если белка в приёме мало). Простые блюда: слот может содержать recipeIds и simpleIds (записи из simple_breakfasts); запись допустима только в приёмах пищи из её meals (иначе ошибка simple_meal_not_allowed, раньше simple_not_breakfast). Блюдо с session fresh готовится в день еды и допустимо только на завтрак (fresh_time, fresh_not_breakfast, unknown_simple). Рецепт not_a_meal допустим только на завтрак (breakfast_only_recipe), а лёгкий ужин из lightDinnerIds — ещё и на ужин; slot_not_a_meal его в ужине не проверяет. План с ошибками (ok: false) нельзя считать готовым.",
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function* () {
@@ -216,7 +216,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
   const simpleTool = defineTool({
     name: "simple_breakfasts",
     description:
-      "Простые завтраки из config/simple-breakfasts.json: id, название, белок на порцию в граммах (proteinPerPortion, coverage — покрытие оценки, 0–1) и продукты на одну порцию (item, grams, category, pantry). Положите id в simpleIds слота breakfast; готовить и записывать в cooking не нужно.",
+      "Простые блюда из config/simple-breakfasts.json (завтраки, а некоторые и ужины): id, название, приёмы пищи (meals: breakfast, lunch, dinner), белок на порцию в граммах (proteinPerPortion, coverage — покрытие оценки, 0–1) и продукты на одну порцию (item, grams, category, pantry). Положите id в simpleIds слота, приём пищи которого есть в meals записи (по умолчанию только breakfast; лёгкие ужины имеют dinner); готовить и записывать в cooking не нужно.",
     input: SimpleBreakfastsInput,
     run: () =>
       Effect.succeed([
@@ -226,6 +226,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
             return {
               id: simple.id,
               title: simple.title,
+              meals: simple.meals,
               proteinPerPortion: protein.grams,
               coverage: protein.coverage,
               items: simple.items,

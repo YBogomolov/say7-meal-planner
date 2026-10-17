@@ -26,12 +26,31 @@ describe("selectIds", () => {
   })
 })
 
+describe("planEnrichment: extra scope IDs (spec P7.4.1)", () => {
+  it("processes a recipe out of scope if its ID is in extraScopeIds", () => {
+    const plan = planEnrichment({
+      model: "claude-haiku-5-5",
+      promptVersion: 1,
+      storedHashes: new Map<RecipeId, string>(),
+      limit: Option.none<number>(),
+      recipes: [parsedRecipe(9, { categories: [DESSERTS] }), parsedRecipe(10, { categories: [DESSERTS] })],
+      extraScopeIds: new Set([id(9)]),
+    })
+    assert.deepStrictEqual<ReadonlyArray<number>>(
+      plan.toProcess.map((recipe) => recipe.id),
+      [9]
+    )
+    assert.deepStrictEqual<ReadonlyArray<number>>(plan.outOfScope, [10])
+  })
+})
+
 describe("planEnrichment", () => {
   const base = {
     model: "claude-haiku-5-5",
     promptVersion: 1,
     storedHashes: new Map<RecipeId, string>(),
     limit: Option.none<number>(),
+    extraScopeIds: new Set<RecipeId>(),
   } as const
   const recipes = [
     parsedRecipe(30),

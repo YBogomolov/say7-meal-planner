@@ -35,6 +35,7 @@ const decodeSimple = (input: unknown) => Schema.decodeUnknownResult(SimpleBreakf
 const YOGURT: SimpleBreakfast = {
   id: "yogurt",
   title: "Йогурт с бананом",
+  meals: ["breakfast"],
   items: [
     { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
     { item: "мед", grams: 15, category: "sweet", pantry: true },
@@ -43,6 +44,7 @@ const YOGURT: SimpleBreakfast = {
 const BRYNZA: SimpleBreakfast = {
   id: "brynza",
   title: "Брынза с хлебом",
+  meals: ["breakfast"],
   items: [
     { item: "брынза", grams: 30, category: "dairy", pantry: false },
     { item: "хлеб", grams: 40, category: "bakery", pantry: false },
@@ -80,6 +82,92 @@ describe("isBreakfastEligible (spec P7.2.4)", () => {
       toCatalogueEntry(parsedRecipe(1, { categories: [SOUPS] }), enrichedRecipe(1), new Map(), new Set([id(1)]))
         .breakfastEligible
     )
+  })
+})
+
+describe("light dinners (spec P7.4)", () => {
+  it("a light dinner is breakfast-eligible and the entry has the flag", () => {
+    const parsed = parsedRecipe(1, { categories: [SOUPS] })
+    assert.isTrue(isBreakfastEligible(parsed, new Set(), new Set([id(1)])))
+    const entry = toCatalogueEntry(parsed, enrichedRecipe(1), new Map(), new Set(), new Set([id(1)]))
+    assert.isTrue(entry.lightDinner)
+    assert.isTrue(entry.breakfastEligible)
+    assert.isFalse(toCatalogueEntry(parsed, enrichedRecipe(1), new Map(), new Set([id(1)])).lightDinner)
+  })
+
+  it.live("loadCatalogue keeps a not_a_meal light dinner, and loadCatalogueExtras reads household.lightDinnerIds", () =>
+    withTempDir((root) =>
+      Effect.gen(function* () {
+        yield* writeFiles(root, {
+          "data/parsed/3.json": parsedJson(3, { categories: [DESSERTS] }),
+          "data/enriched/3.json": enrichedJson(3, { enrichment: { mealFit: "not_a_meal", dishType: "other" } }),
+          "data/parsed/2.json": parsedJson(2, { categories: [DESSERTS] }),
+          "data/enriched/2.json": enrichedJson(2, { enrichment: { mealFit: "not_a_meal", dishType: "other" } }),
+          "config/household.json": JSON.stringify({ lightDinnerIds: [3] }),
+        })
+        const extras = yield* loadCatalogueExtras()
+        assert.deepStrictEqual(extras.lightDinnerIds?.map(Number), [3])
+        const { catalogue, skipped } = yield* loadCatalogue({ extras })
+        assert.deepStrictEqual(
+          catalogue.entries.map((entry) => [Number(entry.id), entry.lightDinner, entry.breakfastEligible]),
+          [[3, true, true]]
+        )
+        assert.deepStrictEqual(
+          skipped.map((entry) => [Number(entry.id), entry.reason]),
+          [[2, "not_a_meal"]]
+        )
+      })
+    )
+  )
+
+  const catalogue = catalogueOf([
+    entryOf(1, { title: "Суп Альфа" }),
+    entryOf(3, { title: "Запеканка Чарли", lightDinner: true, enrichment: { mealFit: "not_a_meal" } }),
+    entryOf(4, { title: "Кекс Дельта", enrichment: { mealFit: "not_a_meal" } }),
+  ])
+  const ids = (query: Parameters<typeof searchRecipes>[1]) =>
+    searchRecipes(catalogue, query)
+      .map((row) => Number(row.id))
+      .sort((a, b) => a - b)
+
+  it("search with forMeal dinner includes the light dinners only, and the row has the flag", () => {
+    assert.deepStrictEqual(ids({ forMeal: "dinner" }), [1, 3])
+    assert.deepStrictEqual(ids({ forMeal: "lunch" }), [1])
+    assert.deepStrictEqual(ids({ forMeal: "breakfast" }), [3])
+    assert.deepStrictEqual(
+      searchRecipes(catalogue, { forMeal: "dinner" }).map((row) => [Number(row.id), row.lightDinner]),
+      [
+        [1, false],
+        [3, true],
+      ]
+    )
+  })
+})
+
+describe("simple breakfasts: meals (spec P7.4.3)", () => {
+  const record = {
+    id: "tvorog",
+    title: "Творог",
+    items: [{ item: "Творог", grams: 200, category: "dairy", pantry: false }],
+  }
+
+  it("defaults to breakfast, and accepts a list of meals", () => {
+    assert.deepStrictEqual(Result.getOrThrow(decodeSimple([record]))[0]?.meals, ["breakfast"])
+    assert.deepStrictEqual(Result.getOrThrow(decodeSimple([{ ...record, meals: ["breakfast", "dinner"] }]))[0]?.meals, [
+      "breakfast",
+      "dinner",
+    ])
+  })
+
+  it("refuses an empty list, a repeated meal and an unknown meal", () => {
+    for (const meals of [[], ["dinner", "dinner"], ["supper"]]) {
+      assert.isTrue(Result.isFailure(decodeSimple([{ ...record, meals }])))
+    }
+  })
+
+  it("makeSimpleBreakfasts keeps the meals", () => {
+    const decoded = Result.getOrThrow(decodeSimple([{ ...record, meals: ["dinner"] }]))
+    assert.deepStrictEqual(makeSimpleBreakfasts(decoded, makeAliases({}))[0]?.meals, ["dinner"])
   })
 })
 

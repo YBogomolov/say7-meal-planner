@@ -33,6 +33,7 @@ describe("Household", () => {
       mealPersons: {},
       freshMinutesMax: 20,
       breakfastExtraIds: [],
+      lightDinnerIds: [],
       weeklyExtras: [],
       preferences: {
         excludedDishTypes: [],
@@ -83,6 +84,8 @@ describe("Household", () => {
     // The file has breakfast (spec P7.2.1): `meals` and `mealPersons` differ from the defaults.
     assert.deepStrictEqual(decoded.meals, ["breakfast", "lunch", "dinner"])
     assert.deepStrictEqual(decoded.mealPersons, { breakfast: 2 })
+    // The light dinners of spec P7.4.2.
+    assert.deepStrictEqual(decoded.lightDinnerIds.map(Number), [498, 921, 1432, 638, 581, 1160, 1194])
     assert.deepStrictEqual(
       decoded.weeklyExtras.map((extra) => extra.item),
       ["вафли", "яйца"]
@@ -93,6 +96,7 @@ describe("Household", () => {
         preferences: DEFAULT_HOUSEHOLD.preferences,
         meals: DEFAULT_HOUSEHOLD.meals,
         mealPersons: {},
+        lightDinnerIds: [],
         weeklyExtras: [],
       },
       DEFAULT_HOUSEHOLD
@@ -132,6 +136,8 @@ describe("Household", () => {
       { freshMinutesMax: 0 },
       { breakfastExtraIds: [0] },
       { breakfastExtraIds: [5, 5] },
+      { lightDinnerIds: [0] },
+      { lightDinnerIds: [5, 5] },
       { sessions: [{ id: "A", dayOffset: 0 }] },
       {
         sessions: [

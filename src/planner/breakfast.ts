@@ -7,8 +7,15 @@ import type { RecipeId } from "../domain/recipe.ts"
  */
 export const BREAKFAST_CATEGORY_IDS: ReadonlySet<number> = new Set([50, 62, 63, 79, 233])
 
-/** A recipe is a breakfast candidate if a category is in `BREAKFAST_CATEGORY_IDS`, or its ID is in `extraIds` (`household.breakfastExtraIds`). */
+/**
+ * A recipe is a breakfast candidate if a category is in `BREAKFAST_CATEGORY_IDS`, or its ID is in `extraIds` (`household.breakfastExtraIds`)
+ * or in `lightDinnerIds` (`household.lightDinnerIds`, spec P7.4.1).
+ */
 export const isBreakfastEligible = (
   recipe: Pick<ParsedRecipe, "id" | "categories">,
-  extraIds: ReadonlySet<RecipeId>
-): boolean => extraIds.has(recipe.id) || recipe.categories.some((category) => BREAKFAST_CATEGORY_IDS.has(category.id))
+  extraIds: ReadonlySet<RecipeId>,
+  lightDinnerIds: ReadonlySet<RecipeId> = new Set()
+): boolean =>
+  extraIds.has(recipe.id) ||
+  lightDinnerIds.has(recipe.id) ||
+  recipe.categories.some((category) => BREAKFAST_CATEGORY_IDS.has(category.id))

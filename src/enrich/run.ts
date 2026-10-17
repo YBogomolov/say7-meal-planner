@@ -39,6 +39,8 @@ export interface EnrichOptions {
   readonly sync: boolean
   /** Process the failures of the last `_report.json` in sync mode. */
   readonly retryFailed: boolean
+  /** Recipes in scope besides the categories: `household.breakfastExtraIds` and `lightDinnerIds` (spec P7.4.1). */
+  readonly extraScopeIds: ReadonlySet<RecipeId>
 }
 
 /** The options of `--dry-run`. Without `--model`, the dry run estimates every supported model. */
@@ -47,6 +49,7 @@ export interface DryRunOptions {
   readonly limit: Option.Option<number>
   readonly sync: boolean
   readonly retryFailed: boolean
+  readonly extraScopeIds: ReadonlySet<RecipeId>
   readonly models: ReadonlyArray<ModelName>
 }
 
@@ -164,6 +167,7 @@ const gatherWork = (options: EnrichOptions): Effect.Effect<Work, EnrichError, En
       promptVersion: PROMPT_VERSION,
       storedHashes,
       limit: options.limit,
+      extraScopeIds: options.extraScopeIds,
     })
     if (Option.isSome(options.ids) && !options.retryFailed && plan.outOfScope.length > 0) {
       yield* Console.warn(`warning: IDs out of scope (spec P3.1), skipped: ${plan.outOfScope.join(", ")}`)
@@ -180,7 +184,7 @@ export const dryRun = (options: DryRunOptions): Effect.Effect<DryRunSummary, Enr
   Effect.gen(function* () {
     const { recipes, unreadable } = yield* loadSelection(options)
     const inScope = recipes
-      .filter(isInScope)
+      .filter((recipe) => isInScope(recipe, options.extraScopeIds))
       .toSorted((a, b) => a.id - b.id)
       .map((recipe) => ({ id: recipe.id, input: buildModelInput(recipe) }))
     const summary = summariseDryRun({

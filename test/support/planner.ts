@@ -51,6 +51,8 @@ export interface DishOptions {
   readonly commentsCount?: number | null
   /** The categories of the page. The default is soups (`SOUPS` of the enrich support). */
   readonly categories?: ParsedOptions["categories"]
+  /** True if the ID is in `household.lightDinnerIds` (spec P7.4.1). */
+  readonly lightDinner?: boolean
 }
 
 /** The enriched recipe of a file `data/enriched/<n>.json`, with test defaults. */
@@ -86,7 +88,9 @@ export const entryOf = (n: number, options: DishOptions & { readonly aliases?: A
       commentsCount: options.commentsCount === undefined ? 3 : options.commentsCount,
     },
     enrichedRecipe(n, options),
-    options.aliases ?? NO_ALIASES
+    options.aliases ?? NO_ALIASES,
+    new Set(),
+    options.lightDinner === true ? new Set([id(n)]) : new Set()
   )
 
 export const catalogueOf = (

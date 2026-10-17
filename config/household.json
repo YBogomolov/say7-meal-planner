@@ -5,6 +5,7 @@
   "mealPersons": { "breakfast": 2 },
   "freshMinutesMax": 20,
   "breakfastExtraIds": [],
+  "lightDinnerIds": [498, 921, 1432, 638, 581, 1160, 1194],
   "weeklyExtras": [
     {
       "item": "вафли",

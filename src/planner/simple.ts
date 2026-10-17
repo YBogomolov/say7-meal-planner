@@ -24,6 +24,7 @@ export const makeSimpleBreakfasts = (
   records.map((record) => ({
     id: record.id,
     title: record.title,
+    meals: record.meals,
     items: record.items.map((item) => ({
       ...item,
       item: normaliseItem(item.item, aliases),

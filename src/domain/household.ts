@@ -180,6 +180,11 @@ export const Household = Schema.Struct({
     Schema.check(Schema.isUnique()),
     Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<RecipeId>>([]))
   ),
+  /** P7.4. Recipes that are valid in dinner slots even if `mealFit` is `not_a_meal`. They are in the scope of the enrichment and are breakfast candidates. */
+  lightDinnerIds: Schema.Array(RecipeId).pipe(
+    Schema.check(Schema.isUnique()),
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<RecipeId>>([]))
+  ),
   /** P7.3. Products that the shopping list shows every week, outside the departments. */
   weeklyExtras: Schema.Array(WeeklyExtra).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<WeeklyExtra>>([]))

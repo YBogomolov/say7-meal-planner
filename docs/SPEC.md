@@ -410,3 +410,17 @@ The third person (Соня) makes her own simple breakfast (spec P7.2.1). The ho
 3. The Markdown list (`shopping-render`) and the menu show a section «Каждую неделю» after the departments: `<item> — <amount> (<note>)`.
 4. `shopping:text` (spec P4.5.8) adds 1 line per extra after the lines of `buy`: `<item> — <amount> (<note>)`.
 5. The MCP tools `household` and `shopping_list` return the extras.
+
+#### P7.4 Light dinners (added 2026-10-17)
+
+Request of the household: simple and quick dinners. Examples: cottage cheese with sour cream and sugar, a cottage cheese casserole (cooked once, eaten on 3–4 days), pancakes, sandwiches. The cottage cheese casseroles of the site are in the dessert section, which P3 does not cover.
+
+1. Household key `lightDinnerIds` (default `[]`, unique recipe IDs). These recipes:
+   - are in the scope of P3 (enrichment), as well as the categories of `SCOPE_CATEGORY_IDS`;
+   - are breakfast-eligible (spec P7.2.4);
+   - are valid in dinner slots also when their `mealFit` is `not_a_meal` (`slot_not_a_meal` does not apply to them in dinner slots). `loadCatalogue` keeps them. In lunch slots, the usual rules apply.
+   - `search_recipes` with `forMeal: "dinner"` includes them. Rows get `lightDinner: true`.
+2. Initial value (chosen by the coordinator from the dessert section): 498, 921, 1432, 638 (cottage cheese casseroles), 581 (rice casserole with apples), 1160 (carrot soufflé), 1194 (cherry clafoutis).
+3. Simple dishes at dinner. An entry of `config/simple-breakfasts.json` gets the optional key `meals` (a non-empty unique list of `breakfast`, `lunch`, `dinner`; default `["breakfast"]`). A slot can have `simpleIds` if its meal is in `meals` of each entry. The rule `simple_not_breakfast` is renamed to `simple_meal_not_allowed` (E): a simple entry in a slot whose meal is not in its `meals`. The other rules of P7.2.3 stay (no cooking entry, protein from the table, items × persons of the slot).
+4. The MCP tool `simple_breakfasts` returns `meals` for each entry. `evaluate_plan` and `plan_week` texts name the change. The menu shows simple entries in the lunch and dinner columns too.
+5. The coordinator runs the enrichment for the new IDs.

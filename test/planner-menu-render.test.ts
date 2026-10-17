@@ -96,6 +96,7 @@ describe("renderMenu: breakfast (spec P7.2)", () => {
   const yogurt: SimpleBreakfast = {
     id: "yogurt",
     title: "Йогурт с бананом",
+    meals: ["breakfast"],
     items: [
       {
         item: "греческий йогурт",
@@ -109,6 +110,7 @@ describe("renderMenu: breakfast (spec P7.2)", () => {
   const toast: SimpleBreakfast = {
     id: "toast",
     title: "Тост | с брынзой",
+    meals: ["breakfast"],
     items: [
       { item: "хлеб", grams: 60, category: "bakery", pantry: false },
       { item: "брынза", grams: 30, category: "dairy", pantry: false },
@@ -197,5 +199,50 @@ describe("renderMenu: breakfast (spec P7.2)", () => {
   it("prints the new products in the plain text list", () => {
     const lines = renderShoppingText(list, { withOptional: false }).split("\n")
     assert.include(lines, "греческий йогурт — 1,2 кг")
+  })
+})
+
+describe("renderMenu and shoppingList: simple entries at dinner (spec P7.4.4)", () => {
+  const household: Household = {
+    ...DEFAULT_HOUSEHOLD,
+    meals: ["breakfast", "lunch", "dinner"],
+    mealPersons: { breakfast: 2 },
+  }
+  const tvorog: SimpleBreakfast = {
+    id: "tvorog",
+    title: "Творог со сметаной",
+    meals: ["breakfast", "dinner"],
+    items: [{ item: "ряженка", grams: 200, category: "dairy", pantry: false }],
+  }
+  const catalogue = catalogueOf(baseEntries(), undefined, undefined, [tvorog])
+  const plan = planOf({
+    cooking: BASE_COOKING,
+    meals: [
+      ...BASE_MEALS.filter((slot) => !(slot.day === 2 && slot.meal === "dinner")),
+      { day: 2, meal: "dinner", recipeIds: [], simpleIds: ["tvorog"] },
+      { day: 3, meal: "breakfast", recipeIds: [], simpleIds: ["tvorog"] },
+    ],
+    notes: null,
+  })
+  const list = shoppingList(plan, catalogue, household)
+
+  it("shows the entry in the dinner column of its day", () => {
+    const rendered = renderMenu({
+      plan,
+      catalogue,
+      household,
+      evaluation: evaluatePlan(plan, catalogue, household),
+      list,
+    })
+    assert.match(rendered, /^\| понедельник, 2026-10-19 \| — \| .* \| Творог со сметаной \|$/m)
+  })
+
+  it("puts its items in the list times the persons of the slot: 3 at dinner and 2 at breakfast", () => {
+    const item = list.buy.flatMap((category) => category.items).find((line) => line.item === "ряженка")
+    // 200 g × 3 persons + 200 g × 2 persons.
+    assert.deepStrictEqual(item?.amounts, [{ unit: "g", value: 1000 }])
+    assert.deepStrictEqual(list.simpleBreakfasts, [
+      { id: "tvorog", title: "Творог со сметаной", portions: 5, days: [2, 3] },
+    ])
   })
 })

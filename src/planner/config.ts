@@ -162,7 +162,7 @@ export const loadSimpleBreakfasts = (
     )
   })
 
-/** What `loadCatalogue` takes from the config besides the protein table: the simple breakfasts and `household.breakfastExtraIds`. */
+/** What `loadCatalogue` takes from the config besides the protein table: the simple breakfasts, `household.breakfastExtraIds` and `household.lightDinnerIds`. */
 export const loadCatalogueExtras = (
   aliases: Aliases = NO_ALIASES
 ): Effect.Effect<CatalogueExtras, ConfigError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
@@ -170,7 +170,11 @@ export const loadCatalogueExtras = (
     const [household, simpleBreakfasts] = yield* Effect.all([loadHousehold(), loadSimpleBreakfasts(aliases)], {
       concurrency: "unbounded",
     })
-    return { simpleBreakfasts, breakfastExtraIds: household.breakfastExtraIds }
+    return {
+      simpleBreakfasts,
+      breakfastExtraIds: household.breakfastExtraIds,
+      lightDinnerIds: household.lightDinnerIds,
+    }
   })
 
 export interface PlannerConfig {

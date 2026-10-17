@@ -1,5 +1,6 @@
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { IngredientCategory } from "./enriched-recipe.ts"
+import { MealName } from "./household.ts"
 
 /** The ID of a simple breakfast in a plan: any non-empty text (an unknown ID is the rule `unknown_simple`). */
 export const SimpleId = Schema.NonEmptyString
@@ -22,10 +23,17 @@ export const SimpleBreakfastItem = Schema.Struct({
 })
 export type SimpleBreakfastItem = typeof SimpleBreakfastItem.Type
 
+/** The meals where an entry is allowed (spec P7.4.3): a non-empty unique list. Without the key, only breakfast. */
+const SimpleMeals = Schema.Array(MealName).pipe(
+  Schema.check(Schema.isNonEmpty(), Schema.isUnique()),
+  Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<MealName>>(["breakfast"]))
+)
+
 /** A simple breakfast: a fixed set of products, no cooking (spec P7.2.3). The amounts are per portion. */
 export const SimpleBreakfast = Schema.Struct({
   id: SimpleId,
   title: Schema.NonEmptyString,
+  meals: SimpleMeals,
   items: Schema.Array(SimpleBreakfastItem).pipe(Schema.check(Schema.isNonEmpty())),
 })
 export type SimpleBreakfast = typeof SimpleBreakfast.Type
@@ -34,6 +42,7 @@ export type SimpleBreakfast = typeof SimpleBreakfast.Type
 export const SimpleBreakfastRecord = Schema.Struct({
   id: ConfigSimpleId,
   title: Schema.NonEmptyString,
+  meals: SimpleMeals,
   items: Schema.Array(SimpleBreakfastItem).pipe(Schema.check(Schema.isNonEmpty())),
 })
 export type SimpleBreakfastRecord = typeof SimpleBreakfastRecord.Type

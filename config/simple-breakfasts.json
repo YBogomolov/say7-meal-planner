@@ -30,6 +30,7 @@
   {
     "id": "buterbrody-syr-vetchina",
     "title": "Бутерброды с сыром и ветчиной, огурец",
+    "meals": ["breakfast", "dinner"],
     "items": [
       { "item": "хлеб", "grams": 60, "category": "bakery", "pantry": false },
       { "item": "сыр", "grams": 30, "category": "dairy", "pantry": false },
@@ -45,6 +46,7 @@
   {
     "id": "yaytsa-brynza-ovoshchi",
     "title": "Варёные яйца с брынзой, помидором и хлебом",
+    "meals": ["breakfast", "dinner"],
     "items": [
       { "item": "яйца", "grams": 110, "category": "eggs", "pantry": false },
       { "item": "брынза", "grams": 30, "category": "dairy", "pantry": false },
@@ -60,6 +62,7 @@
   {
     "id": "buterbrody-ryba",
     "title": "Бутерброды с творожным сыром и слабосолёной рыбой",
+    "meals": ["breakfast", "dinner"],
     "items": [
       { "item": "хлеб", "grams": 60, "category": "bakery", "pantry": false },
       {
@@ -122,6 +125,27 @@
         "category": "dairy",
         "pantry": false
       }
+    ]
+  },
+  {
+    "id": "tvorog-smetana-sakhar",
+    "title": "Творог со сметаной и сахаром",
+    "meals": ["breakfast", "dinner"],
+    "items": [
+      { "item": "творог", "grams": 200, "category": "dairy", "pantry": false },
+      { "item": "сметана", "grams": 50, "category": "dairy", "pantry": false },
+      { "item": "сахар", "grams": 15, "category": "sweet", "pantry": true }
+    ]
+  },
+  {
+    "id": "buterbrody-tunets-yaytso",
+    "title": "Бутерброды с тунцом, яйцом и огурцом",
+    "meals": ["breakfast", "dinner"],
+    "items": [
+      { "item": "хлеб", "grams": 60, "category": "bakery", "pantry": false },
+      { "item": "тунец консервированный", "grams": 80, "category": "canned", "pantry": false },
+      { "item": "яйца", "grams": 55, "category": "eggs", "pantry": false },
+      { "item": "огурцы", "grams": 50, "category": "vegetable", "pantry": false }
     ]
   }
 ]

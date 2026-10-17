@@ -39,9 +39,14 @@ export interface CatalogueEntry {
   readonly enrichment: CatalogueEnrichment
   /**
    * True if the recipe is a breakfast candidate (spec P7.2.4): a category of the breakfast list, or the ID is in `breakfastExtraIds`.
-   * A recipe with `mealFit: not_a_meal` is in the catalogue only if this is true, and it is valid only in breakfast slots.
+   * A recipe with `mealFit: not_a_meal` is in the catalogue only if this is true or `lightDinner` is true, and it is valid only in breakfast slots (and in dinner slots if `lightDinner`).
    */
   readonly breakfastEligible: boolean
+  /**
+   * True if the ID is in `household.lightDinnerIds` (spec P7.4.1). Such a recipe is valid in dinner slots also if its `mealFit` is `not_a_meal`,
+   * and it is breakfast-eligible.
+   */
+  readonly lightDinner: boolean
 }
 
 /** `{ "<normalised item>": <g protein per 100 g> }` of `config/item-protein.json`, with cleaned names (see `makeProteinTable`). */

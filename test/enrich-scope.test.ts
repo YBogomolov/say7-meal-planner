@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
-import { isInScope, SCOPE_CATEGORY_IDS } from "../src/enrich/scope.ts"
-import { DESSERTS, parsedRecipe, SALADS, SOUPS } from "./support/enrich.ts"
+import { extraScopeIds, isInScope, SCOPE_CATEGORY_IDS } from "../src/enrich/scope.ts"
+import { DESSERTS, id, parsedRecipe, SALADS, SOUPS } from "./support/enrich.ts"
 
 const category = (id: number) => ({
   id,
@@ -38,5 +38,29 @@ describe("isInScope", () => {
 
   it("refuses a recipe with no category", () => {
     assert.isFalse(isInScope(parsedRecipe(1, { categories: [] })))
+  })
+})
+
+describe("isInScope: extra IDs (spec P7.4.1)", () => {
+  it("accepts a recipe of the extra IDs although its categories are out of scope", () => {
+    assert.isTrue(isInScope(parsedRecipe(5, { categories: [DESSERTS] }), new Set([id(5)])))
+    assert.isTrue(isInScope(parsedRecipe(5, { categories: [] }), new Set([id(5)])))
+  })
+
+  it("refuses a recipe that is neither in a category nor in the extra IDs", () => {
+    assert.isFalse(isInScope(parsedRecipe(5, { categories: [DESSERTS] }), new Set([id(6)])))
+    assert.isFalse(isInScope(parsedRecipe(5, { categories: [DESSERTS] })))
+  })
+
+  it("still accepts a category in scope when the extra IDs name other recipes", () => {
+    assert.isTrue(isInScope(parsedRecipe(5, { categories: [SALADS] }), new Set([id(6)])))
+  })
+
+  it("extraScopeIds joins breakfastExtraIds and lightDinnerIds", () => {
+    const ids = extraScopeIds({ breakfastExtraIds: [id(1), id(2)], lightDinnerIds: [id(2), id(3)] })
+    assert.deepStrictEqual(
+      [...ids].toSorted((a, b) => a - b),
+      [1, 2, 3]
+    )
   })
 })

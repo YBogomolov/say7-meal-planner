@@ -669,6 +669,7 @@ describe("dryRun", () => {
       limit: Option.none(),
       sync: false,
       retryFailed: false,
+      extraScopeIds: new Set(),
       models: BOTH,
       ...overrides,
     }).pipe(Effect.provide(ctx.store))

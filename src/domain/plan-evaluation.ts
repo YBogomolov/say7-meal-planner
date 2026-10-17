@@ -32,7 +32,7 @@ export const ISSUE_CODES = [
   "fresh_time",
   "fresh_not_breakfast",
   "unknown_simple",
-  "simple_not_breakfast",
+  "simple_meal_not_allowed",
   "breakfast_only_recipe",
 ] as const
 export const IssueCode = Schema.Literals(ISSUE_CODES)

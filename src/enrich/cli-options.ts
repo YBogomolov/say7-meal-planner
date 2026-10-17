@@ -1,22 +1,33 @@
 import { Effect, Option, Result, Schema } from "effect"
 import { Command, Flag } from "effect/cli"
 import { join } from "node:path"
-import { DEFAULT_DATA_DIR, dataDirFlag, idsFlag, limitFlag, switchFlag } from "../cli/flags.ts"
+import {
+  configDirFlag,
+  DEFAULT_CONFIG_DIR,
+  DEFAULT_DATA_DIR,
+  dataDirFlag,
+  idsFlag,
+  limitFlag,
+  switchFlag,
+} from "../cli/flags.ts"
 import { UsageError } from "../cli/run.ts"
 import { DEFAULT_MODEL, MODEL_NAMES } from "../domain/enriched-recipe.ts"
 import type { ModelName } from "../domain/enriched-recipe.ts"
 import type { RecipeId } from "../domain/recipe.ts"
 import type { DryRunOptions, EnrichOptions } from "./run.ts"
 
-export interface EnrichCliOptions extends EnrichOptions {
+/** The scope IDs come from `<config-dir>/household.json`, so the parser does not set `extraScopeIds`. */
+export interface EnrichCliOptions extends Omit<EnrichOptions, "extraScopeIds"> {
   readonly dataDir: string
   readonly outDir: string
+  readonly configDir: string
 }
 
 /** `--dry-run`: the same flags, but the model is optional. */
-export interface DryRunCliOptions extends DryRunOptions {
+export interface DryRunCliOptions extends Omit<DryRunOptions, "extraScopeIds"> {
   readonly dataDir: string
   readonly outDir: string
+  readonly configDir: string
 }
 
 export type EnrichCliCommand =
@@ -32,6 +43,7 @@ interface RawEnrichFlags {
   readonly retryFailed: boolean
   readonly dryRun: boolean
   readonly dataDir: string
+  readonly configDir: string
   readonly outDir: Option.Option<string>
 }
 
@@ -50,6 +62,7 @@ export const enrichCommandOf = (raw: RawEnrichFlags): Result.Result<EnrichCliCom
     sync: raw.sync,
     retryFailed: raw.retryFailed,
     dataDir: raw.dataDir,
+    configDir: raw.configDir,
     outDir: Option.getOrElse(raw.outDir, () => join(raw.dataDir, "enriched")),
   }
   return Result.succeed(
@@ -87,6 +100,9 @@ export const makeEnrichCommand = <E, R>(handler: (command: EnrichCliCommand) => 
         "Process the failures of <out-dir>/_report.json in sync mode. Do not use it with --ids or --limit."
       ),
       dataDir: dataDirFlag(`Directory of the downloaded data (default ${DEFAULT_DATA_DIR}).`),
+      configDir: configDirFlag(
+        `Directory of the settings (default ${DEFAULT_CONFIG_DIR}). household.json adds recipes to the scope.`
+      ),
       outDir: Flag.String("out-dir").pipe(
         Flag.withSchema(Schema.NonEmptyString),
         Flag.optional,

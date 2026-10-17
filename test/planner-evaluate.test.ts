@@ -131,6 +131,7 @@ const BREAKFAST_ONLY = (n: number) =>
 const YOGURT: SimpleBreakfast = {
   id: "yogurt",
   title: "Йогурт с бананом",
+  meals: ["breakfast"],
   items: [
     { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
     { item: "мед", grams: 15, category: "sweet", pantry: true },
@@ -912,7 +913,7 @@ describe("evaluatePlan: every code of the table", () => {
     unknown_simple: {
       meals: [...BASE_MEALS, { day: 0, meal: "breakfast", recipeIds: [], simpleIds: ["nope"] }],
     },
-    simple_not_breakfast: {
+    simple_meal_not_allowed: {
       meals: withMeals({
         day: 0,
         meal: "lunch",
@@ -1394,7 +1395,94 @@ describe("evaluatePlan: breakfasts (spec P7.2)", () => {
     })
   })
 
-  describe("simple_not_breakfast (E)", () => {
+  describe("simple entries at dinner (spec P7.4.3)", () => {
+    const TVOROG: SimpleBreakfast = {
+      id: "tvorog",
+      title: "Творог со сметаной",
+      meals: ["breakfast", "dinner"],
+      items: [{ item: "творог", grams: 200, category: "dairy", pantry: false }],
+    }
+    const atMeal = (meal: "lunch" | "dinner"): Scenario =>
+      withBreakfast({
+        simple: [YOGURT, TVOROG],
+        meals: [
+          ...BASE_MEALS.filter((slot) => !(slot.day === 2 && slot.meal === meal)),
+          { day: 2, meal, recipeIds: [], simpleIds: ["tvorog"] },
+          ...morning(),
+        ],
+      })
+
+    it("is fine in a dinner slot of an entry that has dinner in meals, also as the only dish of the slot", () => {
+      const evaluation = evaluate(atMeal("dinner"))
+      assert.notInclude(codes(evaluation.errors), "simple_meal_not_allowed")
+      assert.notInclude(codes(evaluation.errors), "slot_not_a_meal")
+      assert.notInclude(codes(evaluation.errors), "slot_missing")
+    })
+
+    it("is an error in a lunch slot, with the ID and the day", () => {
+      const issue = issueOf(evaluate(atMeal("lunch")).errors, "simple_meal_not_allowed")
+      assert.deepStrictEqual(issue.simpleIds, ["tvorog"])
+      assert.deepStrictEqual(issue.days, [2])
+    })
+
+    it("is an error in a dinner slot for an entry with the default meals (breakfast only)", () => {
+      const evaluation = evaluate(
+        withBreakfast({
+          meals: [
+            ...BASE_MEALS.filter((slot) => !(slot.day === 2 && slot.meal === "dinner")),
+            { day: 2, meal: "dinner", recipeIds: [], simpleIds: ["yogurt"] },
+            ...morning(),
+          ],
+        })
+      )
+      assert.deepStrictEqual(issueOf(evaluation.errors, "simple_meal_not_allowed").days, [2])
+    })
+  })
+
+  describe("light dinners (spec P7.4.1)", () => {
+    const LIGHT = (n: number, lightDinner: boolean) =>
+      entryOf(n, {
+        title: `Запеканка Лима ${n}`,
+        lightDinner,
+        enrichment: { mealFit: "not_a_meal", servings: { min: 6, max: 8, source: "page" } },
+        ingredients: [inGrams("творог", 300, { category: "dairy" })],
+      })
+    const cooking: PlanSpec["cooking"] = [...BASE_COOKING, { session: "A", recipeId: 8 }]
+    const at = (meal: "lunch" | "dinner", lightDinner: boolean): PlanEvaluation =>
+      evaluate({ cooking, meals: withMeal(0, meal, [8]), extra: [LIGHT(8, lightDinner)] })
+
+    it("slot_not_a_meal and breakfast_only_recipe do not fire in a dinner slot", () => {
+      const evaluation = at("dinner", true)
+      assert.notInclude(codes(evaluation.errors), "slot_not_a_meal")
+      assert.notInclude(codes(evaluation.errors), "breakfast_only_recipe")
+    })
+
+    it("both rules still fire in a lunch slot", () => {
+      const evaluation = at("lunch", true)
+      assert.include(codes(evaluation.errors), "slot_not_a_meal")
+      assert.deepStrictEqual(idsOf(issueOf(evaluation.errors, "breakfast_only_recipe")), [8])
+      assert.deepStrictEqual(issueOf(evaluation.errors, "breakfast_only_recipe").days, [0])
+    })
+
+    it("a not_a_meal recipe that is not a light dinner is an error at dinner", () => {
+      const evaluation = at("dinner", false)
+      assert.include(codes(evaluation.errors), "slot_not_a_meal")
+      assert.deepStrictEqual(idsOf(issueOf(evaluation.errors, "breakfast_only_recipe")), [8])
+    })
+
+    it("is fine in a breakfast slot", () => {
+      const evaluation = evaluate(
+        withBreakfast({
+          cooking,
+          meals: [...BASE_MEALS, ...morning([], [8]).filter((slot) => slot.day < 3), ...morning().slice(3)],
+          extra: [LIGHT(8, true)],
+        })
+      )
+      assert.notInclude(codes(evaluation.errors), "breakfast_only_recipe")
+    })
+  })
+
+  describe("simple_meal_not_allowed (E)", () => {
     it("fires for a simple breakfast in a lunch slot", () => {
       const evaluation = evaluate(
         withBreakfast({
@@ -1405,13 +1493,13 @@ describe("evaluatePlan: breakfasts (spec P7.2)", () => {
           ],
         })
       )
-      const issue = issueOf(evaluation.errors, "simple_not_breakfast")
+      const issue = issueOf(evaluation.errors, "simple_meal_not_allowed")
       assert.deepStrictEqual(issue.simpleIds, ["yogurt"])
       assert.deepStrictEqual(issue.days, [2])
     })
 
     it("does not fire in a breakfast slot", () => {
-      assert.notInclude(codes(evaluate(withBreakfast()).errors), "simple_not_breakfast")
+      assert.notInclude(codes(evaluate(withBreakfast()).errors), "simple_meal_not_allowed")
     })
   })
 
@@ -1613,6 +1701,7 @@ describe("evaluatePlan: breakfasts (spec P7.2)", () => {
       const weak: SimpleBreakfast = {
         id: "weak",
         title: "Тост с джемом",
+        meals: ["breakfast"],
         items: [{ item: "хлеб", grams: 60, category: "bakery", pantry: false }],
       }
       const evaluation = evaluate(
@@ -1632,6 +1721,7 @@ describe("evaluatePlan: breakfasts (spec P7.2)", () => {
       const weak: SimpleBreakfast = {
         id: "weak",
         title: "Тост с джемом",
+        meals: ["breakfast"],
         items: [{ item: "хлеб", grams: 60, category: "bakery", pantry: false }],
       }
       const meals = [
@@ -1664,6 +1754,7 @@ describe("evaluatePlan: breakfasts (spec P7.2)", () => {
       const sausage: SimpleBreakfast = {
         id: "sausage",
         title: "Бутерброд с колбасой",
+        meals: ["breakfast"],
         items: [{ item: "колбаса", grams: 50, category: "meat", pantry: false }],
       }
       const evaluation = evaluate(

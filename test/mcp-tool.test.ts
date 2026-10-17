@@ -182,6 +182,14 @@ describe("prompt plan_week", () => {
     }
   })
 
+  it("covers light dinners and the rule simple_meal_not_allowed", () => {
+    const text = planWeekPrompt("2026-10-17", undefined)
+    for (const part of ["Light dinners", "`household.lightDinnerIds`", "`simple_meal_not_allowed`", "`meals`"]) {
+      assert.include(text, part)
+    }
+    assert.notInclude(text, "simple_not_breakfast")
+  })
+
   it("fixes the protein family when the argument is given", () => {
     assert.include(planWeekPrompt("2026-10-17", "fish"), "`fish`")
     assert.notInclude(planWeekPrompt("2026-10-17", undefined), "Use the protein family")

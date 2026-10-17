@@ -65,13 +65,15 @@ export const planEnrichment = (parts: {
   readonly promptVersion: number
   readonly storedHashes: ReadonlyMap<RecipeId, string>
   readonly limit: Option.Option<number>
+  /** Recipes in scope besides the categories (spec P7.4.1). */
+  readonly extraScopeIds: ReadonlySet<RecipeId>
 }): EnrichPlan => {
   const outOfScope: Array<RecipeId> = []
   const cached: Array<RecipeId> = []
   const needed: Array<PlannedRecipe> = []
 
   for (const recipe of parts.recipes.toSorted((a, b) => a.id - b.id)) {
-    if (!isInScope(recipe)) {
+    if (!isInScope(recipe, parts.extraScopeIds)) {
       outOfScope.push(recipe.id)
       continue
     }

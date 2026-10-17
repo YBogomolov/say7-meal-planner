@@ -53,7 +53,16 @@ describe("enrich command", () => {
       assert.isFalse(options.sync)
       assert.isFalse(options.retryFailed)
       assert.strictEqual(options.dataDir, "data")
+      assert.strictEqual(options.configDir, "config")
       assert.strictEqual(options.outDir, "data/enriched")
+    })
+  )
+
+  it.effect("reads --config-dir, also with --dry-run", () =>
+    Effect.gen(function* () {
+      assert.strictEqual((yield* run("--model", "claude-haiku-5-5", "--config-dir", "/tmp/c")).configDir, "/tmp/c")
+      assert.strictEqual((yield* dry("--dry-run", "--config-dir", "/tmp/c")).configDir, "/tmp/c")
+      assert.strictEqual((yield* dry("--dry-run")).configDir, "config")
     })
   )
 
