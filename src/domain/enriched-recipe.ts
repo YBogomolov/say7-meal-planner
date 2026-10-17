@@ -167,14 +167,16 @@ export type EnrichedServings = typeof EnrichedServings.Type
  * and every line of the recipe must have at least 1 item (`checkLineCoverage`). The caller runs them after the decode.
  */
 export const Enrichment = Schema.Struct({
+  // The field order is the order in which the model writes the fields (toCodecAnthropic keeps it):
+  // the ingredients come first, so that the families, the vegetarian flag and the heat follow from the items.
+  ingredients: Schema.Array(IngredientItem),
+  proteinFamilies: Schema.Array(ProteinFamily),
+  /** No meat, fish or seafood. */
+  vegetarian: Schema.Boolean,
   dishType: DishType,
   mealFit: MealFit,
   /** A side dish that the author mentions, or `null`. */
   sideHint: Schema.NullOr(Schema.NonEmptyString),
-  proteinFamilies: Schema.Array(ProteinFamily),
-  /** No meat, fish or seafood. */
-  vegetarian: Schema.Boolean,
-  ingredients: Schema.Array(IngredientItem),
   servings: EnrichedServings,
   /** Hands-on time in minutes. */
   activeMinutes: NonNegativeInt,

@@ -1,7 +1,8 @@
 import { Result, Schema } from "effect"
-import { checkLineCoverage, checkLineRange, EnrichmentJson } from "../domain/enriched-recipe.ts"
+import { checkLineCoverage, checkLineRange } from "../domain/enriched-recipe.ts"
 import type { Enrichment } from "../domain/enriched-recipe.ts"
 import type { FailureKind } from "../domain/enrich-report.ts"
+import { ENRICHMENT_CODEC } from "./json-schema.ts"
 import { MAX_OUTPUT_TOKENS_RETRY } from "./llm-types.ts"
 import type { LlmCompletion, LlmRequest } from "./llm-types.ts"
 import { retryMessage } from "./prompt.ts"
@@ -25,7 +26,7 @@ const invalid = (kind: AnswerFailureKind, message: string): InvalidVerdict => ({
   message,
 })
 
-const decodeAnswer = Schema.decodeUnknownResult(EnrichmentJson)
+const decodeAnswer = Schema.decodeUnknownResult(Schema.fromJsonString(ENRICHMENT_CODEC))
 
 /**
  * Decide if an answer is usable (spec A9).

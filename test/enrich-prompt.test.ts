@@ -116,13 +116,13 @@ describe("SYSTEM_PROMPT", () => {
   })
 
   it("names every field of the answer", () => {
-    for (const name of Object.keys(ENRICHMENT_JSON_SCHEMA.properties)) {
+    for (const name of Object.keys(Enrichment.fields)) {
       assert.include(SYSTEM_PROMPT, name)
     }
   })
 
   it("names every value of the enums", () => {
-    const text = JSON.stringify(ENRICHMENT_JSON_SCHEMA.properties)
+    const text = JSON.stringify(ENRICHMENT_JSON_SCHEMA["properties"])
     const values = [...text.matchAll(/"enum":\[([^\]]*)\]/g)].flatMap((match) =>
       (match[1] ?? "")
         .split(",")

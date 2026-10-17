@@ -1,12 +1,14 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Schema } from "effect"
-import { Enrichment } from "../src/domain/enriched-recipe.ts"
+import { Result, Schema } from "effect"
 import {
   checkApiSchema,
+  ENRICHMENT_CODEC,
   ENRICHMENT_JSON_SCHEMA,
   MAX_NULLABLE_PROPERTIES,
   MAX_OPTIONAL_PROPERTIES,
 } from "../src/enrich/json-schema.ts"
+import { EXAMPLE_OUTPUT } from "../src/enrich/prompt.ts"
+import { walkA4 } from "./support/api-schema.ts"
 
 const object = (properties: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
   type: "object",
@@ -16,11 +18,66 @@ const object = (properties: Record<string, unknown>, extra: Record<string, unkno
   ...extra,
 })
 
-describe("the JSON Schema for output_config.format", () => {
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+/** The child of a schema node by key, or `{}` when it is missing (a test then fails on the assertion). */
+const child = (node: unknown, key: string): Readonly<Record<string, unknown>> => {
+  const value = isRecord(node) ? node[key] : undefined
+  return isRecord(value) ? value : {}
+}
+
+const propertyNames = (node: unknown): ReadonlyArray<string> => Object.keys(child(node, "properties"))
+
+/** Every object node of a schema with its path. */
+const objectNodes = (schema: unknown): ReadonlyArray<readonly [string, Readonly<Record<string, unknown>>]> => {
+  const found: Array<readonly [string, Readonly<Record<string, unknown>>]> = []
+  const walk = (node: unknown, path: string): void => {
+    if (Array.isArray(node)) {
+      node.forEach((item, index) => walk(item, `${path}[${index}]`))
+    } else if (isRecord(node)) {
+      if ("properties" in node) found.push([path, node])
+      for (const [key, value] of Object.entries(node)) walk(value, `${path}.${key}`)
+    }
+  }
+  walk(schema, "$")
+  return found
+}
+
+const ingredientNode = child(child(child(ENRICHMENT_JSON_SCHEMA, "properties"), "ingredients"), "items")
+
+describe("the JSON Schema for output_config.format (generated from the Effect Schema)", () => {
   const check = checkApiSchema(ENRICHMENT_JSON_SCHEMA)
 
   it("has none of the features that the API does not support (spec A4)", () => {
     assert.deepStrictEqual(check.violations, [])
+    assert.deepStrictEqual(walkA4(ENRICHMENT_JSON_SCHEMA).problems, [])
+  })
+
+  it("has no $defs and no $ref", () => {
+    const text = JSON.stringify(ENRICHMENT_JSON_SCHEMA)
+    assert.notInclude(text, "$ref")
+    assert.notInclude(text, "$defs")
+  })
+
+  it("has no minimum, maximum, minLength or maxLength anywhere", () => {
+    const text = JSON.stringify(ENRICHMENT_JSON_SCHEMA)
+    for (const keyword of ["minimum", "maximum", "minLength", "maxLength"]) {
+      assert.notInclude(text, `"${keyword}"`)
+    }
+  })
+
+  it("has additionalProperties false and required equal to the property names in every object", () => {
+    const objects = objectNodes(ENRICHMENT_JSON_SCHEMA)
+    assert.strictEqual(objects.length, 3)
+    for (const [path, node] of objects) {
+      assert.strictEqual(node["additionalProperties"], false, path)
+      assert.deepStrictEqual(
+        [...(Array.isArray(node["required"]) ? node["required"] : [])].toSorted(),
+        [...propertyNames(node)].toSorted(),
+        path
+      )
+    }
   })
 
   it("has at most 16 properties with anyOf or a type array", () => {
@@ -29,8 +86,45 @@ describe("the JSON Schema for output_config.format", () => {
     assert.strictEqual(check.nullableProperties, 6)
   })
 
+  it("has no optional property", () => {
+    assert.strictEqual(check.optionalProperties, 0)
+    assert.isAtMost(check.optionalProperties, MAX_OPTIONAL_PROPERTIES)
+  })
+
+  it("keeps the field order of the model: ingredients first", () => {
+    assert.deepStrictEqual(propertyNames(ENRICHMENT_JSON_SCHEMA), [
+      "ingredients",
+      "proteinFamilies",
+      "vegetarian",
+      "dishType",
+      "mealFit",
+      "sideHint",
+      "servings",
+      "activeMinutes",
+      "totalMinutes",
+      "longWaitHours",
+      "heat",
+      "difficulty",
+      "equipment",
+      "fridgeDays",
+      "freezable",
+      "reheats",
+    ])
+    assert.deepStrictEqual(propertyNames(ingredientNode), [
+      "line",
+      "item",
+      "detail",
+      "category",
+      "pantry",
+      "quantity",
+      "unit",
+      "grams",
+      "optional",
+    ])
+  })
+
   it("writes the nullable unit as anyOf with a typed enum and a null branch, not as enum with a type array", () => {
-    const unit = ENRICHMENT_JSON_SCHEMA.properties.ingredients.items.properties.unit
+    const unit = child(child(ingredientNode, "properties"), "unit")
     assert.deepStrictEqual(unit, {
       anyOf: [
         {
@@ -40,33 +134,40 @@ describe("the JSON Schema for output_config.format", () => {
         { type: "null" },
       ],
     })
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(unit)), unit)
   })
 
-  it("has no node with enum or const together with a type array", () => {
+  it("gives every node with enum or const a single type", () => {
     const offenders: Array<string> = []
     const find = (node: unknown, path: string): void => {
       if (Array.isArray(node)) {
-        node.forEach((child, index) => find(child, `${path}[${index}]`))
+        node.forEach((item, index) => find(item, `${path}[${index}]`))
       } else if (isRecord(node)) {
-        if (Array.isArray(node["type"]) && ("enum" in node || "const" in node)) {
-          offenders.push(path)
-        }
-        for (const [key, child] of Object.entries(node)) find(child, `${path}.${key}`)
+        if (("enum" in node || "const" in node) && typeof node["type"] !== "string") offenders.push(path)
+        for (const [key, value] of Object.entries(node)) find(value, `${path}.${key}`)
       }
     }
     find(ENRICHMENT_JSON_SCHEMA, "$")
     assert.deepStrictEqual(offenders, [])
   })
 
-  it("has no optional property", () => {
-    assert.strictEqual(check.optionalProperties, 0)
-    assert.isAtMost(check.optionalProperties, MAX_OPTIONAL_PROPERTIES)
+  it("keeps the numeric values of heat and difficulty", () => {
+    const properties = child(ENRICHMENT_JSON_SCHEMA, "properties")
+    assert.deepStrictEqual(child(properties, "heat")["enum"], [0, 1, 2, 3])
+    assert.deepStrictEqual(child(properties, "difficulty")["enum"], [1, 2, 3])
+  })
+})
+
+describe("the codec of the generated schema", () => {
+  const decode = Schema.decodeUnknownResult(ENRICHMENT_CODEC)
+
+  it("decodes a valid answer", () => {
+    assert.deepStrictEqual(Result.getOrUndefined(decode(JSON.parse(JSON.stringify(EXAMPLE_OUTPUT)))), EXAMPLE_OUTPUT)
   })
 
-  it("counts 17 top-level fields and 9 item fields in 3 objects", () => {
-    assert.strictEqual(check.objects, 3)
-    assert.strictEqual(check.properties, 16 + 9 + 3)
+  it("still checks the ranges that the API schema does not have", () => {
+    assert.isTrue(Result.isFailure(decode({ ...EXAMPLE_OUTPUT, fridgeDays: 5 })))
+    assert.isTrue(Result.isFailure(decode({ ...EXAMPLE_OUTPUT, activeMinutes: -1 })))
+    assert.isTrue(Result.isFailure(decode({ ...EXAMPLE_OUTPUT, servings: { min: 4, max: 2, source: "page" } })))
   })
 })
 
@@ -230,62 +331,5 @@ describe("checkApiSchema", () => {
   it("rejects a root that is not an object", () => {
     assert.isTrue(violationsOf({ type: "array", items: { type: "string" } }).some((text) => text.includes("root")))
     assert.isTrue(violationsOf("x").length > 0)
-  })
-})
-
-/** Property names and enum values of a JSON Schema, by path. `anyOf` branches merge and `null` does not count. */
-interface Shape {
-  readonly properties: Map<string, ReadonlyArray<string>>
-  readonly enums: Map<string, ReadonlyArray<string>>
-}
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-
-const shapeOf = (schema: unknown): Shape => {
-  const shape: Shape = { properties: new Map(), enums: new Map() }
-  const walk = (node: unknown, path: string): void => {
-    if (!isRecord(node)) return
-    if (Array.isArray(node["enum"])) {
-      const values = node["enum"].filter((value) => value !== null).map((value) => JSON.stringify(value))
-      shape.enums.set(path, [...(shape.enums.get(path) ?? []), ...values].toSorted())
-    }
-    if (isRecord(node["properties"])) {
-      shape.properties.set(path, Object.keys(node["properties"]).toSorted())
-      for (const [name, child] of Object.entries(node["properties"])) walk(child, `${path}.${name}`)
-    }
-    if ("items" in node) walk(node["items"], `${path}[]`)
-    if (Array.isArray(node["anyOf"])) for (const branch of node["anyOf"]) walk(branch, path)
-    if (Array.isArray(node["oneOf"])) for (const branch of node["oneOf"]) walk(branch, path)
-    if ("const" in node) {
-      shape.enums.set(path, [...(shape.enums.get(path) ?? []), JSON.stringify(node["const"])].toSorted())
-    }
-  }
-  walk(schema, "$")
-  return shape
-}
-
-describe("the Effect Schema and the JSON Schema agree", () => {
-  const effect = shapeOf(Schema.toJsonSchemaDocument(Enrichment).schema)
-  const api = shapeOf(ENRICHMENT_JSON_SCHEMA)
-
-  it("have the same field names in every object", () => {
-    assert.deepStrictEqual([...api.properties.keys()].toSorted(), [...effect.properties.keys()].toSorted())
-    for (const [path, names] of effect.properties) {
-      assert.deepStrictEqual(api.properties.get(path), names, path)
-    }
-  })
-
-  it("have the same enum values in every field", () => {
-    assert.deepStrictEqual([...api.enums.keys()].toSorted(), [...effect.enums.keys()].toSorted())
-    for (const [path, values] of effect.enums) {
-      assert.deepStrictEqual(api.enums.get(path), values, path)
-    }
-  })
-
-  it("cover the 16 fields of the table P3.4 and the 9 fields of an ingredient", () => {
-    assert.deepStrictEqual(effect.properties.get("$")?.length, 16)
-    assert.deepStrictEqual(effect.properties.get("$.ingredients[]")?.length, 9)
-    assert.deepStrictEqual(api.properties.get("$.servings"), ["max", "min", "source"])
   })
 })

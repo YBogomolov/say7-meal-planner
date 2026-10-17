@@ -120,16 +120,18 @@ describe("validateRequests", () => {
     }
     const wrong = (item: BuiltRequest | undefined): BuiltRequest => {
       const request = must(item, "request")
-      const ingredients = ENRICHMENT_JSON_SCHEMA.properties.ingredients
       const schema = {
-        ...ENRICHMENT_JSON_SCHEMA,
+        type: "object",
+        additionalProperties: false,
+        required: ["ingredients"],
         properties: {
-          ...ENRICHMENT_JSON_SCHEMA.properties,
           ingredients: {
-            ...ingredients,
+            type: "array",
             items: {
-              ...ingredients.items,
-              properties: { ...ingredients.items.properties, unit: oldUnit },
+              type: "object",
+              additionalProperties: false,
+              required: ["unit"],
+              properties: { unit: oldUnit },
             },
           },
         },

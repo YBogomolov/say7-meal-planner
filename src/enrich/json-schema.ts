@@ -1,109 +1,75 @@
-/**
- * The JSON Schema that the API gets in `output_config.format` (spec A3, A4).
- *
- * The API accepts only a subset of JSON Schema (spec A4):
- * every object has `additionalProperties: false`, all properties are required, "no value" is `null`,
- * and there is no `minimum`, `maximum`, `minLength` or `maxLength`.
- * A node with `enum` or `const` has a single `type`. A nullable enum uses `anyOf` (see `nullableEnumOf`).
- * The ranges are checked by the Effect Schema `Enrichment` after the response (src/domain/enriched-recipe.ts).
- *
- * The enum values are written out here on purpose, so that a test can compare them with the Effect Schema.
- * The order of `properties` is the order in which the model writes the fields:
- * the ingredients come first, so that the families, the vegetarian flag and the heat follow from the items.
- */
-
-const enumOf = (...values: ReadonlyArray<string>) => ({ type: "string", enum: values }) as const
+import { toCodecAnthropic } from "effect/ai/AnthropicStructuredOutput"
+import { Enrichment } from "../domain/enriched-recipe.ts"
 
 /**
- * A value that is one of `values` or `null`.
- * The API rejects `enum` together with a type array (`{"type": ["string", "null"], "enum": [..., null]}`),
- * so the enum stays in a typed branch and `null` is a branch of its own.
- * The Effect Schema side is `Schema.NullOr(Schema.Literals(values))`, so the decoded type has `null` as well.
+ * The JSON Schema that the API gets in `output_config.format` (spec A3, A4), and the codec for the answer.
+ *
+ * Both come from the Effect Schema `Enrichment` (src/domain/enriched-recipe.ts) through `toCodecAnthropic`.
+ * The schema is that output after `normalizeApiSchema`, byte for byte the schema of PROMPT_VERSION 2.
+ * It obeys spec A4: every object has `additionalProperties: false`, all properties are required, "no value" is `null`,
+ * and there is no `minimum`, `maximum`, `minLength` or `maxLength`. The ranges stay in the codec.
+ * The order of `properties` is the field order of `Enrichment`: the ingredients come first.
  */
-const nullableEnumOf = (...values: ReadonlyArray<string>) => ({ anyOf: [enumOf(...values), { type: "null" }] }) as const
 
-const array = <const Items extends object>(items: Items) => ({ type: "array", items }) as const
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
 
-/** An object schema in which every property is required and no other property is allowed. */
-const object = <const Properties extends Readonly<Record<string, object>>>(properties: Properties) =>
-  ({
-    type: "object",
-    additionalProperties: false,
-    required: Object.keys(properties),
-    properties,
-  }) as const
+type Json = Readonly<Record<string, unknown>>
 
-const INGREDIENT_ITEM = object({
-  line: { type: "integer" },
-  item: { type: "string" },
-  detail: { type: ["string", "null"] },
-  category: enumOf(
-    "poultry",
-    "meat",
-    "fish",
-    "seafood",
-    "dairy",
-    "eggs",
-    "vegetable",
-    "fruit",
-    "herb",
-    "grain",
-    "pasta",
-    "legume",
-    "bakery",
-    "canned",
-    "frozen",
-    "sauce",
-    "spice",
-    "oil",
-    "sweet",
-    "nuts",
-    "other"
-  ),
-  pantry: { type: "boolean" },
-  quantity: { type: ["number", "null"] },
-  unit: nullableEnumOf("g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack"),
-  grams: { type: ["number", "null"] },
-  optional: { type: "boolean" },
-})
+const isNullBranch = (node: unknown): boolean =>
+  isRecord(node) && node["type"] === "null" && Object.keys(node).length === 1
 
-export const ENRICHMENT_JSON_SCHEMA = object({
-  ingredients: array(INGREDIENT_ITEM),
-  proteinFamilies: array(enumOf("chicken", "turkey", "duck", "pork", "beef", "lamb", "rabbit", "fish", "seafood")),
-  vegetarian: { type: "boolean" },
-  dishType: enumOf("soup", "main", "side", "salad", "snack", "savory_bake", "pancakes", "sauce", "other"),
-  mealFit: enumOf("full_meal", "needs_side", "side_only", "not_a_meal"),
-  sideHint: { type: ["string", "null"] },
-  servings: object({
-    min: { type: "integer" },
-    max: { type: "integer" },
-    source: enumOf("page", "estimated"),
-  }),
-  activeMinutes: { type: "integer" },
-  totalMinutes: { type: "integer" },
-  longWaitHours: { type: ["number", "null"] },
-  heat: { type: "integer", enum: [0, 1, 2, 3] },
-  difficulty: { type: "integer", enum: [1, 2, 3] },
-  equipment: array(
-    enumOf(
-      "hob",
-      "oven",
-      "microwave",
-      "air_fryer",
-      "food_processor",
-      "blender",
-      "immersion_blender",
-      "mixer",
-      "grill",
-      "slow_cooker",
-      "deep_fryer",
-      "special"
-    )
-  ),
-  fridgeDays: { type: "integer" },
-  freezable: { type: "boolean" },
-  reheats: enumOf("well", "ok", "poor", "served_cold"),
-})
+/**
+ * Bring the generated schema to the exact shape (and bytes) that the prompt version pins:
+ * - `description` is dropped (it only repeats the checks of the codec);
+ * - an enum of integers has `type: "integer"` (the generator writes `number`);
+ * - a plain nullable scalar is `{"type": [x, "null"]}`; a nullable enum stays `anyOf`;
+ * - an object has the key order `type`, `additionalProperties`, `required`, `properties`.
+ * The function is pure and walks only the keywords that the schema uses.
+ */
+export const normalizeApiSchema = (node: unknown): unknown => {
+  if (!isRecord(node)) return node
+  const { description: _description, ...rest } = node
+  const anyOf = rest["anyOf"]
+  if (Array.isArray(anyOf) && anyOf.length === 2) {
+    const [value, none] = anyOf.map(normalizeApiSchema)
+    if (isNullBranch(none) && isRecord(value) && Object.keys(value).length === 1 && typeof value["type"] === "string") {
+      return { type: [value["type"], "null"] }
+    }
+    return { anyOf: anyOf.map(normalizeApiSchema) }
+  }
+  const properties = rest["properties"]
+  if (isRecord(properties)) {
+    return {
+      type: rest["type"],
+      additionalProperties: rest["additionalProperties"],
+      required: rest["required"],
+      properties: Object.fromEntries(
+        Object.entries(properties).map(([key, child]) => [key, normalizeApiSchema(child)])
+      ),
+    }
+  }
+  const values = rest["enum"]
+  const type =
+    rest["type"] === "number" && Array.isArray(values) && values.every((value) => Number.isInteger(value))
+      ? "integer"
+      : rest["type"]
+  return {
+    ...rest,
+    type,
+    ...("items" in rest ? { items: normalizeApiSchema(rest["items"]) } : {}),
+  }
+}
+
+const generated = toCodecAnthropic(Enrichment)
+
+export const ENRICHMENT_JSON_SCHEMA: Json = (() => {
+  const normalized = normalizeApiSchema(generated.jsonSchema)
+  return isRecord(normalized) ? normalized : generated.jsonSchema
+})()
+
+/** Decodes the parsed JSON of the model answer into `Enrichment`, with all range checks. */
+export const ENRICHMENT_CODEC = generated.codec
 
 /** Limits of spec A4. */
 export const MAX_NULLABLE_PROPERTIES = 16
@@ -148,9 +114,6 @@ const UNSUPPORTED_KEYWORDS: Readonly<Record<string, string>> = {
 
 /** A regular expression with a look-around or a back reference does not work in the API. */
 const UNSUPPORTED_PATTERN = /\(\?<?[=!]|\\[1-9]|\\k</
-
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
 
 export interface ApiSchemaCheck {
   /** Every reason why the API would reject the schema. Empty when the schema is valid. */
