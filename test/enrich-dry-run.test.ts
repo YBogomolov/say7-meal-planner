@@ -303,7 +303,8 @@ describe("validateRequests", () => {
     assert.isTrue(validateRequests(changed({ input: empty })).some((problem) => problem.includes("no ingredient line")))
   })
 
-  it("rejects more requests than a batch accepts", () => {
+  // Builds and checks 100 001 requests: slow under a full parallel run.
+  it("rejects more requests than a batch accepts", { timeout: 60_000 }, () => {
     const request = must(built(1)[0], "request")
     const many = Array.from({ length: MAX_BATCH_REQUESTS + 1 }, (_, i) => ({
       ...request,
