@@ -1,5 +1,6 @@
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { Effect, Result } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import { plannerLayer } from "../planner/layers.ts"
 import { createServer } from "./app.ts"
 import { projectRoot, resolvePaths } from "./paths.ts"
@@ -14,26 +15,56 @@ const log = (message: string): void => {
   process.stderr.write(`say7-mcp: ${message}\n`)
 }
 
-const main = async (): Promise<void> => {
-  const paths = resolvePaths(projectRoot(import.meta.url), process.env)
-  if (Result.isFailure(paths)) {
-    log(paths.failure)
-    process.exitCode = 1
-    return
-  }
-  const { dataDir, configDir } = paths.success
-  const world = await Effect.runPromise(
-    loadWorld(dataDir, configDir, (message) => log(`предупреждение: ${message}`)).pipe(Effect.provide(plannerLayer))
+/** The environment variables are wrong. The message is logged as it is. */
+class EnvironmentError extends Schema.TaggedError<EnvironmentError>()("EnvironmentError", {
+  message: Schema.String,
+}) {}
+
+/** The server did not start: the data did not load or the transport did not connect. */
+class StartupError extends Schema.TaggedError<StartupError>()("StartupError", {
+  message: Schema.String,
+}) {}
+
+const describe = (cause: unknown): string => (cause instanceof Error ? cause.message : String(cause))
+
+const main = Effect.gen(function* () {
+  const { dataDir, configDir } = yield* Effect.fromResult(resolvePaths(projectRoot(import.meta.url), process.env)).pipe(
+    Effect.mapError((message) => new EnvironmentError({ message }))
+  )
+  // The services are built once for the whole life of the server and are released with the scope.
+  const services = yield* Layer.build(plannerLayer).pipe(
+    Effect.mapError((cause) => new StartupError({ message: describe(cause) }))
+  )
+  const world = yield* loadWorld(dataDir, configDir, (message) => log(`предупреждение: ${message}`)).pipe(
+    Effect.provideContext(services),
+    Effect.mapError((error) => new StartupError({ message: error.message }))
   )
   log(
     `каталог: ${world.catalogue.entries.length} рецептов, пропущено ${world.skipped}. Данные: ${dataDir}. Настройки: ${configDir}.`
   )
-  const server = createServer(world, log)
-  await server.connect(new StdioServerTransport())
+  const server = createServer(world, log, Effect.runPromiseWith(services))
+  const closed = Effect.callback<void>((resume) => {
+    server.server.onclose = () => resume(Effect.void)
+  })
+  yield* Effect.acquireRelease(
+    Effect.tryPromise({
+      try: () => server.connect(new StdioServerTransport()),
+      catch: (cause) => new StartupError({ message: describe(cause) }),
+    }),
+    () => Effect.promise(() => server.close())
+  )
   log("сервер запущен (stdio).")
-}
+  // The stdin listener of the transport keeps the process alive. Wait here until the client closes the
+  // connection. On SIGINT or SIGTERM `runMain` interrupts this fiber and the scope closes the server.
+  yield* closed
+}).pipe(
+  Effect.scoped,
+  Effect.catch((error) =>
+    Effect.sync(() => {
+      log(error._tag === "EnvironmentError" ? error.message : `ошибка запуска: ${error.message}`)
+      process.exitCode = 1
+    })
+  )
+)
 
-main().catch((cause: unknown) => {
-  log(`ошибка запуска: ${cause instanceof Error ? cause.message : String(cause)}`)
-  process.exitCode = 1
-})
+NodeRuntime.runMain(main)

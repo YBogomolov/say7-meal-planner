@@ -4,7 +4,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
-import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js"
+import { CallToolResultSchema, ErrorCode } from "@modelcontextprotocol/sdk/types.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { baseFiles, basePlan } from "./support/planner.ts"
@@ -334,6 +334,20 @@ describe("MCP server over stdio", () => {
           arguments: { weekStart: "2026-13-01" },
         })
       ).rejects.toThrow()
+    },
+    CASE_MS
+  )
+
+  it(
+    "answers GetPrompt with an unknown name or a bad argument with an InvalidParams protocol error",
+    async () => {
+      await expect(main.client.getPrompt({ name: "nope" })).rejects.toMatchObject({
+        code: ErrorCode.InvalidParams,
+        message: expect.stringContaining("Неизвестный промпт: nope."),
+      })
+      await expect(
+        main.client.getPrompt({ name: "plan_week", arguments: { weekStart: "2026-13-01" } })
+      ).rejects.toMatchObject({ code: ErrorCode.InvalidParams })
     },
     CASE_MS
   )

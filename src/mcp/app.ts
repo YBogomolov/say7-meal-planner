@@ -1,12 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import {
   CallToolRequestSchema,
+  ErrorCode,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
   ListToolsRequestSchema,
+  McpError,
 } from "@modelcontextprotocol/sdk/types.js"
-import { Effect, Result } from "effect"
-import { plannerLayer } from "../planner/layers.ts"
+import type { Effect, FileSystem, Path } from "effect"
+import { Result } from "effect"
 import {
   decodePlanWeekArguments,
   PLAN_WEEK_ARGUMENTS,
@@ -20,13 +22,17 @@ import type { World } from "./tools.ts"
 export const SERVER_NAME = "say7-meal-planner"
 export const SERVER_VERSION = "0.1.0"
 
+/** Runs an effect of a tool with the services that the caller built once at startup. */
+export type RunTool = <A>(effect: Effect.Effect<A, never, FileSystem.FileSystem | Path.Path>) => Promise<A>
+
 /**
  * The MCP server with the tools of spec P5.3 and the prompt `plan_week`, on top of the loaded `world`.
  * `McpServer.registerTool` accepts only Zod schemas. So the handlers go on the low-level `server` of `McpServer`,
  * and the JSON Schemas of the tools come from Effect Schema.
  * `log` writes to stderr (stdout is the protocol).
+ * `run` runs the effects of the tools (see `RunTool`).
  */
-export const createServer = (world: World, log: (message: string) => void): McpServer => {
+export const createServer = (world: World, log: (message: string) => void, run: RunTool): McpServer => {
   const tools = makeTools(world)
   const mcpServer = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -55,7 +61,7 @@ export const createServer = (world: World, log: (message: string) => void): McpS
         isError: true,
       }
     }
-    const result = await Effect.runPromise(tool.call(raw).pipe(Effect.provide(plannerLayer)))
+    const result = await run(tool.call(raw))
     if (result.isError) {
       log(`инструмент ${name}: ошибка`)
     }
@@ -77,11 +83,12 @@ export const createServer = (world: World, log: (message: string) => void): McpS
 
   server.setRequestHandler(GetPromptRequestSchema, (request) => {
     if (request.params.name !== PLAN_WEEK_PROMPT) {
-      throw new Error(`Неизвестный промпт: ${request.params.name}.`)
+      // Throwing is the contract of the SDK: it turns the error into a JSON-RPC error response.
+      throw new McpError(ErrorCode.InvalidParams, `Неизвестный промпт: ${request.params.name}.`)
     }
     const decoded = decodePlanWeekArguments(request.params.arguments)
     if (Result.isFailure(decoded)) {
-      throw new Error(decoded.failure)
+      throw new McpError(ErrorCode.InvalidParams, decoded.failure)
     }
     const { weekStart, proteinFamily } = decoded.success
     return {
