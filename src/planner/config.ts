@@ -1,4 +1,5 @@
 import { Effect, FileSystem, Path, Schema } from "effect"
+import { PlannerPaths } from "./paths.ts"
 import type { Aliases, ProteinTable } from "../domain/catalogue.ts"
 import { DECODE_OPTIONS, DEFAULT_HOUSEHOLD, HouseholdJson } from "../domain/household.ts"
 import type { Household } from "../domain/household.ts"
@@ -9,9 +10,6 @@ import type { CatalogueExtras } from "./catalogue.ts"
 import { makeSimpleBreakfasts, NO_SIMPLE_BREAKFASTS, SimpleBreakfastsJson } from "./simple.ts"
 import { makeServingsOverrides, NO_SERVINGS_OVERRIDES, ServingsOverridesJson } from "./servings.ts"
 import type { ServingsOverrides } from "./servings.ts"
-
-export const DEFAULT_CONFIG_DIR = "config"
-export const DEFAULT_DATA_DIR = "data"
 
 /** A file of `config/` exists but cannot be read, or it is not valid. */
 export class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError", {
@@ -38,11 +36,14 @@ const readOptional = (target: string): Effect.Effect<string | undefined, ConfigE
   )
 
 /** `<configDir>/household.json` (spec P4.1). A missing file gives the defaults of the spec. */
-export const loadHousehold = (
-  configDir: string = DEFAULT_CONFIG_DIR
-): Effect.Effect<Household, ConfigError, FileSystem.FileSystem | Path.Path> =>
+export const loadHousehold = (): Effect.Effect<
+  Household,
+  ConfigError,
+  FileSystem.FileSystem | Path.Path | PlannerPaths
+> =>
   Effect.gen(function* () {
     const path = yield* Path.Path
+    const { configDir } = yield* PlannerPaths
     const target = path.join(configDir, "household.json")
     const text = yield* readOptional(target)
     if (text === undefined) {
@@ -60,11 +61,10 @@ export const loadHousehold = (
   })
 
 /** `<configDir>/item-aliases.json` (spec P4.2.3). A missing file gives an empty map. */
-export const loadAliases = (
-  configDir: string = DEFAULT_CONFIG_DIR
-): Effect.Effect<Aliases, ConfigError, FileSystem.FileSystem | Path.Path> =>
+export const loadAliases = (): Effect.Effect<Aliases, ConfigError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
     const path = yield* Path.Path
+    const { configDir } = yield* PlannerPaths
     const target = path.join(configDir, "item-aliases.json")
     const text = yield* readOptional(target)
     if (text === undefined) {
@@ -83,11 +83,14 @@ export const loadAliases = (
   })
 
 /** `<configDir>/servings-overrides.json` (handoff T2). A missing file gives an empty map. */
-export const loadServingsOverrides = (
-  configDir: string = DEFAULT_CONFIG_DIR
-): Effect.Effect<ServingsOverrides, ConfigError, FileSystem.FileSystem | Path.Path> =>
+export const loadServingsOverrides = (): Effect.Effect<
+  ServingsOverrides,
+  ConfigError,
+  FileSystem.FileSystem | Path.Path | PlannerPaths
+> =>
   Effect.gen(function* () {
     const path = yield* Path.Path
+    const { configDir } = yield* PlannerPaths
     const target = path.join(configDir, "servings-overrides.json")
     const text = yield* readOptional(target)
     if (text === undefined) {
@@ -110,11 +113,11 @@ export const loadServingsOverrides = (
  * The item names are cleaned and mapped through `aliases`, like the items of the catalogue.
  */
 export const loadItemProtein = (
-  configDir: string = DEFAULT_CONFIG_DIR,
   aliases: Aliases = NO_ALIASES
-): Effect.Effect<ProteinTable, ConfigError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ProteinTable, ConfigError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
     const path = yield* Path.Path
+    const { configDir } = yield* PlannerPaths
     const target = path.join(configDir, "item-protein.json")
     const text = yield* readOptional(target)
     if (text === undefined) {
@@ -137,11 +140,11 @@ export const loadItemProtein = (
  * The item names are cleaned and mapped through `aliases`, like the items of the catalogue.
  */
 export const loadSimpleBreakfasts = (
-  configDir: string = DEFAULT_CONFIG_DIR,
   aliases: Aliases = NO_ALIASES
-): Effect.Effect<ReadonlyArray<SimpleBreakfast>, ConfigError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadonlyArray<SimpleBreakfast>, ConfigError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
     const path = yield* Path.Path
+    const { configDir } = yield* PlannerPaths
     const target = path.join(configDir, "simple-breakfasts.json")
     const text = yield* readOptional(target)
     if (text === undefined) {
@@ -161,37 +164,34 @@ export const loadSimpleBreakfasts = (
 
 /** What `loadCatalogue` takes from the config besides the protein table: the simple breakfasts and `household.breakfastExtraIds`. */
 export const loadCatalogueExtras = (
-  configDir: string = DEFAULT_CONFIG_DIR,
   aliases: Aliases = NO_ALIASES
-): Effect.Effect<CatalogueExtras, ConfigError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<CatalogueExtras, ConfigError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
-    const [household, simpleBreakfasts] = yield* Effect.all(
-      [loadHousehold(configDir), loadSimpleBreakfasts(configDir, aliases)],
-      { concurrency: "unbounded" }
-    )
+    const [household, simpleBreakfasts] = yield* Effect.all([loadHousehold(), loadSimpleBreakfasts(aliases)], {
+      concurrency: "unbounded",
+    })
     return { simpleBreakfasts, breakfastExtraIds: household.breakfastExtraIds }
   })
 
+export interface PlannerConfig {
+  readonly aliases: Aliases
+  readonly overrides: ServingsOverrides
+  readonly proteinTable: ProteinTable
+  readonly extras: CatalogueExtras
+}
+
 /** The config that every CLI and the MCP server pass to `loadCatalogue`. The files load concurrently; the protein table and the extras need `aliases`. */
-export const loadPlannerConfig = (
-  configDir: string = DEFAULT_CONFIG_DIR
-): Effect.Effect<
-  {
-    readonly aliases: Aliases
-    readonly overrides: ServingsOverrides
-    readonly proteinTable: ProteinTable
-    readonly extras: CatalogueExtras
-  },
+export const loadPlannerConfig = (): Effect.Effect<
+  PlannerConfig,
   ConfigError,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | PlannerPaths
 > =>
   Effect.gen(function* () {
-    const [aliases, overrides] = yield* Effect.all([loadAliases(configDir), loadServingsOverrides(configDir)], {
+    const [aliases, overrides] = yield* Effect.all([loadAliases(), loadServingsOverrides()], {
       concurrency: "unbounded",
     })
-    const [proteinTable, extras] = yield* Effect.all(
-      [loadItemProtein(configDir, aliases), loadCatalogueExtras(configDir, aliases)],
-      { concurrency: "unbounded" }
-    )
+    const [proteinTable, extras] = yield* Effect.all([loadItemProtein(aliases), loadCatalogueExtras(aliases)], {
+      concurrency: "unbounded",
+    })
     return { aliases, overrides, proteinTable, extras }
   })

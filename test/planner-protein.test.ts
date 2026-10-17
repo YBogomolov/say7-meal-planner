@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { assert, describe, it } from "@effect/vitest"
 import { Effect, Result, Schema } from "effect"
 import { ConfigError, loadItemProtein } from "../src/planner/config.ts"
+import { PlannerPaths } from "../src/planner/paths.ts"
 import { makeAliases } from "../src/planner/items.ts"
 import { ItemProteinJson, makeProteinTable, missingProteinItems, portionProtein } from "../src/planner/protein.ts"
 import { searchRecipes } from "../src/planner/search.ts"
@@ -83,9 +84,9 @@ describe("portionProtein", () => {
 
 describe("loadItemProtein", () => {
   it.live("gives an empty table for a missing file", () =>
-    withTempDir((root) =>
+    withTempDir(() =>
       Effect.gen(function* () {
-        assert.strictEqual((yield* loadItemProtein(`${root}/config`)).size, 0)
+        assert.strictEqual((yield* loadItemProtein()).size, 0)
       })
     )
   )
@@ -96,7 +97,7 @@ describe("loadItemProtein", () => {
         yield* writeFiles(root, {
           "config/item-protein.json": '{"Куриные Бёдра": 20, "творог": 16}',
         })
-        const loaded = yield* loadItemProtein(`${root}/config`, makeAliases({ "куриные бедра": "куриное филе" }))
+        const loaded = yield* loadItemProtein(makeAliases({ "куриные бедра": "куриное филе" }))
         assert.deepStrictEqual([...loaded.entries()].sort(), [
           ["куриное филе", 20],
           ["творог", 16],
@@ -113,7 +114,11 @@ describe("loadItemProtein", () => {
           "b/item-protein.json": "{",
         })
         for (const dir of ["a", "b"]) {
-          const result = yield* Effect.result(loadItemProtein(`${root}/${dir}`))
+          const result = yield* Effect.result(
+            loadItemProtein().pipe(
+              Effect.provide(PlannerPaths.layer({ dataDir: `${root}/data`, configDir: `${root}/${dir}` }))
+            )
+          )
           assert.isTrue(Result.isFailure(result))
           assert.instanceOf(Result.isFailure(result) ? result.failure : undefined, ConfigError)
         }

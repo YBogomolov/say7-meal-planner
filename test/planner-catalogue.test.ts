@@ -48,7 +48,7 @@ describe("loadCatalogue", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         yield* writeFiles(root, FILES)
-        const { catalogue, skipped } = yield* loadCatalogue(`${root}/data`)
+        const { catalogue, skipped } = yield* loadCatalogue()
         assert.deepStrictEqual(
           catalogue.entries.map((entry) => Number(entry.id)),
           [1]
@@ -77,7 +77,7 @@ describe("loadCatalogue", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         yield* writeFiles(root, FILES)
-        const { catalogue } = yield* loadCatalogue(`${root}/data`)
+        const { catalogue } = yield* loadCatalogue()
         const entry = catalogue.byId.get(id(1))
         assert.strictEqual(entry?.title, "Суп Один")
         assert.strictEqual(entry?.url, "https://www.say7.info/cook/recipe/1-Test.html")
@@ -113,7 +113,7 @@ describe("loadCatalogue", () => {
       Effect.gen(function* () {
         yield* writeFiles(root, FILES)
         const aliases = makeAliases({ "лук репчатый": "лук" })
-        const { catalogue } = yield* loadCatalogue(`${root}/data`, aliases)
+        const { catalogue } = yield* loadCatalogue({ aliases })
         assert.deepStrictEqual(
           catalogue.byId.get(id(1))?.enrichment.ingredients.map((item) => item.item),
           ["лук", "соль"]
@@ -136,7 +136,7 @@ describe("loadCatalogue", () => {
             ])
           )
         )
-        const { catalogue, skipped } = yield* loadCatalogue(`${root}/data`)
+        const { catalogue, skipped } = yield* loadCatalogue()
         assert.deepStrictEqual(
           catalogue.entries.map((entry) => Number(entry.id)),
           [2, 4, 17, 30, 250, 1000]
@@ -153,11 +153,11 @@ describe("loadCatalogue", () => {
           "data/parsed/1.json": parsedJson(1),
           "data/parsed/2.json": parsedJson(2),
         })
-        const missing = yield* Effect.flip(loadCatalogue(`${root}/data`))
+        const missing = yield* Effect.flip(loadCatalogue())
         assert.instanceOf(missing, StoreError)
         assert.include(missing.message, "npm run enrich")
         yield* writeFiles(root, { "data/enriched/.keep": "" })
-        const { catalogue, skipped } = yield* loadCatalogue(`${root}/data`)
+        const { catalogue, skipped } = yield* loadCatalogue()
         assert.strictEqual(catalogue.entries.length, 0)
         assert.deepStrictEqual(
           skipped.map((entry) => entry.reason),
@@ -171,7 +171,7 @@ describe("loadCatalogue", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         yield* writeFiles(root, { "data/enriched/1.json": enrichedJson(1) })
-        const error = yield* Effect.flip(loadCatalogue(`${root}/data`))
+        const error = yield* Effect.flip(loadCatalogue())
         assert.instanceOf(error, StoreError)
         assert.include(error.message, "npm run parse")
       })

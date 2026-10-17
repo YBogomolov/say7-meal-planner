@@ -104,7 +104,7 @@ describe("loadCatalogue: not_a_meal recipes of breakfast", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         yield* writeFiles(root, FILES)
-        const { catalogue, skipped } = yield* loadCatalogue(`${root}/data`)
+        const { catalogue, skipped } = yield* loadCatalogue()
         assert.deepStrictEqual(
           catalogue.entries.map((entry) => [Number(entry.id), entry.breakfastEligible]),
           [
@@ -127,9 +127,11 @@ describe("loadCatalogue: not_a_meal recipes of breakfast", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         yield* writeFiles(root, FILES)
-        const { catalogue } = yield* loadCatalogue(`${root}/data`, undefined, undefined, undefined, {
-          breakfastExtraIds: [id(3)],
-          simpleBreakfasts: [YOGURT],
+        const { catalogue } = yield* loadCatalogue({
+          extras: {
+            breakfastExtraIds: [id(3)],
+            simpleBreakfasts: [YOGURT],
+          },
         })
         assert.deepStrictEqual(
           catalogue.entries.map((entry) => Number(entry.id)),
@@ -214,17 +216,17 @@ describe("simple breakfasts: the config file (spec P7.2.3)", () => {
   it.live("loads the file, and an absent file is an empty list", () =>
     withTempDir((root) =>
       Effect.gen(function* () {
-        assert.deepStrictEqual(yield* loadSimpleBreakfasts(`${root}/config`), [])
+        assert.deepStrictEqual(yield* loadSimpleBreakfasts(), [])
         yield* writeFiles(root, {
           "config/simple-breakfasts.json": JSON.stringify([record]),
           "config/household.json": JSON.stringify({ breakfastExtraIds: [7] }),
         })
-        const loaded = yield* loadSimpleBreakfasts(`${root}/config`, makeAliases({ творог: "творог зернистый" }))
+        const loaded = yield* loadSimpleBreakfasts(makeAliases({ творог: "творог зернистый" }))
         assert.deepStrictEqual(
           loaded.map((simple) => simple.items[0]?.item),
           ["творог зернистый"]
         )
-        const extras = yield* loadCatalogueExtras(`${root}/config`)
+        const extras = yield* loadCatalogueExtras()
         assert.deepStrictEqual(extras.breakfastExtraIds?.map(Number), [7])
         assert.strictEqual(extras.simpleBreakfasts?.length, 1)
       })
@@ -237,7 +239,7 @@ describe("simple breakfasts: the config file (spec P7.2.3)", () => {
         yield* writeFiles(root, {
           "config/simple-breakfasts.json": JSON.stringify([record, record]),
         })
-        const error = yield* Effect.flip(loadSimpleBreakfasts(`${root}/config`))
+        const error = yield* Effect.flip(loadSimpleBreakfasts())
         assert.strictEqual(error._tag, "ConfigError")
         assert.include(error.message, "simple-breakfasts.json")
       })

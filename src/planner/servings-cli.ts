@@ -5,31 +5,19 @@ import { ServingsReportJson } from "../domain/servings-report.ts"
 import type { ServingsReport } from "../domain/servings-report.ts"
 import { exitOnFailure, runCli } from "../cli/run.ts"
 import { writeTextAtomic } from "../store/fs.ts"
-import { loadCatalogue } from "./catalogue.ts"
 import { makeServingsReportCommand } from "./cli-options.ts"
-import { loadPlannerConfig } from "./config.ts"
-import { plannerLayer } from "./layers.ts"
+import { plannerLayerFor } from "./layers.ts"
 import { servingsAudit } from "./servings.ts"
+import { loadCatalogueWorld, warnUnknownOverrides } from "./world.ts"
 
 const EXIT_FAILED = 1
 
 const command = makeServingsReportCommand((options) =>
   Effect.gen(function* () {
-    const { dataDir, configDir } = options
+    const { dataDir } = options
     const path = yield* Path.Path
-    const { aliases, overrides, proteinTable, extras } = yield* loadPlannerConfig(configDir)
-    const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(
-      dataDir,
-      aliases,
-      overrides,
-      proteinTable,
-      extras
-    )
-    yield* Effect.forEach(
-      unknownOverrides,
-      (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
-      { discard: true }
-    )
+    const { catalogue, skipped, unknownOverrides } = yield* loadCatalogueWorld
+    yield* warnUnknownOverrides(unknownOverrides)
     const audit = servingsAudit(catalogue)
     const report: ServingsReport = {
       version: 1,
@@ -55,7 +43,10 @@ const command = makeServingsReportCommand((options) =>
         `max больше 3 × min ${audit.reasons.range_above_3x}, масса порции вне 150–700 г ${audit.reasons.portion_mass_out_of_range}.`
     )
     yield* Console.log(`Отчёт записан: ${target}`)
-  }).pipe(Effect.provide(plannerLayer), exitOnFailure("ошибка", EXIT_FAILED))
+  }).pipe(
+    Effect.provide(plannerLayerFor({ dataDir: options.dataDir, configDir: options.configDir })),
+    exitOnFailure("ошибка", EXIT_FAILED)
+  )
 )
 
 NodeRuntime.runMain(runCli(command, "ошибка").pipe(Effect.provide(NodeServices.layer)))

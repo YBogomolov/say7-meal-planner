@@ -1,7 +1,7 @@
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Effect, Layer, Schema } from "effect"
-import { plannerLayer } from "../planner/layers.ts"
+import { plannerLayerFor } from "../planner/layers.ts"
 import { createServer } from "./app.ts"
 import { projectRoot, resolvePaths } from "./paths.ts"
 import { loadWorld } from "./tools.ts"
@@ -32,10 +32,10 @@ const main = Effect.gen(function* () {
     Effect.mapError((message) => new EnvironmentError({ message }))
   )
   // The services are built once for the whole life of the server and are released with the scope.
-  const services = yield* Layer.build(plannerLayer).pipe(
+  const services = yield* Layer.build(plannerLayerFor({ dataDir, configDir })).pipe(
     Effect.mapError((cause) => new StartupError({ message: describe(cause) }))
   )
-  const world = yield* loadWorld(dataDir, configDir, (message) => log(`предупреждение: ${message}`)).pipe(
+  const world = yield* loadWorld((message) => log(`предупреждение: ${message}`)).pipe(
     Effect.provideContext(services),
     Effect.mapError((error) => new StartupError({ message: error.message }))
   )

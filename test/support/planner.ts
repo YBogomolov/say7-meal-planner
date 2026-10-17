@@ -9,6 +9,7 @@ import { ParsedRecipeJson } from "../../src/domain/parsed-recipe.ts"
 import type { SimpleBreakfast } from "../../src/domain/simple-breakfast.ts"
 import { WeekPlan } from "../../src/domain/week-plan.ts"
 import type { CookingSession, PlanScale } from "../../src/domain/week-plan.ts"
+import { PlannerPaths } from "../../src/planner/paths.ts"
 import { makeCatalogue, toCatalogueEntry } from "../../src/planner/catalogue.ts"
 import { NO_ALIASES } from "../../src/planner/items.ts"
 import { NO_PROTEIN } from "../../src/planner/protein.ts"
@@ -347,12 +348,16 @@ export const baseCatalogue = (
 
 const platform = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
 
-/** A temporary directory for the test. It is removed at the end. */
-export const withTempDir = <A, E>(use: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+/** A temporary directory for the test. It is removed at the end. `PlannerPaths` point to its `data` and `config`. */
+export const withTempDir = <A, E>(
+  use: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | PlannerPaths>
+) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const root = yield* fs.makeTempDirectoryScoped({ prefix: "say7-planner-" })
-    return yield* use(root)
+    return yield* use(root).pipe(
+      Effect.provide(PlannerPaths.layer({ dataDir: `${root}/data`, configDir: `${root}/config` }))
+    )
   }).pipe(Effect.provide(platform))
 
 /** Write the files `{ "<relative path>": "<text>" }` under `root`, with their directories. */

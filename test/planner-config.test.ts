@@ -332,10 +332,10 @@ describe("WeekPlan: breakfasts (spec P7.2)", () => {
 
 describe("loadHousehold and loadAliases", () => {
   it.live("use the defaults and an empty map if the files are missing", () =>
-    withTempDir((root) =>
+    withTempDir(() =>
       Effect.gen(function* () {
-        assert.deepStrictEqual(yield* loadHousehold(`${root}/config`), DEFAULT_HOUSEHOLD)
-        const aliases = yield* loadAliases(`${root}/config`)
+        assert.deepStrictEqual(yield* loadHousehold(), DEFAULT_HOUSEHOLD)
+        const aliases = yield* loadAliases()
         assert.strictEqual(aliases.size, 0)
       })
     )
@@ -348,11 +348,11 @@ describe("loadHousehold and loadAliases", () => {
           "config/household.json": '{"persons": 2, "recentWeeks": 6}',
           "config/item-aliases.json": '{"Репчатый лук": "лук репчатый"}',
         })
-        const household = yield* loadHousehold(`${root}/config`)
+        const household = yield* loadHousehold()
         assert.strictEqual(household.persons, 2)
         assert.strictEqual(household.recentWeeks, 6)
         assert.strictEqual(household.maxHeat, 2)
-        const aliases = yield* loadAliases(`${root}/config`)
+        const aliases = yield* loadAliases()
         assert.strictEqual(normaliseItem("репчатый лук", aliases), "лук репчатый")
       })
     )
@@ -365,10 +365,10 @@ describe("loadHousehold and loadAliases", () => {
           "config/household.json": '{"persons": 0}',
           "config/item-aliases.json": '{"a": 1}',
         })
-        const household = yield* Effect.flip(loadHousehold(`${root}/config`))
+        const household = yield* Effect.flip(loadHousehold())
         assert.instanceOf(household, ConfigError)
         assert.include(household.message, "household.json")
-        const aliases = yield* Effect.flip(loadAliases(`${root}/config`))
+        const aliases = yield* Effect.flip(loadAliases())
         assert.instanceOf(aliases, ConfigError)
         assert.include(aliases.path, "item-aliases.json")
       })
@@ -382,8 +382,8 @@ describe("loadHousehold and loadAliases", () => {
           "config/household.json": '{"persns": 3}',
           "config/item-aliases.json": "{",
         })
-        assert.include((yield* Effect.flip(loadHousehold(`${root}/config`))).message, "persns")
-        assert.instanceOf(yield* Effect.flip(loadAliases(`${root}/config`)), ConfigError)
+        assert.include((yield* Effect.flip(loadHousehold())).message, "persns")
+        assert.instanceOf(yield* Effect.flip(loadAliases()), ConfigError)
       })
     )
   )

@@ -2,21 +2,20 @@ import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { Console, Effect, FileSystem } from "effect"
 import { exitOnFailure, runCli, setExitCode } from "../cli/run.ts"
-import { loadCatalogue } from "./catalogue.ts"
 import { makePlanCheckCommand } from "./cli-options.ts"
-import { loadHousehold, loadPlannerConfig } from "./config.ts"
 import { evaluatePlan } from "./evaluate.ts"
-import { plannerLayer } from "./layers.ts"
-import { decodePlanJson, loadHistory, PlanInvalidError } from "./plans.ts"
+import { plannerLayerFor } from "./layers.ts"
+import { decodePlanJson, PlanInvalidError } from "./plans.ts"
 import { formatEvaluation } from "./report.ts"
 import { shoppingList } from "./shopping.ts"
 import { renderShoppingList } from "./shopping-render.ts"
+import { loadPlannerWorld, warnUnknownOverrides } from "./world.ts"
 
 const EXIT_PLAN_HAS_ERRORS = 1
 
 const command = makePlanCheckCommand((options) =>
   Effect.gen(function* () {
-    const { file, dataDir, configDir } = options
+    const { file } = options
     const fs = yield* FileSystem.FileSystem
     const text = yield* fs.readFileString(file).pipe(
       Effect.mapError(
@@ -27,22 +26,8 @@ const command = makePlanCheckCommand((options) =>
       )
     )
     const plan = yield* decodePlanJson(text)
-    const [household, { aliases, overrides, proteinTable, extras }, history] = yield* Effect.all(
-      [loadHousehold(configDir), loadPlannerConfig(configDir), loadHistory(dataDir)],
-      { concurrency: "unbounded" }
-    )
-    const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(
-      dataDir,
-      aliases,
-      overrides,
-      proteinTable,
-      extras
-    )
-    yield* Effect.forEach(
-      unknownOverrides,
-      (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
-      { discard: true }
-    )
+    const { household, history, catalogue, skipped, unknownOverrides } = yield* loadPlannerWorld({ history: true })
+    yield* warnUnknownOverrides(unknownOverrides)
 
     const evaluation = evaluatePlan(plan, catalogue, household, history.plans)
     yield* Console.log(
@@ -60,7 +45,10 @@ const command = makePlanCheckCommand((options) =>
     if (!evaluation.ok) {
       yield* setExitCode(EXIT_PLAN_HAS_ERRORS)
     }
-  }).pipe(Effect.provide(plannerLayer), exitOnFailure("ошибка", EXIT_PLAN_HAS_ERRORS))
+  }).pipe(
+    Effect.provide(plannerLayerFor({ dataDir: options.dataDir, configDir: options.configDir })),
+    exitOnFailure("ошибка", EXIT_PLAN_HAS_ERRORS)
+  )
 )
 
 NodeRuntime.runMain(runCli(command, "ошибка").pipe(Effect.provide(NodeServices.layer)))

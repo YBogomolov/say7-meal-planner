@@ -1,5 +1,6 @@
 import { Effect, FileSystem, Path, Result, Schema } from "effect"
 import { PLAN_DECODE_OPTIONS, WeekPlan, WeekPlanJson } from "../domain/week-plan.ts"
+import { PlannerPaths } from "./paths.ts"
 import { StoreError, writeTextAtomic } from "../store/fs.ts"
 
 const PLAN_FILE = /^(\d{4}-\d{2}-\d{2})\.json$/
@@ -46,11 +47,11 @@ export const decodePlanJson = (text: string): Effect.Effect<WeekPlan, PlanInvali
  * A plan of the same week is replaced.
  */
 export const savePlan = (
-  dataDir: string,
   input: unknown
-): Effect.Effect<SavedPlan, PlanInvalidError | StoreError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<SavedPlan, PlanInvalidError | StoreError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
     const path = yield* Path.Path
+    const { dataDir } = yield* PlannerPaths
     const plan = yield* decodePlan(input)
     const target = path.join(dataDir, "plans", `${plan.weekStart}.json`)
     const text = yield* Schema.encodeEffect(WeekPlanJson)(plan).pipe(
@@ -64,12 +65,15 @@ export const savePlan = (
  * Read all plans of `<dataDir>/plans/` (spec P4.6.1). A missing directory is an empty history.
  * A file that is not valid, or whose name differs from its `weekStart`, is in `skipped`.
  */
-export const loadHistory = (
-  dataDir: string
-): Effect.Effect<LoadedHistory, StoreError, FileSystem.FileSystem | Path.Path> =>
+export const loadHistory = (): Effect.Effect<
+  LoadedHistory,
+  StoreError,
+  FileSystem.FileSystem | Path.Path | PlannerPaths
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
+    const { dataDir } = yield* PlannerPaths
     const dir = path.join(dataDir, "plans")
     const ioError = (error: { readonly message: string }) => new StoreError({ path: dir, message: error.message })
     if (!(yield* fs.exists(dir).pipe(Effect.mapError(ioError)))) {

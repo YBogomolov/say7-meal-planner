@@ -6,12 +6,12 @@ import type { ItemsReport } from "../domain/items-report.ts"
 import { exitOnFailure, runCli } from "../cli/run.ts"
 import { writeTextAtomic } from "../store/fs.ts"
 import type { SkipReason, SkippedRecipe } from "./catalogue.ts"
-import { loadCatalogue, SKIP_REASONS } from "./catalogue.ts"
+import { SKIP_REASONS } from "./catalogue.ts"
 import { makeItemsReportCommand } from "./cli-options.ts"
-import { loadPlannerConfig } from "./config.ts"
 import { itemsReport } from "./items.ts"
-import { plannerLayer } from "./layers.ts"
+import { plannerLayerFor } from "./layers.ts"
 import { missingProteinItems } from "./protein.ts"
+import { loadCatalogueWorld, warnUnknownOverrides } from "./world.ts"
 
 const EXIT_FAILED = 1
 
@@ -32,21 +32,15 @@ const skippedSummary = (skipped: ReadonlyArray<SkippedRecipe>): string =>
 
 const command = makeItemsReportCommand((options) =>
   Effect.gen(function* () {
-    const { dataDir, configDir } = options
+    const { dataDir } = options
     const path = yield* Path.Path
-    const { aliases, overrides, proteinTable, extras } = yield* loadPlannerConfig(configDir)
-    const { catalogue, skipped, unknownOverrides } = yield* loadCatalogue(
-      dataDir,
-      aliases,
-      overrides,
-      proteinTable,
-      extras
-    )
-    yield* Effect.forEach(
+    const {
+      config: { aliases },
+      catalogue,
+      skipped,
       unknownOverrides,
-      (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
-      { discard: true }
-    )
+    } = yield* loadCatalogueWorld
+    yield* warnUnknownOverrides(unknownOverrides)
     const items = itemsReport(catalogue)
     const missingProtein = missingProteinItems(catalogue)
     const report: ItemsReport = {
@@ -68,7 +62,10 @@ const command = makeItemsReportCommand((options) =>
       `Продуктов без записи в item-protein.json: ${missingProtein.length} (список: missingProtein в отчёте).`
     )
     yield* Console.log(`Отчёт записан: ${target}`)
-  }).pipe(Effect.provide(plannerLayer), exitOnFailure("ошибка", EXIT_FAILED))
+  }).pipe(
+    Effect.provide(plannerLayerFor({ dataDir: options.dataDir, configDir: options.configDir })),
+    exitOnFailure("ошибка", EXIT_FAILED)
+  )
 )
 
 NodeRuntime.runMain(runCli(command, "ошибка").pipe(Effect.provide(NodeServices.layer)))

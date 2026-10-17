@@ -10,6 +10,7 @@ import { ParsedReadError } from "../enrich/store.ts"
 import { io, StoreError } from "../store/fs.ts"
 import { isBreakfastEligible } from "./breakfast.ts"
 import { NO_ALIASES, normaliseItem } from "./items.ts"
+import { PlannerPaths } from "./paths.ts"
 import { NO_PROTEIN } from "./protein.ts"
 import { NO_SIMPLE_BREAKFASTS } from "./simple.ts"
 import { applyServingsOverrides, NO_SERVINGS_OVERRIDES } from "./servings.ts"
@@ -88,6 +89,14 @@ export interface CatalogueExtras {
   readonly breakfastExtraIds?: ReadonlyArray<RecipeId>
 }
 
+/** The config that `loadCatalogue` takes (what `loadPlannerConfig` returns). Every part is optional: the default is empty. */
+export interface CatalogueConfig {
+  readonly aliases?: Aliases
+  readonly overrides?: ServingsOverrides
+  readonly proteinTable?: ProteinTable
+  readonly extras?: CatalogueExtras
+}
+
 export interface LoadedCatalogue {
   readonly catalogue: Catalogue
   readonly skipped: ReadonlyArray<SkippedRecipe>
@@ -135,19 +144,17 @@ const readRecipeFile = <A, I>(target: string, id: RecipeId, codec: Schema.Codec<
  * it is valid only in breakfast slots.
  * The other recipes are in `skipped`, with the reason. The recipes without an enriched file (desserts, for example) are there too.
  * The load fails only if one of the two directories does not exist, or cannot be listed.
- * The item names are normalised with `aliases`.
- * `overrides` set `servings.min` and `servings.max` after the decode (see `applyServingsOverrides`).
- * `proteinTable` goes into the catalogue as it is (spec P7.1). So do the simple breakfasts of `extras` (spec P7.2.3).
+ * The item names are normalised with `config.aliases`.
+ * `config.overrides` set `servings.min` and `servings.max` after the decode (see `applyServingsOverrides`).
+ * `config.proteinTable` goes into the catalogue as it is (spec P7.1). So do the simple breakfasts of `config.extras` (spec P7.2.3).
  */
 export const loadCatalogue = (
-  dataDir: string,
-  aliases: Aliases = NO_ALIASES,
-  overrides: ServingsOverrides = NO_SERVINGS_OVERRIDES,
-  proteinTable: ProteinTable = NO_PROTEIN,
-  extras: CatalogueExtras = {}
-): Effect.Effect<LoadedCatalogue, StoreError, FileSystem.FileSystem | Path.Path> =>
+  config: CatalogueConfig = {}
+): Effect.Effect<LoadedCatalogue, StoreError, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
+    const { aliases = NO_ALIASES, overrides = NO_SERVINGS_OVERRIDES, proteinTable = NO_PROTEIN, extras = {} } = config
     const path = yield* Path.Path
+    const { dataDir } = yield* PlannerPaths
     const parsedDir = path.join(dataDir, "parsed")
     const enrichedDir = path.join(dataDir, "enriched")
     const parsedIds = new Set(yield* listRecipeIds(parsedDir, "Запустите `npm run parse`."))

@@ -181,8 +181,8 @@ describe("servings overrides", () => {
           ...FILES,
           "config/servings-overrides.json": '{"1": {"min": 4, "max": 6}, "99": {"min": 1, "max": 1}}',
         })
-        const overrides = yield* loadServingsOverrides(`${root}/config`)
-        const { catalogue, unknownOverrides } = yield* loadCatalogue(`${root}/data`, undefined, overrides)
+        const overrides = yield* loadServingsOverrides()
+        const { catalogue, unknownOverrides } = yield* loadCatalogue({ overrides })
         const entry = catalogue.entries[0]
         assert.deepStrictEqual(entry?.enrichment.servings, {
           min: 4,
@@ -200,7 +200,7 @@ describe("servings overrides", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         yield* writeFiles(root, FILES)
-        const { catalogue, unknownOverrides } = yield* loadCatalogue(`${root}/data`, undefined, NO_SERVINGS_OVERRIDES)
+        const { catalogue, unknownOverrides } = yield* loadCatalogue({ overrides: NO_SERVINGS_OVERRIDES })
         assert.deepStrictEqual(catalogue.entries[0]?.enrichment.servings, {
           min: 20,
           max: 30,
@@ -213,9 +213,9 @@ describe("servings overrides", () => {
   )
 
   it.live("are empty if the file is missing", () =>
-    withTempDir((root) =>
+    withTempDir(() =>
       Effect.gen(function* () {
-        assert.strictEqual((yield* loadServingsOverrides(`${root}/config`)).size, 0)
+        assert.strictEqual((yield* loadServingsOverrides()).size, 0)
       })
     )
   )
@@ -232,7 +232,7 @@ describe("servings overrides", () => {
           "{",
         ]) {
           yield* writeFiles(root, { "config/servings-overrides.json": bad })
-          const error = yield* Effect.flip(loadServingsOverrides(`${root}/config`))
+          const error = yield* Effect.flip(loadServingsOverrides())
           assert.instanceOf(error, ConfigError, bad)
           assert.include(error.path, "servings-overrides.json", bad)
         }

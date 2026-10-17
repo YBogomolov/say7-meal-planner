@@ -8,6 +8,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js"
 import type { Effect, FileSystem, Path } from "effect"
+import type { PlannerPaths } from "../planner/paths.ts"
 import { Result } from "effect"
 import {
   decodePlanWeekArguments,
@@ -23,7 +24,9 @@ export const SERVER_NAME = "say7-meal-planner"
 export const SERVER_VERSION = "0.1.0"
 
 /** Runs an effect of a tool with the services that the caller built once at startup. */
-export type RunTool = <A>(effect: Effect.Effect<A, never, FileSystem.FileSystem | Path.Path>) => Promise<A>
+export type RunTool = <A>(
+  effect: Effect.Effect<A, never, FileSystem.FileSystem | Path.Path | PlannerPaths>
+) => Promise<A>
 
 /**
  * The MCP server with the tools of spec P5.3 and the prompt `plan_week`, on top of the loaded `world`.

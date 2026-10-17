@@ -19,7 +19,7 @@ describe("savePlan", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
-        const saved = yield* savePlan(`${root}/data`, basePlan())
+        const saved = yield* savePlan(basePlan())
         assert.strictEqual(saved.path, `${root}/data/plans/2026-10-17.json`)
         assert.deepStrictEqual(saved.plan, basePlan())
         const text = yield* fs.readFileString(saved.path)
@@ -35,14 +35,14 @@ describe("savePlan", () => {
     withTempDir((root) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
-        yield* savePlan(`${root}/data`, basePlan())
-        yield* savePlan(`${root}/data`, {
+        yield* savePlan(basePlan())
+        yield* savePlan({
           ...basePlan(),
           notes: "Вторая версия",
         })
         const names = yield* fs.readDirectory(`${root}/data/plans`)
         assert.deepStrictEqual(names, ["2026-10-17.json"])
-        const { plans } = yield* loadHistory(`${root}/data`)
+        const { plans } = yield* loadHistory()
         assert.deepStrictEqual(
           plans.map((plan) => plan.notes),
           ["Вторая версия"]
@@ -52,13 +52,13 @@ describe("savePlan", () => {
   )
 
   it.live("decodes only: a plan that breaks the rules of the household is saved", () =>
-    withTempDir((root) =>
+    withTempDir(() =>
       Effect.gen(function* () {
         const broken = planOf({
           cooking: [{ session: "A", recipeId: 999 }],
           meals: [{ day: 0, meal: "lunch", recipeIds: [5] }],
         })
-        const saved = yield* savePlan(`${root}/data`, broken)
+        const saved = yield* savePlan(broken)
         assert.deepStrictEqual(saved.plan, broken)
       })
     )
@@ -67,7 +67,7 @@ describe("savePlan", () => {
   it.live("accepts the input of a caller as plain JSON data", () =>
     withTempDir((root) =>
       Effect.gen(function* () {
-        const saved = yield* savePlan(`${root}/data`, {
+        const saved = yield* savePlan({
           weekStart: "2026-11-07",
           cooking: [{ session: "B", recipeId: 3, scale: 2 }],
           meals: [{ day: 4, meal: "dinner", recipeIds: [3] }],
@@ -83,7 +83,7 @@ describe("savePlan", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
         const error = yield* Effect.flip(
-          savePlan(`${root}/data`, {
+          savePlan({
             weekStart: "../../etc/passwd",
             cooking: [{ session: "Q", recipeId: 1, scale: 9 }],
             meals: [],
@@ -94,8 +94,8 @@ describe("savePlan", () => {
           assert.include(error.message, field)
         }
         assert.isFalse(yield* fs.exists(`${root}/data/plans`))
-        assert.instanceOf(yield* Effect.flip(savePlan(`${root}/data`, "text")), PlanInvalidError)
-        assert.instanceOf(yield* Effect.flip(savePlan(`${root}/data`, null)), PlanInvalidError)
+        assert.instanceOf(yield* Effect.flip(savePlan("text")), PlanInvalidError)
+        assert.instanceOf(yield* Effect.flip(savePlan(null)), PlanInvalidError)
       })
     )
   )
@@ -103,9 +103,9 @@ describe("savePlan", () => {
 
 describe("loadHistory", () => {
   it.live("gives an empty history if data/plans does not exist", () =>
-    withTempDir((root) =>
+    withTempDir(() =>
       Effect.gen(function* () {
-        assert.deepStrictEqual(yield* loadHistory(`${root}/data`), {
+        assert.deepStrictEqual(yield* loadHistory(), {
           plans: [],
           skipped: [],
         })
@@ -116,10 +116,9 @@ describe("loadHistory", () => {
   it.live("reads all plans, oldest week first, and skips the files that are no plans", () =>
     withTempDir((root) =>
       Effect.gen(function* () {
-        yield* savePlan(`${root}/data`, planOf({ weekStart: "2026-10-17", cooking: [], meals: [] }))
-        yield* savePlan(`${root}/data`, planOf({ weekStart: "2026-09-26", cooking: [], meals: [] }))
+        yield* savePlan(planOf({ weekStart: "2026-10-17", cooking: [], meals: [] }))
+        yield* savePlan(planOf({ weekStart: "2026-09-26", cooking: [], meals: [] }))
         yield* savePlan(
-          `${root}/data`,
           planOf({
             weekStart: "2026-10-03",
             cooking: BASE_COOKING.slice(0, 1),
@@ -142,7 +141,7 @@ describe("loadHistory", () => {
             meals: [],
           }),
         })
-        const history = yield* loadHistory(`${root}/data`)
+        const history = yield* loadHistory()
         assert.deepStrictEqual(
           history.plans.map((plan) => plan.weekStart),
           ["2026-09-26", "2026-10-03", "2026-10-17"]
@@ -158,13 +157,13 @@ describe("loadHistory", () => {
   )
 
   it.live("gives the saved plans to evaluatePlan for recent_repeat", () =>
-    withTempDir((root) =>
+    withTempDir(() =>
       Effect.gen(function* () {
-        yield* savePlan(`${root}/data`, {
+        yield* savePlan({
           ...basePlan(),
           weekStart: "2026-10-03",
         })
-        const { plans } = yield* loadHistory(`${root}/data`)
+        const { plans } = yield* loadHistory()
         const evaluation = evaluatePlan(basePlan(), baseCatalogue(), DEFAULT_HOUSEHOLD, plans)
         assert.strictEqual(evaluation.warnings.filter((issue) => issue.code === "recent_repeat").length, 7)
         assert.isTrue(evaluation.ok)

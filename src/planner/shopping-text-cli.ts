@@ -2,19 +2,18 @@ import * as NodeRuntime from "@effect/platform-node/NodeRuntime"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { Console, Effect, FileSystem, Path } from "effect"
 import { exitOnFailure, runCli } from "../cli/run.ts"
-import { loadCatalogue } from "./catalogue.ts"
 import { makeShoppingTextCommand } from "./cli-options.ts"
-import { loadHousehold, loadPlannerConfig } from "./config.ts"
-import { plannerLayer } from "./layers.ts"
+import { plannerLayerFor } from "./layers.ts"
 import { decodePlanJson, PlanInvalidError } from "./plans.ts"
 import { shoppingList } from "./shopping.ts"
 import { renderShoppingText } from "./shopping-render.ts"
+import { loadPlannerWorld, warnUnknownOverrides } from "./world.ts"
 
 const EXIT_NO_PLAN = 1
 
 const command = makeShoppingTextCommand((options) =>
   Effect.gen(function* () {
-    const { weekStart, withOptional, dataDir, configDir } = options
+    const { weekStart, withOptional, dataDir } = options
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const file = path.join(dataDir, "plans", `${weekStart}.json`)
@@ -32,22 +31,17 @@ const command = makeShoppingTextCommand((options) =>
       )
     )
     const plan = yield* decodePlanJson(text)
-    const [household, { aliases, overrides, proteinTable, extras }] = yield* Effect.all(
-      [loadHousehold(configDir), loadPlannerConfig(configDir)],
-      { concurrency: "unbounded" }
-    )
-    const { catalogue, unknownOverrides } = yield* loadCatalogue(dataDir, aliases, overrides, proteinTable, extras)
-    yield* Effect.forEach(
-      unknownOverrides,
-      (id) => Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`),
-      { discard: true }
-    )
+    const { household, catalogue, unknownOverrides } = yield* loadPlannerWorld()
+    yield* warnUnknownOverrides(unknownOverrides)
     // Only the text goes to stdout, so that the output can be piped to `pbcopy`.
     const output = renderShoppingText(shoppingList(plan, catalogue, household), {
       withOptional,
     })
     yield* Console.log(output.replace(/\n$/, ""))
-  }).pipe(Effect.provide(plannerLayer), exitOnFailure("ошибка", EXIT_NO_PLAN))
+  }).pipe(
+    Effect.provide(plannerLayerFor({ dataDir: options.dataDir, configDir: options.configDir })),
+    exitOnFailure("ошибка", EXIT_NO_PLAN)
+  )
 )
 
 NodeRuntime.runMain(runCli(command, "ошибка").pipe(Effect.provide(NodeServices.layer)))

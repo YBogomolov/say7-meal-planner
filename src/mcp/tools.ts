@@ -6,6 +6,7 @@ import { writeTextAtomic } from "../store/fs.ts"
 import { loadCatalogue, makeCatalogue } from "../planner/catalogue.ts"
 import { loadHousehold, loadPlannerConfig } from "../planner/config.ts"
 import { evaluatePlan } from "../planner/evaluate.ts"
+import { PlannerPaths } from "../planner/paths.ts"
 import { loadHistory, savePlan } from "../planner/plans.ts"
 import { portionProtein, simpleProtein } from "../planner/protein.ts"
 import { renderMenu } from "../planner/menu-render.ts"
@@ -33,7 +34,6 @@ export const SimpleBreakfastsInput = Schema.Struct({})
 /** The state that the tools share: the directories and the catalogue, loaded once at the start. */
 export interface World {
   readonly dataDir: string
-  readonly configDir: string
   readonly catalogue: Catalogue
   /** The number of recipe files that the catalogue skipped. */
   readonly skipped: number
@@ -48,18 +48,17 @@ export const EMPTY_CATALOGUE_HINT = (dataDir: string): string =>
  * A catalogue that cannot be read (no directories) is empty: the server starts anyway. `warn` gets the Russian text of each problem.
  */
 export const loadWorld = (
-  dataDir: string,
-  configDir: string,
   warn: (message: string) => void
-): Effect.Effect<World, { readonly message: string }, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<World, { readonly message: string }, FileSystem.FileSystem | Path.Path | PlannerPaths> =>
   Effect.gen(function* () {
-    const { aliases, overrides, proteinTable, extras } = yield* loadPlannerConfig(configDir)
-    const loaded = yield* Effect.result(loadCatalogue(dataDir, aliases, overrides, proteinTable, extras))
+    const { dataDir } = yield* PlannerPaths
+    const config = yield* loadPlannerConfig()
+    const { aliases, proteinTable, extras } = config
+    const loaded = yield* Effect.result(loadCatalogue(config))
     if (loaded._tag === "Failure") {
       warn(loaded.failure.message)
       return {
         dataDir,
-        configDir,
         catalogue: makeCatalogue([], aliases, undefined, proteinTable, extras.simpleBreakfasts),
         skipped: 0,
       }
@@ -69,7 +68,6 @@ export const loadWorld = (
     }
     return {
       dataDir,
-      configDir,
       catalogue: loaded.success.catalogue,
       skipped: loaded.success.skipped.length,
     }
@@ -78,8 +76,8 @@ export const loadWorld = (
 const json = (value: unknown): string => JSON.stringify(value)
 
 /** The eight tools of spec P5.3 and P7.2.6. Each returns titles, links and facts, never the intro or the steps of a recipe (spec D6). */
-export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSystem | Path.Path>> => {
-  const { dataDir, configDir, catalogue } = world
+export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSystem | Path.Path | PlannerPaths>> => {
+  const { dataDir, catalogue } = world
 
   const searchTool = defineTool({
     name: "search_recipes",
@@ -121,7 +119,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function* () {
-        const [household, history] = yield* Effect.all([loadHousehold(configDir), loadHistory(dataDir)], {
+        const [household, history] = yield* Effect.all([loadHousehold(), loadHistory()], {
           concurrency: "unbounded",
         })
         return [json(evaluatePlan(plan, catalogue, household, history.plans))]
@@ -135,7 +133,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     input: PlanInput,
     run: ({ plan }) =>
       Effect.gen(function* () {
-        const household = yield* loadHousehold(configDir)
+        const household = yield* loadHousehold()
         const list = shoppingList(plan, catalogue, household)
         return [json({ list, markdown: renderShoppingList(list) })]
       }),
@@ -149,10 +147,10 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     run: ({ plan }) =>
       Effect.gen(function* () {
         const path = yield* Path.Path
-        const [household, history] = yield* Effect.all([loadHousehold(configDir), loadHistory(dataDir)], {
+        const [household, history] = yield* Effect.all([loadHousehold(), loadHistory()], {
           concurrency: "unbounded",
         })
-        const saved = yield* savePlan(dataDir, plan)
+        const saved = yield* savePlan(plan)
         const evaluation = evaluatePlan(saved.plan, catalogue, household, history.plans)
         const list = shoppingList(saved.plan, catalogue, household)
         const markdownPath = path.join(path.dirname(saved.path), `${saved.plan.weekStart}.md`)
@@ -186,7 +184,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     input: HistoryInput,
     run: ({ limit }) =>
       Effect.gen(function* () {
-        const history = yield* loadHistory(dataDir)
+        const history = yield* loadHistory()
         const last = history.plans.slice(-(limit ?? DEFAULT_HISTORY_LIMIT)).reverse()
         return [
           json({
@@ -212,7 +210,7 @@ export const makeTools = (world: World): ReadonlyArray<Tool<FileSystem.FileSyste
     description:
       "Настройки семьи: персоны, дни, приёмы пищи (в том числе завтрак), персоны по приёмам (mealPersons), сессии готовки, лимиты нагрева, времени (в том числе freshMinutesMax для свежих блюд завтрака) и белков (proteinMinGrams).",
     input: HouseholdInput,
-    run: () => loadHousehold(configDir).pipe(Effect.map((household) => [json(household)])),
+    run: () => loadHousehold().pipe(Effect.map((household) => [json(household)])),
   })
 
   const simpleTool = defineTool({
