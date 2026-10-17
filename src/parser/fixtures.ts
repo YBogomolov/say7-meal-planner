@@ -14,7 +14,7 @@ Options:
 
 export class FixtureError extends Schema.TaggedError<FixtureError>()("FixtureError", {
   path: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /** `test/fixtures/real-ids.json`: a JSON array of recipe IDs without duplicates. */
@@ -22,13 +22,11 @@ export const FixtureIdsJson = Schema.fromJsonString(
   Schema.UniqueArray(RecipeId).pipe(Schema.check(Schema.isNonEmpty()))
 )
 
-export type FixturesCommand =
-  | { readonly _tag: "Help" }
-  | { readonly _tag: "Run"; readonly dataDir: string }
+export type FixturesCommand = { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly dataDir: string }
 
 const FixturesArgs = Schema.Struct({
   help: Schema.optional(Schema.Boolean),
-  "data-dir": Schema.optional(Schema.NonEmptyString)
+  "data-dir": Schema.optional(Schema.NonEmptyString),
 })
 
 /** Parse the command line (`process.argv.slice(2)`). */
@@ -37,11 +35,17 @@ export const parseFixturesCli = (argv: ReadonlyArray<string>): Result.Result<Fix
     try: () =>
       parseArgs({
         args: [...argv],
-        options: { "data-dir": { type: "string" }, help: { type: "boolean", short: "h" } },
+        options: {
+          "data-dir": { type: "string" },
+          help: { type: "boolean", short: "h" },
+        },
         allowPositionals: false,
-        strict: true
+        strict: true,
       }).values,
-    catch: (cause) => new CliError({ message: cause instanceof Error ? cause.message : String(cause) })
+    catch: (cause) =>
+      new CliError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
   }).pipe(
     Result.flatMap((values) =>
       Schema.decodeUnknownResult(FixturesArgs)(values).pipe(
@@ -72,7 +76,7 @@ export interface RefreshSummary {
 export const refreshFixtures = (
   options: RefreshOptions
 ): Effect.Effect<RefreshSummary, FixtureError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
 
@@ -86,7 +90,7 @@ export const refreshFixtures = (
     yield* io(options.targetDir, fs.makeDirectory(options.targetDir, { recursive: true }))
 
     const copyOne = (id: RecipeId) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const source = path.join(options.sourceDir, `${id}.html`)
         const target = path.join(options.targetDir, `${id}.html`)
         const temp = `${target}.tmp`
@@ -108,6 +112,6 @@ export const refreshFixtures = (
     const results = yield* Effect.forEach(ids, (id) => copyOne(id).pipe(Effect.map((copied) => ({ id, copied }))))
     return {
       copied: results.flatMap((result) => (Option.isSome(result.copied) ? [result.id] : [])),
-      missing: results.flatMap((result) => (Option.isNone(result.copied) ? [result.id] : []))
+      missing: results.flatMap((result) => (Option.isNone(result.copied) ? [result.id] : [])),
     }
   })

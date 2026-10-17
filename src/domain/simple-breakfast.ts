@@ -6,7 +6,11 @@ export const SimpleId = Schema.NonEmptyString
 
 /** The ID in `config/simple-breakfasts.json`: kebab-case, for example `tvorog-yagody`. */
 const ConfigSimpleId = SimpleId.pipe(
-  Schema.check(Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/, { message: "Expected a kebab-case ID, for example tvorog-yagody" }))
+  Schema.check(
+    Schema.isPattern(/^[a-z0-9]+(-[a-z0-9]+)*$/, {
+      message: "Expected a kebab-case ID, for example tvorog-yagody",
+    })
+  )
 )
 
 /** One product of a simple breakfast, per portion (spec P7.2.3). */
@@ -14,7 +18,7 @@ export const SimpleBreakfastItem = Schema.Struct({
   item: Schema.NonEmptyString,
   grams: Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0))),
   category: IngredientCategory,
-  pantry: Schema.Boolean
+  pantry: Schema.Boolean,
 })
 export type SimpleBreakfastItem = typeof SimpleBreakfastItem.Type
 
@@ -22,7 +26,7 @@ export type SimpleBreakfastItem = typeof SimpleBreakfastItem.Type
 export const SimpleBreakfast = Schema.Struct({
   id: SimpleId,
   title: Schema.NonEmptyString,
-  items: Schema.Array(SimpleBreakfastItem).pipe(Schema.check(Schema.isNonEmpty()))
+  items: Schema.Array(SimpleBreakfastItem).pipe(Schema.check(Schema.isNonEmpty())),
 })
 export type SimpleBreakfast = typeof SimpleBreakfast.Type
 
@@ -30,6 +34,6 @@ export type SimpleBreakfast = typeof SimpleBreakfast.Type
 export const SimpleBreakfastRecord = Schema.Struct({
   id: ConfigSimpleId,
   title: Schema.NonEmptyString,
-  items: Schema.Array(SimpleBreakfastItem).pipe(Schema.check(Schema.isNonEmpty()))
+  items: Schema.Array(SimpleBreakfastItem).pipe(Schema.check(Schema.isNonEmpty())),
 })
 export type SimpleBreakfastRecord = typeof SimpleBreakfastRecord.Type

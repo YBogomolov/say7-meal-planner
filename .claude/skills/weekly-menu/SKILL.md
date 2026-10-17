@@ -19,12 +19,12 @@ If the `say7` tools are not available, tell the user that the MCP server is not 
 
 Think of the week as 5 groups of slots, and choose dishes for each:
 
-| Group | Slots | Portions |
-|---|---|---|
-| A lunches | days 0–3 lunch | 12 |
-| A dinners | days 0–3 dinner | 12 |
-| B lunches | days 4–6 lunch | 9 |
-| B dinners | days 4–6 dinner | 9 |
+| Group      | Slots              | Portions     |
+| ---------- | ------------------ | ------------ |
+| A lunches  | days 0–3 lunch     | 12           |
+| A dinners  | days 0–3 dinner    | 12           |
+| B lunches  | days 4–6 lunch     | 9            |
+| B dinners  | days 4–6 dinner    | 9            |
 | Breakfasts | days 0–6 breakfast | 14 (2 a day) |
 
 Every meal needs protein: `low_protein` warns below 15 g at breakfast and 20 g at lunch and dinner per portion (`proteinPerPortion` in the search rows; the slot sums its dishes). Treat it like the taste warnings: fix it, for example with a protein side or a richer dish.
@@ -34,6 +34,7 @@ Lunches are the main, filling meal. Dinners are light (see the preferences). Thi
 Choose the protein first: 1 family for the lunches (meat or poultry), and fish or vegetarian dishes for the dinners. Then the week has at most 2 families, the code limit.
 
 How to search:
+
 - In every search, set `requiresOnly` to the `equipment` list of `household` and `maxHeat: 1`.
 - Lunches: `dishTypes: ["main"]`, `mealFits: ["full_meal"]` or a `needs_side` dish plus a side recipe. A lunch is a real piece of meat or poultry with a side dish. Sausages and other processed meat are a weak lunch: use them at most once, never as the only lunch of a session.
 - Dinners: fish (`proteinFamilies: ["fish"]`), `vegetarian: true` with `dishTypes: ["main", "savory_bake", "pancakes"]`. Vary the kind of dinner: at most 1 pie or quiche per session, and mix it with a fish dish, a cottage cheese dish, an omelette or filled pancakes. Pies are tempting because they give many portions, but 3 pies in a week are both monotonous and heavy (dough and butter). A dinner has no pasta, couscous, bulgur or rice. Potato at dinner is allowed (for example fish baked with potato); vegetables are also a good side for fish. Fish dinners every week are fine.
@@ -43,6 +44,7 @@ How to search:
 - If no recipe matches a wish exactly (for example «курица с грибами и гречкой»), put 2 recipes in 1 slot: a `needs_side` main and a side recipe (`recipeIds: [main, side]`). Tell the user that you did this.
 
 Breakfasts:
+
 - Mix 3 kinds over the week. Use a varied pattern, for example 2–3 simple breakfasts, 2 days of a session dish, 2 fresh mornings.
   - Simple breakfasts from `simple_breakfasts` go into `simpleIds` of the slot (no cooking entry). They are quick and give enough protein.
   - Session dishes (`session` "A" or "B"): сырники, запеканки, filled pancakes. They are reheated in the morning, so they must reheat well (`reheats`) and stay fresh (`fridgeDays`).
@@ -51,6 +53,7 @@ Breakfasts:
 - Do not repeat the same breakfast on more than 2 days. Sweet breakfasts (pancakes with jam) need a protein part in the same slot (a simple breakfast with cottage cheese or yogurt, or eggs).
 
 Rules of thumb that the code does not state:
+
 - 2 dishes per group is the right size: in session A each dish covers 2 days, in session B one covers 2 days and the other 1 day. That gives about 8 dishes a week. More dishes make more cooking and more products to buy (the test week with 9 dishes and 4 side recipes needed 32 products), fewer dishes make the week monotonous (1 dish on all 3 days of session B is too much). Prefer a `full_meal` dish to a main plus a separate side recipe; use a side recipe when the main dish needs it. Alternate the dishes so that a dish is not at lunch and dinner on the same day (`same_day_twice`).
 - Each dish is eaten on at most 3 days, and the last day must be within its `fridgeDays` from the cooking day.
 - The shopping list tells you which products to freeze on the shopping day for session B (raw fish and meat, also sausages). Repeat these actions in the answer.

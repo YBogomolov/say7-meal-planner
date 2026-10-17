@@ -24,33 +24,37 @@ describe("loadDotEnv", () => {
   })
 
   it.live("loads the variables of the file", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const file = join(dir, ".env")
       writeFileSync(file, `# comment\n${NAME}=from-file\n${OTHER}="quoted value"\n`)
       assert.isTrue(yield* loadDotEnv(file))
       assert.strictEqual(process.env[NAME], "from-file")
       assert.strictEqual(process.env[OTHER], "quoted value")
-    }))
+    })
+  )
 
   it.live("keeps a variable that the environment already has", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const file = join(dir, ".env")
       writeFileSync(file, `${NAME}=from-file\n`)
       process.env[NAME] = "from-environment"
       assert.isTrue(yield* loadDotEnv(file))
       assert.strictEqual(process.env[NAME], "from-environment")
-    }))
+    })
+  )
 
   it.live("returns false and changes nothing when the file does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       assert.isFalse(yield* loadDotEnv(join(dir, "absent.env")))
       assert.isUndefined(process.env[NAME])
-    }))
+    })
+  )
 
   it.live("fails with an EnvFileError, without the content, when the path is a directory", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(loadDotEnv(dir))
       assert.strictEqual(error._tag, "EnvFileError")
       assert.strictEqual(error.path, dir)
-    }))
+    })
+  )
 })

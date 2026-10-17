@@ -6,7 +6,7 @@ import {
   A4_FORBIDDEN_KEYWORDS,
   A4_MAX_OPTIONAL_PROPERTIES,
   A4_MAX_UNION_PROPERTIES,
-  walkA4
+  walkA4,
 } from "./support/api-schema.ts"
 import { must } from "./support/enrich.ts"
 
@@ -15,7 +15,7 @@ const object = (properties: Record<string, unknown>, extra: Record<string, unkno
   additionalProperties: false,
   required: Object.keys(properties),
   properties,
-  ...extra
+  ...extra,
 })
 
 /** The walker itself: it must fail on what spec A4 forbids, or the test of the real schema proves nothing. */
@@ -24,12 +24,19 @@ describe("walkA4 (the check of this test file)", () => {
     const schema = object({
       a: { type: "string", enum: ["x", "y"] },
       b: { type: ["number", "null"] },
-      c: { type: "array", items: object({ d: { type: "integer" } }), minItems: 1 },
-      e: { type: "array", items: { type: "string" }, minItems: 0 }
+      c: {
+        type: "array",
+        items: object({ d: { type: "integer" } }),
+        minItems: 1,
+      },
+      e: { type: "array", items: { type: "string" }, minItems: 0 },
     })
     assert.deepStrictEqual(walkA4(schema).problems, [])
     assert.deepStrictEqual(
-      { objects: walkA4(schema).objects, unions: walkA4(schema).unionProperties },
+      {
+        objects: walkA4(schema).objects,
+        unions: walkA4(schema).unionProperties,
+      },
       { objects: 2, unions: 1 }
     )
   })
@@ -40,29 +47,60 @@ describe("walkA4 (the check of this test file)", () => {
   })
 
   it("fails on a keyword in an array item and in an anyOf branch", () => {
-    assert.lengthOf(walkA4(object({ a: { type: "array", items: { type: "string", maxLength: 3 } } })).problems, 1)
-    assert.lengthOf(walkA4(object({ a: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] } })).problems, 1)
+    assert.lengthOf(
+      walkA4(
+        object({
+          a: { type: "array", items: { type: "string", maxLength: 3 } },
+        })
+      ).problems,
+      1
+    )
+    assert.lengthOf(
+      walkA4(
+        object({
+          a: { anyOf: [{ type: "string", minLength: 1 }, { type: "null" }] },
+        })
+      ).problems,
+      1
+    )
   })
 
   it("fails on enum or const together with a type array, at any depth", () => {
     assert.deepStrictEqual(walkA4(object({ a: { type: ["string", "null"], enum: ["x", null] } })).problems, [
-      "$.a: enum together with a type array"
+      "$.a: enum together with a type array",
     ])
     assert.deepStrictEqual(walkA4(object({ a: { type: ["string", "null"], const: "x" } })).problems, [
-      "$.a: const together with a type array"
+      "$.a: const together with a type array",
     ])
     assert.lengthOf(
-      walkA4(object({ a: { type: "array", items: { type: ["string", "null"], enum: ["x", null] } } })).problems,
+      walkA4(
+        object({
+          a: {
+            type: "array",
+            items: { type: ["string", "null"], enum: ["x", null] },
+          },
+        })
+      ).problems,
       1
     )
     assert.lengthOf(
-      walkA4(object({ a: { anyOf: [{ type: ["string", "null"], enum: ["x", null] }, { type: "integer" }] } })).problems,
+      walkA4(
+        object({
+          a: {
+            anyOf: [{ type: ["string", "null"], enum: ["x", null] }, { type: "integer" }],
+          },
+        })
+      ).problems,
       1
     )
   })
 
   it("accepts a nullable enum in the anyOf form and counts it as 1 union property", () => {
-    const walk = walkA4(object({ a: { anyOf: [{ type: "string", enum: ["x", "y"] }, { type: "null" }] } }))
+    const walk = walkA4(
+      object({
+        a: { anyOf: [{ type: "string", enum: ["x", "y"] }, { type: "null" }] },
+      })
+    )
     assert.deepStrictEqual(walk.problems, [])
     assert.strictEqual(walk.unionProperties, 1)
     assert.strictEqual(walk.properties, 1)
@@ -74,23 +112,29 @@ describe("walkA4 (the check of this test file)", () => {
   })
 
   it("fails on an object without additionalProperties false, at any depth", () => {
-    const open = { type: "object", required: ["z"], properties: { z: { type: "string" } } }
+    const open = {
+      type: "object",
+      required: ["z"],
+      properties: { z: { type: "string" } },
+    }
     assert.deepStrictEqual(walkA4(open).problems, ["$: additionalProperties is not false"])
     assert.deepStrictEqual(walkA4(object({ a: open })).problems, ["$.a: additionalProperties is not false"])
     assert.deepStrictEqual(walkA4(object({ a: { type: "array", items: open } })).problems, [
-      "$.a[]: additionalProperties is not false"
+      "$.a[]: additionalProperties is not false",
     ])
     assert.deepStrictEqual(walkA4({ ...open, additionalProperties: true }).problems, [
-      "$: additionalProperties is not false"
+      "$: additionalProperties is not false",
     ])
   })
 
   it("fails on more than 24 optional properties, and accepts 24", () => {
     const optional = (count: number) =>
-      object(Object.fromEntries(Array.from({ length: count }, (_, i) => [`p${i}`, { type: "string" }])), { required: [] })
+      object(Object.fromEntries(Array.from({ length: count }, (_, i) => [`p${i}`, { type: "string" }])), {
+        required: [],
+      })
     assert.deepStrictEqual(walkA4(optional(A4_MAX_OPTIONAL_PROPERTIES)).problems, [])
     assert.deepStrictEqual(walkA4(optional(A4_MAX_OPTIONAL_PROPERTIES + 1)).problems, [
-      "25 optional properties; the limit is 24"
+      "25 optional properties; the limit is 24",
     ])
   })
 
@@ -100,13 +144,13 @@ describe("walkA4 (the check of this test file)", () => {
         Object.fromEntries(
           Array.from({ length: count }, (_, i) => [
             `p${i}`,
-            i % 2 === 0 ? { type: ["string", "null"] } : { anyOf: [{ type: "string" }, { type: "null" }] }
+            i % 2 === 0 ? { type: ["string", "null"] } : { anyOf: [{ type: "string" }, { type: "null" }] },
           ])
         )
       )
     assert.deepStrictEqual(walkA4(unions(A4_MAX_UNION_PROPERTIES)).problems, [])
     assert.deepStrictEqual(walkA4(unions(A4_MAX_UNION_PROPERTIES + 1)).problems, [
-      "17 properties with anyOf or a type array; the limit is 16"
+      "17 properties with anyOf or a type array; the limit is 16",
     ])
   })
 
@@ -121,7 +165,7 @@ describe("the JSON Schema that goes to the API obeys spec A4", () => {
     model: "claude-haiku-5-5",
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: "{}" }],
-    maxTokens: 100
+    maxTokens: 100,
   })
   const sent = params.output_config?.format?.schema
 

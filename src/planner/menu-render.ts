@@ -40,12 +40,15 @@ const tableSection = ({ plan, catalogue, household }: MenuInput): ReadonlyArray<
         return slot === undefined || slot.recipeIds.length + slot.simpleIds.length === 0
           ? "—"
           : tableCell(
-            [...slot.recipeIds.map((id) => dishLink(catalogue, id)), ...slot.simpleIds.map((id) => simpleText(catalogue, id))].join(" + ")
-          )
+              [
+                ...slot.recipeIds.map((id) => dishLink(catalogue, id)),
+                ...slot.simpleIds.map((id) => simpleText(catalogue, id)),
+              ].join(" + ")
+            )
       })
       return `| ${dateLabel(plan.weekStart, day)} | ${cells.join(" | ")} |`
     }),
-    ""
+    "",
   ]
 }
 
@@ -59,18 +62,18 @@ const freshSection = ({ plan, catalogue }: MenuInput): ReadonlyArray<string> => 
     "### Утром (свежие блюда)",
     "",
     ...fresh.map((entry) => {
-      const days = [...new Set(plan.meals.filter((meal) => meal.recipeIds.includes(entry.recipeId)).map((meal) => meal.day))].sort(
-        (a, b) => a - b
-      )
+      const days = [
+        ...new Set(plan.meals.filter((meal) => meal.recipeIds.includes(entry.recipeId)).map((meal) => meal.day)),
+      ].sort((a, b) => a - b)
       const active = catalogue.byId.get(entry.recipeId)?.enrichment.activeMinutes
       const facts = [
         `масштаб ×${formatNumber(entry.scale)} на каждый день`,
         ...(active === undefined ? [] : [`активно ${formatNumber(active)} мин. в день`]),
-        `дни ${days.join(", ")}`
+        `дни ${days.join(", ")}`,
       ]
       return `- ${dishLink(catalogue, entry.recipeId)}: ${facts.join(", ")}`
     }),
-    ""
+    "",
   ]
 }
 
@@ -88,19 +91,19 @@ const sessionsSection = (input: MenuInput): ReadonlyArray<string> => {
         ...(dishes.length === 0
           ? ["Блюд нет."]
           : dishes.map((entry) => {
-            const active = catalogue.byId.get(entry.recipeId)?.enrichment.activeMinutes
-            const facts = [
-              `масштаб ×${formatNumber(entry.scale)}`,
-              ...(active === undefined ? [] : [`активно ${formatNumber(active)} мин.`])
-            ]
-            return `- ${dishLink(catalogue, entry.recipeId)}: ${facts.join(", ")}`
-          })),
+              const active = catalogue.byId.get(entry.recipeId)?.enrichment.activeMinutes
+              const facts = [
+                `масштаб ×${formatNumber(entry.scale)}`,
+                ...(active === undefined ? [] : [`активно ${formatNumber(active)} мин.`]),
+              ]
+              return `- ${dishLink(catalogue, entry.recipeId)}: ${facts.join(", ")}`
+            })),
         "",
         `Активное время сессии: ${formatNumber(minutes)} мин. (норма ${formatNumber(household.activeMinutesPerSession)} мин.).`,
-        ""
+        "",
       ]
     }),
-    ...freshSection(input)
+    ...freshSection(input),
   ]
 }
 
@@ -120,7 +123,7 @@ const evaluationSection = ({ evaluation }: MenuInput): ReadonlyArray<string> => 
     `- Белок: ${families === "" ? "нет" : families}.`,
     "",
     ...issueBlock("Ошибки", errors),
-    ...issueBlock("Предупреждения", warnings)
+    ...issueBlock("Предупреждения", warnings),
   ]
 }
 
@@ -141,6 +144,8 @@ export const renderMenu = (input: MenuInput): string => {
     ...tableSection(input),
     ...sessionsSection(input),
     ...evaluationSection(input),
-    demoteHeadings(renderShoppingList(input.list))
-  ].join("\n").replace(/\n*$/, "\n")
+    demoteHeadings(renderShoppingList(input.list)),
+  ]
+    .join("\n")
+    .replace(/\n*$/, "\n")
 }

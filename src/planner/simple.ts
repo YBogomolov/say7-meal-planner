@@ -4,12 +4,15 @@ import { SimpleBreakfastRecord } from "../domain/simple-breakfast.ts"
 import type { SimpleBreakfast } from "../domain/simple-breakfast.ts"
 import { normaliseItem } from "./items.ts"
 
-const hasUniqueIds = Schema.makeFilter<ReadonlyArray<SimpleBreakfastRecord>>((records) =>
-  new Set(records.map((record) => record.id)).size === records.length || "Expected each simple breakfast ID once"
+const hasUniqueIds = Schema.makeFilter<ReadonlyArray<SimpleBreakfastRecord>>(
+  (records) =>
+    new Set(records.map((record) => record.id)).size === records.length || "Expected each simple breakfast ID once"
 )
 
 /** JSON text codec for `config/simple-breakfasts.json` (spec P7.2.3). */
-export const SimpleBreakfastsJson = Schema.fromJsonString(Schema.Array(SimpleBreakfastRecord).pipe(Schema.check(hasUniqueIds)))
+export const SimpleBreakfastsJson = Schema.fromJsonString(
+  Schema.Array(SimpleBreakfastRecord).pipe(Schema.check(hasUniqueIds))
+)
 
 export const NO_SIMPLE_BREAKFASTS: ReadonlyArray<SimpleBreakfast> = []
 
@@ -21,5 +24,8 @@ export const makeSimpleBreakfasts = (
   records.map((record) => ({
     id: record.id,
     title: record.title,
-    items: record.items.map((item) => ({ ...item, item: normaliseItem(item.item, aliases) }))
+    items: record.items.map((item) => ({
+      ...item,
+      item: normaliseItem(item.item, aliases),
+    })),
   }))

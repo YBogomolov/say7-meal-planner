@@ -9,11 +9,11 @@ import { EnrichStore } from "./store.ts"
 
 /** Read `gold.json`. */
 export const readGold = (file: string): Effect.Effect<ReadonlyArray<GoldEntry>, StoreError, FileSystem.FileSystem> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const text = yield* fs.readFileString(file).pipe(
-      Effect.mapError((error) => new StoreError({ path: file, message: error.message }))
-    )
+    const text = yield* fs
+      .readFileString(file)
+      .pipe(Effect.mapError((error) => new StoreError({ path: file, message: error.message })))
     return yield* Schema.decodeUnknownEffect(GoldJson)(text).pipe(
       Effect.mapError((error) => new StoreError({ path: file, message: error.message }))
     )
@@ -24,21 +24,25 @@ export const readGold = (file: string): Effect.Effect<ReadonlyArray<GoldEntry>, 
  * The parsed file of a recipe gives the ingredient lines. The report goes to `<out-dir>/_eval.json`.
  */
 export const evaluate = (gold: ReadonlyArray<GoldEntry>): Effect.Effect<EvalReport, StoreError, EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const store = yield* EnrichStore
-    const entries = yield* Effect.forEach(gold, (entry): Effect.Effect<StoredEntry, StoreError> =>
-      Effect.gen(function*() {
-        const [stored, parsed] = yield* Effect.all(
-          [store.readEnriched(entry.id), Effect.option(store.readParsed(entry.id))],
-          { concurrency: "unbounded" }
-        )
-        return {
-          gold: entry,
-          stored,
-          enrichment: Option.map(stored, (file) => file.enrichment),
-          lines: Option.map(parsed, (recipe) => recipe.ingredientGroups.flatMap((group) => group.items))
-        }
-      }), { concurrency: 8 })
+    const entries = yield* Effect.forEach(
+      gold,
+      (entry): Effect.Effect<StoredEntry, StoreError> =>
+        Effect.gen(function* () {
+          const [stored, parsed] = yield* Effect.all(
+            [store.readEnriched(entry.id), Effect.option(store.readParsed(entry.id))],
+            { concurrency: "unbounded" }
+          )
+          return {
+            gold: entry,
+            stored,
+            enrichment: Option.map(stored, (file) => file.enrichment),
+            lines: Option.map(parsed, (recipe) => recipe.ingredientGroups.flatMap((group) => group.items)),
+          }
+        }),
+      { concurrency: 8 }
+    )
     const report = buildEvalReport(entries, DateTime.formatIso(yield* DateTime.now))
     yield* store.writeEval(report)
     for (const line of formatEvalReport(report)) {

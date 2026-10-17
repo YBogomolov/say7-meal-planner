@@ -2,11 +2,18 @@ import { assert, describe, it } from "@effect/vitest"
 import { isInScope, SCOPE_CATEGORY_IDS } from "../src/enrich/scope.ts"
 import { DESSERTS, parsedRecipe, SALADS, SOUPS } from "./support/enrich.ts"
 
-const category = (id: number) => ({ id, slug: `c${id}`, name: `Категория ${id}` })
+const category = (id: number) => ({
+  id,
+  slug: `c${id}`,
+  name: `Категория ${id}`,
+})
 
 describe("isInScope", () => {
   it("lists the 8 categories of the spec P3.1 and P7.2.5", () => {
-    assert.deepStrictEqual([...SCOPE_CATEGORY_IDS].toSorted((a, b) => a - b), [38, 40, 41, 44, 47, 48, 50, 233])
+    assert.deepStrictEqual(
+      [...SCOPE_CATEGORY_IDS].toSorted((a, b) => a - b),
+      [38, 40, 41, 44, 47, 48, 50, 233]
+    )
   })
 
   it.each([38, 40, 41, 44, 47, 48, 50, 233])("accepts category %i", (id) => {
@@ -15,7 +22,13 @@ describe("isInScope", () => {
 
   it("refuses a recipe that has only categories out of scope", () => {
     assert.isFalse(isInScope(parsedRecipe(1, { categories: [DESSERTS] })))
-    assert.isFalse(isInScope(parsedRecipe(1, { categories: [category(39), category(42), category(99)] })))
+    assert.isFalse(
+      isInScope(
+        parsedRecipe(1, {
+          categories: [category(39), category(42), category(99)],
+        })
+      )
+    )
   })
 
   it("accepts a recipe when at least 1 of its categories is in scope", () => {

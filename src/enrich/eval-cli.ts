@@ -8,7 +8,7 @@ import { enrichStoreLayer } from "./layers.ts"
 const EXIT_ERRORS = 1
 const EXIT_USAGE = 2
 
-const main = Effect.gen(function*() {
+const main = Effect.gen(function* () {
   const command = yield* Effect.fromResult(parseEvalCli(process.argv.slice(2)))
   if (command._tag === "Help") {
     yield* Console.log(EVAL_USAGE)
@@ -22,11 +22,15 @@ const main = Effect.gen(function*() {
   Effect.catch((error) =>
     Console.error(`error: ${error.message}`).pipe(
       Effect.andThen(
-        error._tag === "CliError" ? Console.error("Run `npm run enrich:eval -- --help` to see the options.") : Effect.void
+        error._tag === "CliError"
+          ? Console.error("Run `npm run enrich:eval -- --help` to see the options.")
+          : Effect.void
       ),
-      Effect.andThen(Effect.sync(() => {
-        process.exitCode = error._tag === "CliError" ? EXIT_USAGE : EXIT_ERRORS
-      }))
+      Effect.andThen(
+        Effect.sync(() => {
+          process.exitCode = error._tag === "CliError" ? EXIT_USAGE : EXIT_ERRORS
+        })
+      )
     )
   )
 )

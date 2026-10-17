@@ -35,12 +35,17 @@ describe("parseCli", () => {
 
   it("reads every flag", () => {
     const options = run(
-      "--limit", "20",
-      "--ids", "12, 7,1590",
+      "--limit",
+      "20",
+      "--ids",
+      "12, 7,1590",
       "--force",
-      "--delay-ms", "0",
-      "--base-url", "http://127.0.0.1:8080/",
-      "--data-dir", "/tmp/out"
+      "--delay-ms",
+      "0",
+      "--base-url",
+      "http://127.0.0.1:8080/",
+      "--data-dir",
+      "/tmp/out"
     )
     assert.strictEqual(Option.getOrNull(options.limit), 20)
     assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [12, 7, 1590])
@@ -77,7 +82,7 @@ describe("parseCli", () => {
     ["--base-url", "https://example.com/path"],
     ["--base-url", "https://example.com/?x=1"],
     ["--data-dir", ""],
-    ["--unknown", "1"]
+    ["--unknown", "1"],
   ])("rejects %s %s", (flag, value) => {
     const result = parseCli([flag, value])
     assert.isTrue(Result.isFailure(result))

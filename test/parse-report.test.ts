@@ -37,7 +37,7 @@ describe("warningsOf", () => {
       [{ dates: null }, "no_added_date"],
       [{ commentsCount: null }, "no_comments_count"],
       [{ categories: null, breadcrumb: "" }, "no_categories"],
-      [{ similar: null }, "no_similar"]
+      [{ similar: null }, "no_similar"],
     ]
     for (const [options, kind] of cases) {
       assert.include(outcome({ ...TIMED, ...options }).warnings, kind)
@@ -56,7 +56,11 @@ describe("warningsOf", () => {
   })
 
   it("reports no_categories, and not categories_from_breadcrumb, when the breadcrumb has no category", () => {
-    const warnings = outcome({ ...TIMED, categories: null, breadcrumb: "" }).warnings
+    const warnings = outcome({
+      ...TIMED,
+      categories: null,
+      breadcrumb: "",
+    }).warnings
     assert.deepStrictEqual(warnings, ["no_categories"])
   })
 
@@ -69,34 +73,58 @@ describe("warningsOf", () => {
   it("does not warn about a yield in pieces when the intro names portions", () => {
     const warnings = outcome({
       ...TIMED,
-      summary: "<p>Хватит на 6 порций. <span class=\"p-yield\">100 штук</span></p>"
+      summary: '<p>Хватит на 6 порций. <span class="p-yield">100 штук</span></p>',
     }).warnings
     assert.deepStrictEqual(warnings, [])
   })
 
   it("reports no_servings for a yield in pieces and no other mention of portions", () => {
-    const warnings = outcome({ ...TIMED, summary: "<p>Получается <span class=\"p-yield\">100 штук</span>.</p>" }).warnings
+    const warnings = outcome({
+      ...TIMED,
+      summary: '<p>Получается <span class="p-yield">100 штук</span>.</p>',
+    }).warnings
     assert.deepStrictEqual(warnings, ["no_servings"])
   })
 })
 
 describe("buildReport", () => {
-  const parsed = (n: number, ...warnings: ReadonlyArray<WarningKind>): PageResult => ({ _tag: "Parsed", id: id(n), warnings })
+  const parsed = (n: number, ...warnings: ReadonlyArray<WarningKind>): PageResult => ({
+    _tag: "Parsed",
+    id: id(n),
+    warnings,
+  })
   const failed = (n: number, reason: "no_steps" | "unreadable"): PageResult => ({
     _tag: "Failed",
     id: id(n),
     reason,
-    message: "m"
+    message: "m",
   })
   const when = "2026-10-12T12:00:00.000Z"
 
   it("counts pages, failures and pages with warnings", () => {
     const report = buildReport(
-      [parsed(1), parsed(2, "no_servings"), parsed(3, "no_servings", "no_durations"), failed(4, "no_steps"), failed(5, "unreadable")],
+      [
+        parsed(1),
+        parsed(2, "no_servings"),
+        parsed(3, "no_servings", "no_durations"),
+        failed(4, "no_steps"),
+        failed(5, "unreadable"),
+      ],
       when
     )
-    assert.deepStrictEqual(report.totals, { processed: 5, ok: 3, failed: 2, withWarnings: 2 })
-    assert.deepStrictEqual(report.failed.map((page) => [page.id, page.reason]), [[4, "no_steps"], [5, "unreadable"]])
+    assert.deepStrictEqual(report.totals, {
+      processed: 5,
+      ok: 3,
+      failed: 2,
+      withWarnings: 2,
+    })
+    assert.deepStrictEqual(
+      report.failed.map((page) => [page.id, page.reason]),
+      [
+        [4, "no_steps"],
+        [5, "unreadable"],
+      ]
+    )
   })
 
   it("counts each kind of warning, also 0, and lists the pages", () => {
@@ -111,13 +139,23 @@ describe("buildReport", () => {
 
   it("does not count the warnings of a failed page", () => {
     const report = buildReport([failed(4, "no_steps")], when)
-    assert.deepStrictEqual(report.totals, { processed: 1, ok: 0, failed: 1, withWarnings: 0 })
+    assert.deepStrictEqual(report.totals, {
+      processed: 1,
+      ok: 0,
+      failed: 1,
+      withWarnings: 0,
+    })
     assert.isTrue(Object.values(report.warningCounts).every((count) => count === 0))
   })
 
   it("gives a valid empty report for a run without pages", () => {
     const report = buildReport([], when)
-    assert.deepStrictEqual(report.totals, { processed: 0, ok: 0, failed: 0, withWarnings: 0 })
+    assert.deepStrictEqual(report.totals, {
+      processed: 0,
+      ok: 0,
+      failed: 0,
+      withWarnings: 0,
+    })
     assert.strictEqual(report.generatedAt, when)
   })
 

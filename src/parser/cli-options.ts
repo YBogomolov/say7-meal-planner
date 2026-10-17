@@ -20,14 +20,12 @@ export interface ParseCliOptions {
   readonly dataDir: string
 }
 
-export type ParseCliCommand =
-  | { readonly _tag: "Help" }
-  | { readonly _tag: "Run"; readonly options: ParseCliOptions }
+export type ParseCliCommand = { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly options: ParseCliOptions }
 
 const CliArgs = Schema.Struct({
   ids: Schema.optional(RecipeIdsFromString),
   help: Schema.optional(Schema.Boolean),
-  "data-dir": Schema.optional(Schema.NonEmptyString)
+  "data-dir": Schema.optional(Schema.NonEmptyString),
 })
 
 /** Parse the command line (`process.argv.slice(2)`). */
@@ -39,12 +37,15 @@ export const parseParseCli = (argv: ReadonlyArray<string>): Result.Result<ParseC
         options: {
           ids: { type: "string" },
           "data-dir": { type: "string" },
-          help: { type: "boolean", short: "h" }
+          help: { type: "boolean", short: "h" },
         },
         allowPositionals: false,
-        strict: true
+        strict: true,
       }).values,
-    catch: (cause) => new CliError({ message: cause instanceof Error ? cause.message : String(cause) })
+    catch: (cause) =>
+      new CliError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
   }).pipe(
     Result.flatMap((values) =>
       Schema.decodeUnknownResult(CliArgs)(values).pipe(
@@ -52,12 +53,14 @@ export const parseParseCli = (argv: ReadonlyArray<string>): Result.Result<ParseC
       )
     ),
     Result.map((args): ParseCliCommand =>
-      args.help === true ? { _tag: "Help" } : {
-        _tag: "Run",
-        options: {
-          ids: Option.fromUndefinedOr(args.ids).pipe(Option.map((ids) => new Set(ids))),
-          dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR
-        }
-      }
+      args.help === true
+        ? { _tag: "Help" }
+        : {
+            _tag: "Run",
+            options: {
+              ids: Option.fromUndefinedOr(args.ids).pipe(Option.map((ids) => new Set(ids))),
+              dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR,
+            },
+          }
     )
   )

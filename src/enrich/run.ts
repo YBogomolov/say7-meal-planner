@@ -24,7 +24,7 @@ import type { ControlFileInvalidError } from "./store.ts"
 
 /** A problem with the request of the user, for example a batch of another model that waits in the output directory. */
 export class EnrichRunError extends Schema.TaggedError<EnrichRunError>()("EnrichRunError", {
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 export type EnrichError = StoreError | ControlFileInvalidError | LlmApiError | EnrichRunError
@@ -64,7 +64,7 @@ export interface RunConfig {
 
 export const defaultRunConfig: RunConfig = {
   concurrency: SYNC_CONCURRENCY,
-  poll: { initialMs: 15_000, factor: 1.5, maxMs: 300_000 }
+  poll: { initialMs: 15_000, factor: 1.5, maxMs: 300_000 },
 }
 
 /** Wait before poll number `attempt` (counted from 0), in ms. */
@@ -106,14 +106,16 @@ interface Selection {
 const loadSelection = (
   options: Pick<EnrichOptions, "ids" | "retryFailed">
 ): Effect.Effect<Selection, EnrichError, EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const store = yield* EnrichStore
 
     let requested = options.ids
     if (options.retryFailed) {
       const report = yield* store.readReport
       if (Option.isNone(report)) {
-        return yield* new EnrichRunError({ message: "There is no _report.json in the output directory. Nothing to retry." })
+        return yield* new EnrichRunError({
+          message: "There is no _report.json in the output directory. Nothing to retry.",
+        })
       }
       requested = Option.some(new Set(report.value.failures.map((failure) => failure.id)))
     }
@@ -134,7 +136,11 @@ const loadSelection = (
       if (Result.isSuccess(result)) {
         recipes.push(result.success)
       } else {
-        unreadable.push({ id, kind: "unreadable", message: result.failure.message })
+        unreadable.push({
+          id,
+          kind: "unreadable",
+          message: result.failure.message,
+        })
       }
     }
     return { recipes, unreadable }
@@ -147,7 +153,7 @@ interface Work {
 
 /** Decide which of the selected recipes need the model: those in scope without a stored file of the current `inputHash`. */
 const gatherWork = (options: EnrichOptions): Effect.Effect<Work, EnrichError, EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const store = yield* EnrichStore
     const { recipes, unreadable } = yield* loadSelection(options)
 
@@ -165,7 +171,7 @@ const gatherWork = (options: EnrichOptions): Effect.Effect<Work, EnrichError, En
       model: options.model,
       promptVersion: PROMPT_VERSION,
       storedHashes,
-      limit: options.limit
+      limit: options.limit,
     })
     if (Option.isSome(options.ids) && !options.retryFailed && plan.outOfScope.length > 0) {
       yield* Console.warn(`warning: IDs out of scope (spec P3.1), skipped: ${plan.outOfScope.join(", ")}`)
@@ -179,7 +185,7 @@ const gatherWork = (options: EnrichOptions): Effect.Effect<Work, EnrichError, En
  * Send no request and write no file. The stored files do not change the numbers: the dry run counts a full run.
  */
 export const dryRun = (options: DryRunOptions): Effect.Effect<DryRunSummary, EnrichError, EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { recipes, unreadable } = yield* loadSelection(options)
     const inScope = recipes
       .filter(isInScope)
@@ -193,7 +199,7 @@ export const dryRun = (options: DryRunOptions): Effect.Effect<DryRunSummary, Enr
       limit: options.limit,
       models: options.models,
       sync: options.sync,
-      retryFailed: options.retryFailed
+      retryFailed: options.retryFailed,
     })
     for (const line of formatDryRun(summary)) {
       yield* Console.log(line)
@@ -220,7 +226,7 @@ const enrichOne = (
   model: ModelName,
   planned: PlannedRecipe
 ): Effect.Effect<RecipeOutcome, StoreError | LlmApiError, Llm | EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const llm = yield* Llm
     const store = yield* EnrichStore
     const { id } = planned
@@ -230,7 +236,7 @@ const enrichOne = (
       id,
       kind,
       message,
-      usage
+      usage,
     })
 
     const ask = (request: LlmRequest) =>
@@ -245,7 +251,15 @@ const enrichOne = (
         Effect.flatMap((createdAt) =>
           Effect.uninterruptible(
             store.writeEnriched(
-              storedRecipe({ id, model, promptVersion: PROMPT_VERSION, inputHash: planned.inputHash, createdAt, usage, enrichment })
+              storedRecipe({
+                id,
+                model,
+                promptVersion: PROMPT_VERSION,
+                inputHash: planned.inputHash,
+                createdAt,
+                usage,
+                enrichment,
+              })
             )
           )
         ),
@@ -285,7 +299,7 @@ const processSync = (
   planned: ReadonlyArray<PlannedRecipe>,
   config: RunConfig
 ): Effect.Effect<ReadonlyArray<RecipeOutcome>, StoreError | LlmApiError, Llm | EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const done = yield* Ref.make(0)
     return yield* Effect.forEach(
       planned,
@@ -308,18 +322,30 @@ const processSync = (
 export const outcomeOfBatchItem = (
   item: BatchItem,
   recipe: BatchState["recipes"][number]
-): { readonly outcome: RecipeOutcome; readonly enrichment: Option.Option<Enrichment> } => {
+): {
+  readonly outcome: RecipeOutcome
+  readonly enrichment: Option.Option<Enrichment>
+} => {
   const { id } = recipe
   const failed = (kind: FailureKind, message: string, usage: TokenUsage) => ({
-    outcome: { _tag: "Failed", id, kind, message, usage } satisfies RecipeOutcome,
-    enrichment: Option.none<Enrichment>()
+    outcome: {
+      _tag: "Failed",
+      id,
+      kind,
+      message,
+      usage,
+    } satisfies RecipeOutcome,
+    enrichment: Option.none<Enrichment>(),
   })
   switch (item.outcome._tag) {
     case "Succeeded": {
       const { completion } = item.outcome
       const verdict = judgeCompletion(completion, recipe.lineCount)
       return verdict._tag === "Valid"
-        ? { outcome: { _tag: "Stored", id, usage: completion.usage }, enrichment: Option.some(verdict.enrichment) }
+        ? {
+            outcome: { _tag: "Stored", id, usage: completion.usage },
+            enrichment: Option.some(verdict.enrichment),
+          }
         : failed(verdict.kind, verdict.message, completion.usage)
     }
     case "Errored":
@@ -337,9 +363,9 @@ const describeBatch = (info: BatchInfo): string =>
 
 /** Poll the batch until it has ended. The waits grow (spec A5). */
 const awaitBatch = (batchId: string, poll: PollConfig): Effect.Effect<BatchInfo, LlmApiError, Llm> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const llm = yield* Llm
-    for (let attempt = 0;; attempt += 1) {
+    for (let attempt = 0; ; attempt += 1) {
       const info = yield* llm.getBatch(batchId)
       yield* Console.log(describeBatch(info))
       if (info.status === "ended") {
@@ -364,7 +390,7 @@ const finishBatch = (
     readonly unreadable: ReadonlyArray<EnrichFailure>
   }
 ): Effect.Effect<EnrichReport, StoreError | LlmApiError, Llm | EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const llm = yield* Llm
     const store = yield* EnrichStore
     yield* awaitBatch(state.batchId, parts.poll)
@@ -375,7 +401,7 @@ const finishBatch = (
 
     yield* llm.batchResults(state.batchId).pipe(
       Stream.runForEach((item) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const recipe = byCustomId.get(item.customId)
           if (recipe === undefined) {
             yield* Console.warn(`warning: the batch has a result for the unknown request ${item.customId}`)
@@ -396,7 +422,7 @@ const finishBatch = (
                   inputHash: recipe.inputHash,
                   createdAt,
                   usage: outcome.usage,
-                  enrichment: enrichment.value
+                  enrichment: enrichment.value,
                 })
               )
             )
@@ -415,7 +441,7 @@ const finishBatch = (
           id: recipe.id,
           kind: "batch_missing",
           message: "The results of the batch have no line for this recipe",
-          usage: NO_USAGE
+          usage: NO_USAGE,
         }
       )
     }
@@ -430,7 +456,7 @@ const finishBatch = (
       cached: parts.cached,
       deferred: parts.deferred,
       unreadable: parts.unreadable,
-      outcomes: all
+      outcomes: all,
     })
     // The report goes first. If the run stops now, the next run reads the results again and stores the same files.
     yield* store.writeReport(report)
@@ -443,11 +469,14 @@ const submitBatch = (
   model: ModelName,
   planned: ReadonlyArray<PlannedRecipe>
 ): Effect.Effect<BatchState, StoreError | LlmApiError, Llm | EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const llm = yield* Llm
     const store = yield* EnrichStore
     const info = yield* llm.createBatch(
-      planned.map((item) => ({ customId: customIdOf(item.id), request: requestFor(model, item) }))
+      planned.map((item) => ({
+        customId: customIdOf(item.id),
+        request: requestFor(model, item),
+      }))
     )
     const state: BatchState = {
       version: 1,
@@ -455,7 +484,11 @@ const submitBatch = (
       model,
       promptVersion: PROMPT_VERSION,
       createdAt: yield* nowIso,
-      recipes: planned.map((item) => ({ id: item.id, inputHash: item.inputHash, lineCount: item.lineCount }))
+      recipes: planned.map((item) => ({
+        id: item.id,
+        inputHash: item.inputHash,
+        lineCount: item.lineCount,
+      })),
     }
     yield* Effect.uninterruptible(store.writeBatch(state))
     yield* Console.log(`batch ${info.id} created with ${planned.length} requests; the ID is in _batch.json`)
@@ -477,7 +510,7 @@ export const enrichAll = (
   options: EnrichOptions,
   config: RunConfig = defaultRunConfig
 ): Effect.Effect<EnrichOutcome, EnrichError, Llm | EnrichStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const store = yield* EnrichStore
     yield* store.prepare
 
@@ -486,18 +519,21 @@ export const enrichAll = (
       const state = pending.value
       if (state.model !== options.model) {
         return yield* new EnrichRunError({
-          message: `A batch ${state.batchId} for the model ${state.model} waits in the output directory. ` +
-            `Run again with --model ${state.model}, or move _batch.json away.`
+          message:
+            `A batch ${state.batchId} for the model ${state.model} waits in the output directory. ` +
+            `Run again with --model ${state.model}, or move _batch.json away.`,
         })
       }
-      yield* Console.log(`resume: batch ${state.batchId} with ${state.recipes.length} recipes; the other flags are not used`)
+      yield* Console.log(
+        `resume: batch ${state.batchId} with ${state.recipes.length} recipes; the other flags are not used`
+      )
       const report = yield* finishBatch(state, {
         poll: config.poll,
         retryFailed: false,
         outOfScope: 0,
         cached: 0,
         deferred: 0,
-        unreadable: []
+        unreadable: [],
       })
       yield* Console.log(`done: ${formatTotals(report)}`)
       yield* Console.log(formatUsage(report))
@@ -508,7 +544,7 @@ export const enrichAll = (
     const mode: RunMode = chooseMode({
       count: plan.toProcess.length,
       sync: options.sync,
-      retryFailed: options.retryFailed
+      retryFailed: options.retryFailed,
     })
     yield* Console.log(
       `${plan.cached.length + plan.toProcess.length + plan.deferred} recipes selected: ${plan.cached.length} cached, ` +
@@ -523,7 +559,7 @@ export const enrichAll = (
       outOfScope: plan.outOfScope.length,
       cached: plan.cached.length,
       deferred: plan.deferred,
-      unreadable
+      unreadable,
     }
 
     if (plan.toProcess.length > 0 && mode === "batch") {
@@ -535,7 +571,13 @@ export const enrichAll = (
     }
 
     const outcomes = yield* processSync(options.model, plan.toProcess, config)
-    const report = buildReport({ ...common, generatedAt: yield* nowIso, mode: "sync", batchId: null, outcomes })
+    const report = buildReport({
+      ...common,
+      generatedAt: yield* nowIso,
+      mode: "sync",
+      batchId: null,
+      outcomes,
+    })
     yield* store.writeReport(report)
     yield* Console.log(`done: ${formatTotals(report)}`)
     yield* Console.log(formatUsage(report))

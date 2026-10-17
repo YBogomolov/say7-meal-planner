@@ -45,7 +45,7 @@ describe("parseParseCli", () => {
     ["--ids", ""],
     ["--data-dir", ""],
     ["--limit", "5"],
-    ["--force", ""]
+    ["--force", ""],
   ])("rejects %s %s", (flag, value) => {
     assert.isTrue(Result.isFailure(parseParseCli(value === "" && flag === "--force" ? [flag] : [flag, value])))
   })

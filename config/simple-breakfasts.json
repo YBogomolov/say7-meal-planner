@@ -4,7 +4,12 @@
     "title": "Творог с ягодами и мёдом",
     "items": [
       { "item": "творог", "grams": 200, "category": "dairy", "pantry": false },
-      { "item": "ягоды замороженные", "grams": 100, "category": "frozen", "pantry": false },
+      {
+        "item": "ягоды замороженные",
+        "grams": 100,
+        "category": "frozen",
+        "pantry": false
+      },
       { "item": "мед", "grams": 15, "category": "sweet", "pantry": true }
     ]
   },
@@ -12,7 +17,12 @@
     "id": "yogurt-granola",
     "title": "Греческий йогурт с гранолой и бананом",
     "items": [
-      { "item": "греческий йогурт", "grams": 200, "category": "dairy", "pantry": false },
+      {
+        "item": "греческий йогурт",
+        "grams": 200,
+        "category": "dairy",
+        "pantry": false
+      },
       { "item": "гранола", "grams": 40, "category": "grain", "pantry": false },
       { "item": "банан", "grams": 60, "category": "fruit", "pantry": false }
     ]
@@ -24,7 +34,12 @@
       { "item": "хлеб", "grams": 60, "category": "bakery", "pantry": false },
       { "item": "сыр", "grams": 30, "category": "dairy", "pantry": false },
       { "item": "ветчина", "grams": 50, "category": "meat", "pantry": false },
-      { "item": "огурцы", "grams": 60, "category": "vegetable", "pantry": false }
+      {
+        "item": "огурцы",
+        "grams": 60,
+        "category": "vegetable",
+        "pantry": false
+      }
     ]
   },
   {
@@ -33,7 +48,12 @@
     "items": [
       { "item": "яйца", "grams": 110, "category": "eggs", "pantry": false },
       { "item": "брынза", "grams": 30, "category": "dairy", "pantry": false },
-      { "item": "помидоры", "grams": 100, "category": "vegetable", "pantry": false },
+      {
+        "item": "помидоры",
+        "grams": 100,
+        "category": "vegetable",
+        "pantry": false
+      },
       { "item": "хлеб", "grams": 40, "category": "bakery", "pantry": false }
     ]
   },
@@ -42,18 +62,43 @@
     "title": "Бутерброды с творожным сыром и слабосолёной рыбой",
     "items": [
       { "item": "хлеб", "grams": 60, "category": "bakery", "pantry": false },
-      { "item": "творожный сыр", "grams": 30, "category": "dairy", "pantry": false },
-      { "item": "слабосоленая рыба", "grams": 50, "category": "fish", "pantry": false },
-      { "item": "огурцы", "grams": 50, "category": "vegetable", "pantry": false }
+      {
+        "item": "творожный сыр",
+        "grams": 30,
+        "category": "dairy",
+        "pantry": false
+      },
+      {
+        "item": "слабосоленая рыба",
+        "grams": 50,
+        "category": "fish",
+        "pantry": false
+      },
+      {
+        "item": "огурцы",
+        "grams": 50,
+        "category": "vegetable",
+        "pantry": false
+      }
     ]
   },
   {
     "id": "ovsyanka-orekhi",
     "title": "Овсянка на молоке с орехами и бананом",
     "items": [
-      { "item": "овсяные хлопья", "grams": 60, "category": "grain", "pantry": false },
+      {
+        "item": "овсяные хлопья",
+        "grams": 60,
+        "category": "grain",
+        "pantry": false
+      },
       { "item": "молоко", "grams": 250, "category": "dairy", "pantry": false },
-      { "item": "грецкие орехи", "grams": 15, "category": "nuts", "pantry": false },
+      {
+        "item": "грецкие орехи",
+        "grams": 15,
+        "category": "nuts",
+        "pantry": false
+      },
       { "item": "банан", "grams": 60, "category": "fruit", "pantry": false }
     ]
   },
@@ -71,7 +116,12 @@
     "title": "Баница с сиренете (покупная, запечь) и кисело мляко",
     "items": [
       { "item": "баница", "grams": 150, "category": "bakery", "pantry": false },
-      { "item": "кисело мляко", "grams": 200, "category": "dairy", "pantry": false }
+      {
+        "item": "кисело мляко",
+        "grams": 200,
+        "category": "dairy",
+        "pantry": false
+      }
     ]
   }
 ]

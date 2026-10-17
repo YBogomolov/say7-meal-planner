@@ -82,7 +82,12 @@ export const planSimples = (plan: WeekPlan, catalogue: Catalogue): ReadonlyArray
   }
   return [...slotsOf.keys()].sort().map((simpleId): PlanSimple => {
     const slots = [...(slotsOf.get(simpleId) ?? [])].sort(compareSlots)
-    return { simpleId, entry: catalogue.simpleById.get(simpleId), slots, days: [...new Set(slots.map((slot) => slot.day))] }
+    return {
+      simpleId,
+      entry: catalogue.simpleById.get(simpleId),
+      slots,
+      days: [...new Set(slots.map((slot) => slot.day))],
+    }
   })
 }
 
@@ -111,7 +116,7 @@ export const planDishes = (plan: WeekPlan, catalogue: Catalogue): ReadonlyArray<
       cooking: cookingOf.get(recipeId),
       entry: catalogue.byId.get(recipeId),
       slots,
-      days: [...new Set(slots.map((slot) => slot.day))]
+      days: [...new Set(slots.map((slot) => slot.day))],
     }
   })
 }

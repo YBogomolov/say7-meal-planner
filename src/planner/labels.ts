@@ -1,5 +1,11 @@
 import { addDays, weekdayOf } from "../domain/calendar.ts"
-import type { DishType, Equipment, IngredientCategory, IngredientUnit, ProteinFamily } from "../domain/enriched-recipe.ts"
+import type {
+  DishType,
+  Equipment,
+  IngredientCategory,
+  IngredientUnit,
+  ProteinFamily,
+} from "../domain/enriched-recipe.ts"
 import type { MealName } from "../domain/household.ts"
 import type { IsoDate } from "../domain/recipe.ts"
 
@@ -7,7 +13,11 @@ import type { IsoDate } from "../domain/recipe.ts"
 
 const WEEKDAYS = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"] as const
 
-export const MEAL_LABELS: Readonly<Record<MealName, string>> = { breakfast: "завтрак", lunch: "обед", dinner: "ужин" }
+export const MEAL_LABELS: Readonly<Record<MealName, string>> = {
+  breakfast: "завтрак",
+  lunch: "обед",
+  dinner: "ужин",
+}
 
 /** The headings of the departments of the shop. */
 export const CATEGORY_HEADINGS: Readonly<Record<IngredientCategory, string>> = {
@@ -31,7 +41,7 @@ export const CATEGORY_HEADINGS: Readonly<Record<IngredientCategory, string>> = {
   sweet: "Сладкое",
   spice: "Специи",
   oil: "Масла",
-  other: "Прочее"
+  other: "Прочее",
 }
 
 export const DISH_TYPE_LABELS: Readonly<Record<DishType, string>> = {
@@ -43,7 +53,7 @@ export const DISH_TYPE_LABELS: Readonly<Record<DishType, string>> = {
   savory_bake: "пирог или выпечка",
   pancakes: "блины и оладьи",
   sauce: "соус",
-  other: "прочее"
+  other: "прочее",
 }
 
 export const EQUIPMENT_LABELS: Readonly<Record<Equipment, string>> = {
@@ -58,7 +68,7 @@ export const EQUIPMENT_LABELS: Readonly<Record<Equipment, string>> = {
   grill: "гриль",
   slow_cooker: "мультиварка",
   deep_fryer: "фритюрница",
-  special: "особое оборудование"
+  special: "особое оборудование",
 }
 
 export const PROTEIN_LABELS: Readonly<Record<ProteinFamily, string>> = {
@@ -70,7 +80,7 @@ export const PROTEIN_LABELS: Readonly<Record<ProteinFamily, string>> = {
   lamb: "баранина",
   rabbit: "кролик",
   fish: "рыба",
-  seafood: "морепродукты"
+  seafood: "морепродукты",
 }
 
 interface UnitForms {
@@ -91,7 +101,7 @@ const UNIT_FORMS: Readonly<Record<Exclude<IngredientUnit, "g" | "ml">, UnitForms
   bunch: { one: "пучок", few: "пучка", many: "пучков" },
   clove: { one: "зубчик", few: "зубчика", many: "зубчиков" },
   slice: { one: "ломтик", few: "ломтика", many: "ломтиков" },
-  pack: { one: "упаковка", few: "упаковки", many: "упаковок" }
+  pack: { one: "упаковка", few: "упаковки", many: "упаковок" },
 }
 
 const pluralForm = (value: number, forms: UnitForms): string => {
@@ -100,7 +110,13 @@ const pluralForm = (value: number, forms: UnitForms): string => {
   }
   const lastTwo = value % 100
   const last = value % 10
-  return lastTwo >= 11 && lastTwo <= 14 ? forms.many : last === 1 ? forms.one : last >= 2 && last <= 4 ? forms.few : forms.many
+  return lastTwo >= 11 && lastTwo <= 14
+    ? forms.many
+    : last === 1
+      ? forms.one
+      : last >= 2 && last <= 4
+        ? forms.few
+        : forms.many
 }
 
 /** A number with a decimal comma and no trailing zeros: `1,5`, `2`, `0,25`. The value has at most 2 decimals. */
@@ -118,7 +134,9 @@ export const formatAmount = (unit: IngredientUnit, value: number): string => {
     const whole = Math.round(value)
     const big = whole >= 1000
     // Integer arithmetic for the tie: 1250 g is 1,3 kg.
-    return big ? `${formatTenths(Math.floor((whole + 50) / 100) / 10)} ${unit === "g" ? "кг" : "л"}` : `${whole} ${unit === "g" ? "г" : "мл"}`
+    return big
+      ? `${formatTenths(Math.floor((whole + 50) / 100) / 10)} ${unit === "g" ? "кг" : "л"}`
+      : `${whole} ${unit === "g" ? "г" : "мл"}`
   }
   return `${formatNumber(value)} ${pluralForm(value, UNIT_FORMS[unit])}`
 }

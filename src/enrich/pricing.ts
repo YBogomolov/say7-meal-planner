@@ -6,8 +6,18 @@ import type { PriceTable, RunMode } from "../domain/enrich-report.ts"
  * The spec has no price for cache writes. The API bills a write of the 5 minute cache at 1.25 times the input price.
  */
 export const PRICES: Readonly<Record<ModelName, PriceTable>> = {
-  "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheCreation: 2.5 },
-  "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheCreation: 0.125 }
+  "claude-sonnet-5-5": {
+    input: 2,
+    output: 10,
+    cacheRead: 0.1,
+    cacheCreation: 2.5,
+  },
+  "claude-haiku-5-5": {
+    input: 0.1,
+    output: 0.5,
+    cacheRead: 0.01,
+    cacheCreation: 0.125,
+  },
 }
 
 /** A batch costs 50 % of the normal price (spec A10). */
@@ -18,7 +28,8 @@ export const batchFactor = (mode: RunMode): number => (mode === "batch" ? BATCH_
 /** Estimated cost in USD of `usage` for one model. */
 export const costUsd = (usage: TokenUsage, model: ModelName, mode: RunMode): number => {
   const price = PRICES[model]
-  const total = usage.inputTokens * price.input +
+  const total =
+    usage.inputTokens * price.input +
     usage.outputTokens * price.output +
     usage.cacheReadTokens * price.cacheRead +
     usage.cacheCreationTokens * price.cacheCreation

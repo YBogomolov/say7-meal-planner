@@ -7,7 +7,18 @@ describe("calendar", () => {
     for (const date of ["2026-10-17", "2024-02-29", "2000-02-29", "2026-12-31", "2026-01-01"]) {
       assert.isTrue(isCalendarDate(date), date)
     }
-    for (const date of ["2026-02-30", "2025-02-29", "1900-02-29", "2026-04-31", "2026-13-01", "2026-00-10", "2026-10-00", "2026-1-1", "26-10-17", ""]) {
+    for (const date of [
+      "2026-02-30",
+      "2025-02-29",
+      "1900-02-29",
+      "2026-04-31",
+      "2026-13-01",
+      "2026-00-10",
+      "2026-10-00",
+      "2026-1-1",
+      "26-10-17",
+      "",
+    ]) {
       assert.isFalse(isCalendarDate(date), date)
     }
   })
@@ -57,8 +68,14 @@ describe("decimal", () => {
 
   it("adds and multiplies without error", () => {
     assert.strictEqual(roundTo(add(decimalOf(0.1), decimalOf(0.2)), 2), 0.3)
-    assert.deepStrictEqual(add(decimalOf(0.1), decimalOf(0.2)), { units: 3n, scale: 1 })
-    assert.deepStrictEqual(multiply(decimalOf(0.3), decimalOf(1.5)), { units: 45n, scale: 2 })
+    assert.deepStrictEqual(add(decimalOf(0.1), decimalOf(0.2)), {
+      units: 3n,
+      scale: 1,
+    })
+    assert.deepStrictEqual(multiply(decimalOf(0.3), decimalOf(1.5)), {
+      units: 45n,
+      scale: 2,
+    })
     assert.deepStrictEqual(sum([decimalOf(1.5), decimalOf(2.25), decimalOf(0.25)]), { units: 400n, scale: 2 })
   })
 

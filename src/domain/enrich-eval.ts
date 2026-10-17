@@ -14,7 +14,7 @@ export const EvalField = Schema.Literals([
   "longWait",
   "keyLine.item",
   "keyLine.category",
-  "keyLine.pantry"
+  "keyLine.pantry",
 ])
 export type EvalField = typeof EvalField.Type
 
@@ -25,7 +25,7 @@ export const EvalCheck = Schema.Struct({
   key: Schema.NullOr(Schema.String),
   passed: Schema.Boolean,
   expected: Schema.String,
-  actual: Schema.String
+  actual: Schema.String,
 })
 export type EvalCheck = typeof EvalCheck.Type
 
@@ -33,7 +33,7 @@ export const FieldScore = Schema.Struct({
   field: EvalField,
   passed: Schema.Natural,
   total: Schema.Natural,
-  percent: Schema.Finite
+  percent: Schema.Finite,
 })
 export type FieldScore = typeof FieldScore.Type
 
@@ -52,10 +52,14 @@ export const EvalReport = Schema.Struct({
   entries: Schema.Natural,
   missing: Schema.Array(RecipeId),
   fields: Schema.Array(FieldScore),
-  total: Schema.Struct({ passed: Schema.Natural, total: Schema.Natural, percent: Schema.Finite }),
+  total: Schema.Struct({
+    passed: Schema.Natural,
+    total: Schema.Natural,
+    percent: Schema.Finite,
+  }),
   usage: TokenUsage,
   estimatedUsd: Schema.Finite,
-  checks: Schema.Array(EvalCheck)
+  checks: Schema.Array(EvalCheck),
 })
 export type EvalReport = typeof EvalReport.Type
 

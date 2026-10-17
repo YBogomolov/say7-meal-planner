@@ -23,15 +23,24 @@ export const warningsOf = (recipe: ParsedRecipe, signals: ParseSignals): Readonl
     [recipe.commentsCount === null, "no_comments_count"],
     [recipe.categories.length === 0, "no_categories"],
     [signals.categoriesFromBreadcrumb, "categories_from_breadcrumb"],
-    [recipe.similarIds.length === 0, "no_similar"]
+    [recipe.similarIds.length === 0, "no_similar"],
   ]
   return warnings.flatMap(([present, kind]) => (present ? [kind] : []))
 }
 
 /** The result for one page, as the report needs it. */
 export type PageResult =
-  | { readonly _tag: "Parsed"; readonly id: RecipeId; readonly warnings: ReadonlyArray<WarningKind> }
-  | { readonly _tag: "Failed"; readonly id: RecipeId; readonly reason: FailureReason; readonly message: string }
+  | {
+      readonly _tag: "Parsed"
+      readonly id: RecipeId
+      readonly warnings: ReadonlyArray<WarningKind>
+    }
+  | {
+      readonly _tag: "Failed"
+      readonly id: RecipeId
+      readonly reason: FailureReason
+      readonly message: string
+    }
 
 /** Totals, failed pages and warning counts of a run (spec P2, rule 3). */
 export const buildReport = (results: ReadonlyArray<PageResult>, generatedAt: IsoTimestamp): ParseReport => {
@@ -44,7 +53,7 @@ export const buildReport = (results: ReadonlyArray<PageResult>, generatedAt: Iso
     no_comments_count: 0,
     no_categories: 0,
     categories_from_breadcrumb: 0,
-    no_similar: 0
+    no_similar: 0,
   }
   const warningIds: Record<WarningKind, Array<RecipeId>> = {
     no_intro: [],
@@ -55,7 +64,7 @@ export const buildReport = (results: ReadonlyArray<PageResult>, generatedAt: Iso
     no_comments_count: [],
     no_categories: [],
     categories_from_breadcrumb: [],
-    no_similar: []
+    no_similar: [],
   }
   const failed: Array<ParseReport["failed"][number]> = []
   let ok = 0
@@ -63,7 +72,11 @@ export const buildReport = (results: ReadonlyArray<PageResult>, generatedAt: Iso
 
   for (const result of results) {
     if (result._tag === "Failed") {
-      failed.push({ id: result.id, reason: result.reason, message: result.message })
+      failed.push({
+        id: result.id,
+        reason: result.reason,
+        message: result.message,
+      })
       continue
     }
     ok += 1
@@ -80,9 +93,14 @@ export const buildReport = (results: ReadonlyArray<PageResult>, generatedAt: Iso
     version: 1,
     parserVersion: PARSER_VERSION,
     generatedAt,
-    totals: { processed: results.length, ok, failed: failed.length, withWarnings },
+    totals: {
+      processed: results.length,
+      ok,
+      failed: failed.length,
+      withWarnings,
+    },
     failed,
     warningCounts,
-    warningIds
+    warningIds,
   }
 }

@@ -68,7 +68,7 @@ export const itemsReport = (catalogue: Catalogue): ReadonlyArray<ItemReportRow> 
     .map(([item, recipes]): ItemReportRow => ({
       item,
       recipes: recipes.size,
-      variants: [...(variantsOf.get(item) ?? [])].sort(compareText)
+      variants: [...(variantsOf.get(item) ?? [])].sort(compareText),
     }))
     .sort((a, b) => b.recipes - a.recipes || compareText(a.item, b.item))
 }

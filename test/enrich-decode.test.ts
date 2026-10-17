@@ -17,7 +17,10 @@ const invalid = (verdict: ReturnType<typeof judgeCompletion>): InvalidVerdict =>
 describe("judgeCompletion", () => {
   it("accepts a valid answer", () => {
     const verdict = judgeCompletion(answer(enrichmentFor(3)), 3)
-    assert.deepStrictEqual(verdict, { _tag: "Valid", enrichment: enrichmentFor(3) })
+    assert.deepStrictEqual(verdict, {
+      _tag: "Valid",
+      enrichment: enrichmentFor(3),
+    })
   })
 
   it("fails with the kind max_tokens", () => {
@@ -74,7 +77,10 @@ describe("judgeCompletion", () => {
 
   it("reports a line out of range and a line without an item together", () => {
     const base = enrichmentFor(3)
-    const skipped = { ...base, ingredients: base.ingredients.filter((item) => item.line !== 1) }
+    const skipped = {
+      ...base,
+      ingredients: base.ingredients.filter((item) => item.line !== 1),
+    }
     const verdict = invalid(judgeCompletion(answer(skipped), 2))
     assert.include(verdict.message, "ingredients[1].line is 2")
     assert.include(verdict.message, "no item for the lines 1")
@@ -86,16 +92,20 @@ describe("retryRequest", () => {
     model: "claude-haiku-5-5",
     system: "system",
     messages: [{ role: "user", content: "recipe" }],
-    maxTokens: MAX_OUTPUT_TOKENS
+    maxTokens: MAX_OUTPUT_TOKENS,
   }
-  const failure = (kind: InvalidVerdict["kind"], message = "problem"): InvalidVerdict => ({ _tag: "Invalid", kind, message })
+  const failure = (kind: InvalidVerdict["kind"], message = "problem"): InvalidVerdict => ({
+    _tag: "Invalid",
+    kind,
+    message,
+  })
 
   it("appends the old answer and the decoder error after a decode failure (spec A9)", () => {
     const next = retryRequest(request, rawAnswer("{bad"), failure("decode", "heat: out of range"))
     assert.deepStrictEqual(next?.messages, [
       { role: "user", content: "recipe" },
       { role: "assistant", content: "{bad" },
-      { role: "user", content: retryMessage("heat: out of range") }
+      { role: "user", content: retryMessage("heat: out of range") },
     ])
     assert.strictEqual(next?.maxTokens, request.maxTokens)
     assert.strictEqual(next?.system, request.system)
@@ -109,7 +119,10 @@ describe("retryRequest", () => {
     assert.strictEqual(retryRequest(request, rawAnswer("{", "max_tokens"), failure("max_tokens"))?.maxTokens, 16_000)
     assert.strictEqual(MAX_OUTPUT_TOKENS_RETRY, 16_000)
     const big = { ...request, maxTokens: 10_000 }
-    assert.strictEqual(retryRequest(big, rawAnswer("{", "max_tokens"), failure("max_tokens"))?.maxTokens, MAX_OUTPUT_TOKENS_RETRY)
+    assert.strictEqual(
+      retryRequest(big, rawAnswer("{", "max_tokens"), failure("max_tokens"))?.maxTokens,
+      MAX_OUTPUT_TOKENS_RETRY
+    )
   })
 
   it("makes no second attempt when the token limit is at the cap", () => {

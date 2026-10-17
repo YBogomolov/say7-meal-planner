@@ -16,7 +16,10 @@ describe("test/fixtures/gold.json (spec P3.5)", () => {
   it("has 20 recipes with unique IDs, in ascending order", () => {
     assert.lengthOf(gold, 20)
     assert.strictEqual(new Set(gold.map((entry) => entry.id)).size, 20)
-    assert.deepStrictEqual(gold.map((entry) => entry.id), gold.map((entry) => entry.id).toSorted((a, b) => a - b))
+    assert.deepStrictEqual(
+      gold.map((entry) => entry.id),
+      gold.map((entry) => entry.id).toSorted((a, b) => a - b)
+    )
   })
 
   it("has the 20 IDs that the README of the project names", () => {

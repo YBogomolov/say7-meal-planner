@@ -5,7 +5,7 @@ export const DEFAULT_ENV_FILE = ".env"
 
 export class EnvFileError extends Schema.TaggedError<EnvFileError>()("EnvFileError", {
   path: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /**
@@ -25,5 +25,9 @@ export const loadDotEnv = (file: string = DEFAULT_ENV_FILE): Effect.Effect<boole
       process.loadEnvFile(file)
       return true
     },
-    catch: (cause) => new EnvFileError({ path: file, message: cause instanceof Error ? cause.message : "Cannot read the file" })
+    catch: (cause) =>
+      new EnvFileError({
+        path: file,
+        message: cause instanceof Error ? cause.message : "Cannot read the file",
+      }),
   })

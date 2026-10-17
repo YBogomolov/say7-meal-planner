@@ -9,7 +9,7 @@ export type FailureReason = typeof FailureReason.Type
 export const FailedPage = Schema.Struct({
   id: RecipeId,
   reason: FailureReason,
-  message: Schema.String
+  message: Schema.String,
 })
 export type FailedPage = typeof FailedPage.Type
 
@@ -29,11 +29,11 @@ export const ParseReport = Schema.Struct({
     processed: Schema.Natural,
     ok: Schema.Natural,
     failed: Schema.Natural,
-    withWarnings: Schema.Natural
+    withWarnings: Schema.Natural,
   }),
   failed: Schema.Array(FailedPage),
   warningCounts: Schema.Record(WarningKind, Schema.Natural),
-  warningIds: Schema.Record(WarningKind, Schema.Array(RecipeId))
+  warningIds: Schema.Record(WarningKind, Schema.Array(RecipeId)),
 })
 export type ParseReport = typeof ParseReport.Type
 

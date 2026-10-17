@@ -6,7 +6,7 @@ import {
   computeInputHash,
   lineCount,
   modelInputText,
-  numberGroups
+  numberGroups,
 } from "../src/enrich/input.ts"
 import { parsedRecipe, SALADS } from "./support/enrich.ts"
 
@@ -15,8 +15,8 @@ const twoGroups = {
   ingredientGroups: [
     { title: "Тесто", items: ["200 г муки", "1 яйцо"] },
     { title: null, items: ["соль"] },
-    { title: "Начинка", items: ["300 г капусты", "лук", "перец"] }
-  ]
+    { title: "Начинка", items: ["300 г капусты", "лук", "перец"] },
+  ],
 }
 
 describe("numberGroups", () => {
@@ -26,20 +26,32 @@ describe("numberGroups", () => {
       groups.map((group) => group.lines.map((line) => line.line)),
       [[0, 1], [2], [3, 4, 5]]
     )
-    assert.deepStrictEqual(groups.map((group) => group.title), ["Тесто", null, "Начинка"])
+    assert.deepStrictEqual(
+      groups.map((group) => group.title),
+      ["Тесто", null, "Начинка"]
+    )
   })
 
   it("keeps the text of each line", () => {
     const lines = numberGroups(twoGroups.ingredientGroups).flatMap((group) => group.lines)
-    assert.deepStrictEqual(lines.map((line) => line.text), ["200 г муки", "1 яйцо", "соль", "300 г капусты", "лук", "перец"])
+    assert.deepStrictEqual(
+      lines.map((line) => line.text),
+      ["200 г муки", "1 яйцо", "соль", "300 г капусты", "лук", "перец"]
+    )
   })
 
   it("accepts an empty list and an empty group", () => {
     assert.deepStrictEqual(numberGroups([]), [])
-    assert.deepStrictEqual(numberGroups([{ title: "Пусто", items: [] }, { title: null, items: ["вода"] }]), [
-      { title: "Пусто", lines: [] },
-      { title: null, lines: [{ line: 0, text: "вода" }] }
-    ])
+    assert.deepStrictEqual(
+      numberGroups([
+        { title: "Пусто", items: [] },
+        { title: null, items: ["вода"] },
+      ]),
+      [
+        { title: "Пусто", lines: [] },
+        { title: null, lines: [{ line: 0, text: "вода" }] },
+      ]
+    )
   })
 })
 
@@ -54,7 +66,7 @@ describe("buildModelInput", () => {
       "servingsText",
       "steps",
       "title",
-      "yieldText"
+      "yieldText",
     ])
   })
 
@@ -72,7 +84,10 @@ describe("buildModelInput", () => {
 
   it("counts and lists the lines", () => {
     assert.strictEqual(lineCount(input), 6)
-    assert.deepStrictEqual(allLines(input).map((line) => line.line), [0, 1, 2, 3, 4, 5])
+    assert.deepStrictEqual(
+      allLines(input).map((line) => line.line),
+      [0, 1, 2, 3, 4, 5]
+    )
   })
 
   it("counts 0 lines for a recipe without ingredients", () => {
@@ -83,11 +98,17 @@ describe("buildModelInput", () => {
 
 describe("canonicalJson", () => {
   it("sorts the keys of every object and writes no white space", () => {
-    assert.strictEqual(canonicalJson({ b: 1, a: { d: [3, { z: null, y: true }], c: "x" } }), '{"a":{"c":"x","d":[3,{"y":true,"z":null}]},"b":1}')
+    assert.strictEqual(
+      canonicalJson({ b: 1, a: { d: [3, { z: null, y: true }], c: "x" } }),
+      '{"a":{"c":"x","d":[3,{"y":true,"z":null}]},"b":1}'
+    )
   })
 
   it("gives the same text for any key order", () => {
-    assert.strictEqual(canonicalJson({ a: 1, b: 2, c: [{ x: 1, y: 2 }] }), canonicalJson({ c: [{ y: 2, x: 1 }], b: 2, a: 1 }))
+    assert.strictEqual(
+      canonicalJson({ a: 1, b: 2, c: [{ x: 1, y: 2 }] }),
+      canonicalJson({ c: [{ y: 2, x: 1 }], b: 2, a: 1 })
+    )
   })
 
   it("keeps the order of an array", () => {
@@ -95,7 +116,7 @@ describe("canonicalJson", () => {
   })
 
   it("keeps Cyrillic letters and escapes quotes", () => {
-    assert.strictEqual(canonicalJson({ "ключ": 'ё "x"' }), '{"ключ":"ё \\"x\\""}')
+    assert.strictEqual(canonicalJson({ ключ: 'ё "x"' }), '{"ключ":"ё \\"x\\""}')
   })
 
   it("writes scalars", () => {
@@ -125,13 +146,22 @@ describe("computeInputHash", () => {
       computeInputHash({ ...base, model: "claude-sonnet-5-5" }),
       computeInputHash({ ...base, promptVersion: 2 }),
       computeInputHash({ ...base, input: { ...input, title: "Другое" } }),
-      computeInputHash({ ...base, input: { ...input, steps: [...input.steps, "Подавать."] } })
+      computeInputHash({
+        ...base,
+        input: { ...input, steps: [...input.steps, "Подавать."] },
+      }),
     ])
     assert.strictEqual(hashes.size, 5)
   })
 
   it("does not change with fields that the model does not see", () => {
-    const changed = { ...twoGroups, commentsCount: 99, addedAt: "2025-05-05", sourceSha256: "c".repeat(64), similarIds: [] }
+    const changed = {
+      ...twoGroups,
+      commentsCount: 99,
+      addedAt: "2025-05-05",
+      sourceSha256: "c".repeat(64),
+      similarIds: [],
+    }
     assert.strictEqual(computeInputHash({ ...base, input: buildModelInput(changed) }), computeInputHash(base))
   })
 })

@@ -31,10 +31,16 @@ const pow10 = (exponent: number): bigint => 10n ** BigInt(exponent)
 
 export const add = (a: Decimal, b: Decimal): Decimal => {
   const scale = Math.max(a.scale, b.scale)
-  return { units: a.units * pow10(scale - a.scale) + b.units * pow10(scale - b.scale), scale }
+  return {
+    units: a.units * pow10(scale - a.scale) + b.units * pow10(scale - b.scale),
+    scale,
+  }
 }
 
-export const multiply = (a: Decimal, b: Decimal): Decimal => ({ units: a.units * b.units, scale: a.scale + b.scale })
+export const multiply = (a: Decimal, b: Decimal): Decimal => ({
+  units: a.units * b.units,
+  scale: a.scale + b.scale,
+})
 
 /** The sum of the decimals. */
 export const sum = (values: Iterable<Decimal>): Decimal => {

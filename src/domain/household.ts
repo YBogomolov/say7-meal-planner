@@ -23,21 +23,25 @@ const NonNegativeNumber = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOr
 /** A cooking session and its day, counted from the first day of the plan week. */
 export const HouseholdSession = Schema.Struct({
   id: SessionId,
-  dayOffset: DayIndex
+  dayOffset: DayIndex,
 })
 export type HouseholdSession = typeof HouseholdSession.Type
 
-const hasEachSessionOnce = Schema.makeFilter<ReadonlyArray<HouseholdSession>>((sessions) =>
-  (sessions.length === SESSION_IDS.length &&
-    SESSION_IDS.every((id) => sessions.filter((session) => session.id === id).length === 1)) ||
-  `Expected the sessions ${SESSION_IDS.join(" and ")}, each once`
+const hasEachSessionOnce = Schema.makeFilter<ReadonlyArray<HouseholdSession>>(
+  (sessions) =>
+    (sessions.length === SESSION_IDS.length &&
+      SESSION_IDS.every((id) => sessions.filter((session) => session.id === id).length === 1)) ||
+    `Expected the sessions ${SESSION_IDS.join(" and ")}, each once`
 )
 
 /** Heat levels of the enrichment: 0 none, 1 mild, 2 noticeable, 3 hot. */
 const HeatLevel = Schema.Literals([0, 1, 2, 3])
 
 const DEFAULT_MEALS: ReadonlyArray<MealName> = ["lunch", "dinner"]
-const DEFAULT_SESSIONS: ReadonlyArray<HouseholdSession> = [{ id: "A", dayOffset: 0 }, { id: "B", dayOffset: 4 }]
+const DEFAULT_SESSIONS: ReadonlyArray<HouseholdSession> = [
+  { id: "A", dayOffset: 0 },
+  { id: "B", dayOffset: 4 },
+]
 const DEFAULT_EQUIPMENT: ReadonlyArray<Equipment> = [
   "hob",
   "oven",
@@ -46,7 +50,7 @@ const DEFAULT_EQUIPMENT: ReadonlyArray<Equipment> = [
   "food_processor",
   "blender",
   "immersion_blender",
-  "mixer"
+  "mixer",
 ]
 
 const ItemNames = Schema.Array(Schema.NonEmptyString)
@@ -55,7 +59,7 @@ const ItemNames = Schema.Array(Schema.NonEmptyString)
 export const ItemLimit = Schema.Struct({
   name: Schema.NonEmptyString,
   items: ItemNames,
-  maxDishes: NaturalInt
+  maxDishes: NaturalInt,
 })
 export type ItemLimit = typeof ItemLimit.Type
 
@@ -65,7 +69,9 @@ export type ItemLimit = typeof ItemLimit.Type
  */
 export const Preferences = Schema.Struct({
   /** Dish types that the household does not eat: a cooked dish of this type is an error. */
-  excludedDishTypes: Schema.Array(DishType).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<DishType>>([]))),
+  excludedDishTypes: Schema.Array(DishType).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<DishType>>([]))
+  ),
   /** The base of a plate: `{ "<group>": item[] }`. */
   sideGroups: Schema.Record(Schema.String, ItemNames).pipe(
     Schema.withDecodingDefaultKey(Effect.succeed<Readonly<Record<string, ReadonlyArray<string>>>>({}))
@@ -73,10 +79,12 @@ export const Preferences = Schema.Struct({
   /** A buy-ingredient gives its side group only if its grams at scale 1 are at least this value, or unknown. */
   sideMinGrams: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(100))),
   /** Side groups that are too heavy for dinner. */
-  dinnerAvoidSideGroups: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))),
+  dinnerAvoidSideGroups: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))
+  ),
   /** Items that are too heavy for dinner. */
   dinnerAvoidItems: ItemNames.pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))),
-  itemLimits: Schema.Array(ItemLimit).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<ItemLimit>>([])))
+  itemLimits: Schema.Array(ItemLimit).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<ItemLimit>>([]))),
 })
 export type Preferences = typeof Preferences.Type
 
@@ -86,7 +94,7 @@ export type Preferences = typeof Preferences.Type
 export const ProteinMinGrams = Schema.Struct({
   breakfast: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(15))),
   lunch: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20))),
-  dinner: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20)))
+  dinner: NonNegativeNumber.pipe(Schema.withDecodingDefaultKey(Effect.succeed(20))),
 })
 export type ProteinMinGrams = typeof ProteinMinGrams.Type
 
@@ -97,7 +105,7 @@ export type ProteinMinGrams = typeof ProteinMinGrams.Type
 export const MealPersons = Schema.Struct({
   breakfast: Schema.optionalKey(PositiveInt),
   lunch: Schema.optionalKey(PositiveInt),
-  dinner: Schema.optionalKey(PositiveInt)
+  dinner: Schema.optionalKey(PositiveInt),
 })
 export type MealPersons = typeof MealPersons.Type
 
@@ -109,7 +117,7 @@ export const WeeklyExtra = Schema.Struct({
   item: Schema.NonEmptyString,
   amount: Schema.NonEmptyString,
   category: IngredientCategory,
-  note: Schema.NonEmptyString
+  note: Schema.NonEmptyString,
 })
 export type WeeklyExtra = typeof WeeklyExtra.Type
 
@@ -173,9 +181,11 @@ export const Household = Schema.Struct({
     Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<RecipeId>>([]))
   ),
   /** P7.3. Products that the shopping list shows every week, outside the departments. */
-  weeklyExtras: Schema.Array(WeeklyExtra).pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<WeeklyExtra>>([]))),
+  weeklyExtras: Schema.Array(WeeklyExtra).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<WeeklyExtra>>([]))
+  ),
   /** P4.8. Taste rules. Without the key, all lists are empty and the rules find nothing. */
-  preferences: Preferences.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PREFERENCES)))
+  preferences: Preferences.pipe(Schema.withDecodingDefaultKey(Effect.succeed(DEFAULT_PREFERENCES))),
 })
 export type Household = typeof Household.Type
 
@@ -193,4 +203,5 @@ export const sessionDay = (household: Household, session: SessionId): number =>
   household.sessions.find((candidate) => candidate.id === session)?.dayOffset ?? 0
 
 /** The persons that eat a meal (spec P7.2.1): `mealPersons` for the meal, else `persons`. */
-export const personsOf = (household: Household, meal: MealName): number => household.mealPersons[meal] ?? household.persons
+export const personsOf = (household: Household, meal: MealName): number =>
+  household.mealPersons[meal] ?? household.persons

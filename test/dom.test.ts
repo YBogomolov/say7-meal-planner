@@ -1,6 +1,17 @@
 import { assert, describe, it } from "@effect/vitest"
 import { parseFragment } from "parse5"
-import { attr, byTag, findAll, findByOwnText, findFirst, hasAncestor, hasClass, siblingsAfter, textLines, textOf } from "../src/parser/dom.ts"
+import {
+  attr,
+  byTag,
+  findAll,
+  findByOwnText,
+  findFirst,
+  hasAncestor,
+  hasClass,
+  siblingsAfter,
+  textLines,
+  textOf,
+} from "../src/parser/dom.ts"
 
 const fragment = (html: string) => parseFragment(html)
 
@@ -11,18 +22,23 @@ describe("textLines", () => {
   })
 
   it("skips pictures and scripts, and drops empty lines", () => {
-    const lines = textLines(fragment("<p><img src=\"a.jpg\" /></p><script>var x = 1</script><p> a&nbsp;b </p><br /><br />").childNodes)
+    const lines = textLines(
+      fragment('<p><img src="a.jpg" /></p><script>var x = 1</script><p> a&nbsp;b </p><br /><br />').childNodes
+    )
     assert.deepStrictEqual([...lines], ["a b"])
   })
 
   it("decodes entities", () => {
-    assert.strictEqual(textOf(...fragment("<p>5&ndash;6&nbsp;порций &amp; &laquo;ещё&raquo;</p>").childNodes), "5–6 порций & «ещё»")
+    assert.strictEqual(
+      textOf(...fragment("<p>5&ndash;6&nbsp;порций &amp; &laquo;ещё&raquo;</p>").childNodes),
+      "5–6 порций & «ещё»"
+    )
   })
 })
 
 describe("tree helpers", () => {
   const tree = fragment(
-    "<div id=\"a\" class=\"one two\"><h2>Раздел:</h2><p>раз</p><p>два</p><h2>Другой</h2><p>три</p></div>"
+    '<div id="a" class="one two"><h2>Раздел:</h2><p>раз</p><p>два</p><h2>Другой</h2><p>три</p></div>'
   )
 
   it("finds elements by tag, class and attribute", () => {

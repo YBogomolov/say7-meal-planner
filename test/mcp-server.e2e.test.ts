@@ -26,8 +26,12 @@ const startServer = async (cwd: string, dataDir: string, configDir: string): Pro
     command: process.execPath,
     args: [TSX_CLI, SERVER],
     cwd,
-    env: { SAY7_DATA_DIR: dataDir, SAY7_CONFIG_DIR: configDir, PATH: process.env["PATH"] ?? "" },
-    stderr: "ignore"
+    env: {
+      SAY7_DATA_DIR: dataDir,
+      SAY7_CONFIG_DIR: configDir,
+      PATH: process.env["PATH"] ?? "",
+    },
+    stderr: "ignore",
   })
   const client = new Client({ name: "say7-test", version: "0.0.0" })
   await client.connect(transport)
@@ -36,7 +40,7 @@ const startServer = async (cwd: string, dataDir: string, configDir: string): Pro
 
 /** The text blocks of a tool result. */
 const textsOf = (result: CallToolResult): ReadonlyArray<string> =>
-  result.content.flatMap((block) => block.type === "text" ? [block.text] : [])
+  result.content.flatMap((block) => (block.type === "text" ? [block.text] : []))
 
 const call = async (running: Running, name: string, args: Record<string, unknown>): Promise<CallToolResult> =>
   CallToolResultSchema.parse(await running.client.callTool({ name, arguments: args }))
@@ -65,10 +69,15 @@ beforeAll(async () => {
         id: "yogurt",
         title: "Йогурт с бананом",
         items: [
-          { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
-          { item: "мёд", grams: 15, category: "sweet", pantry: true }
-        ]
-      }
+          {
+            item: "греческий йогурт",
+            grams: 200,
+            category: "dairy",
+            pantry: false,
+          },
+          { item: "мёд", grams: 15, category: "sweet", pantry: true },
+        ],
+      },
     ])
   )
   writeFileSync(join(configDir, "item-protein.json"), JSON.stringify({ "греческий йогурт": 9 }))
@@ -84,182 +93,262 @@ afterAll(async () => {
 })
 
 describe("MCP server over stdio", () => {
-  it("lists the 8 tools with object input schemas", async () => {
-    const { tools } = await main.client.listTools()
-    expect(tools.map((tool) => tool.name).sort()).toEqual([
-      "evaluate_plan",
-      "get_recipe",
-      "household",
-      "plan_history",
-      "save_plan",
-      "search_recipes",
-      "shopping_list",
-      "simple_breakfasts"
-    ])
-    for (const tool of tools) {
-      expect(tool.inputSchema.type).toBe("object")
-    }
-    const search = tools.find((tool) => tool.name === "search_recipes")
-    expect(Object.keys(search?.inputSchema.properties ?? {})).toContain("proteinFamilies")
-  }, CASE_MS)
+  it(
+    "lists the 8 tools with object input schemas",
+    async () => {
+      const { tools } = await main.client.listTools()
+      expect(tools.map((tool) => tool.name).sort()).toEqual([
+        "evaluate_plan",
+        "get_recipe",
+        "household",
+        "plan_history",
+        "save_plan",
+        "search_recipes",
+        "shopping_list",
+        "simple_breakfasts",
+      ])
+      for (const tool of tools) {
+        expect(tool.inputSchema.type).toBe("object")
+      }
+      const search = tools.find((tool) => tool.name === "search_recipes")
+      expect(Object.keys(search?.inputSchema.properties ?? {})).toContain("proteinFamilies")
+    },
+    CASE_MS
+  )
 
-  it("describes the slot of a plan with simpleIds and forMeal in the input schemas", async () => {
-    const { tools } = await main.client.listTools()
-    const search = tools.find((tool) => tool.name === "search_recipes")
-    expect(Object.keys(search?.inputSchema.properties ?? {})).toContain("forMeal")
-    const evaluate = tools.find((tool) => tool.name === "evaluate_plan")
-    expect(JSON.stringify(evaluate?.inputSchema)).toContain("simpleIds")
-    expect(JSON.stringify(evaluate?.inputSchema)).toContain("fresh")
-    expect(JSON.stringify(evaluate?.inputSchema)).toContain("breakfast")
-  }, CASE_MS)
+  it(
+    "describes the slot of a plan with simpleIds and forMeal in the input schemas",
+    async () => {
+      const { tools } = await main.client.listTools()
+      const search = tools.find((tool) => tool.name === "search_recipes")
+      expect(Object.keys(search?.inputSchema.properties ?? {})).toContain("forMeal")
+      const evaluate = tools.find((tool) => tool.name === "evaluate_plan")
+      expect(JSON.stringify(evaluate?.inputSchema)).toContain("simpleIds")
+      expect(JSON.stringify(evaluate?.inputSchema)).toContain("fresh")
+      expect(JSON.stringify(evaluate?.inputSchema)).toContain("breakfast")
+    },
+    CASE_MS
+  )
 
-  it("simple_breakfasts lists the breakfasts with the protein per portion and the items", async () => {
-    const result = await call(main, "simple_breakfasts", {})
-    expect(result.isError).toBeFalsy()
-    expect(parse(textsOf(result)[0])).toEqual({
-      simpleBreakfasts: [
-        {
-          id: "yogurt",
-          title: "Йогурт с бананом",
-          proteinPerPortion: 18,
-          coverage: 1,
-          items: [
-            { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
-            { item: "мед", grams: 15, category: "sweet", pantry: true }
-          ]
-        }
-      ]
-    })
-  }, CASE_MS)
+  it(
+    "simple_breakfasts lists the breakfasts with the protein per portion and the items",
+    async () => {
+      const result = await call(main, "simple_breakfasts", {})
+      expect(result.isError).toBeFalsy()
+      expect(parse(textsOf(result)[0])).toEqual({
+        simpleBreakfasts: [
+          {
+            id: "yogurt",
+            title: "Йогурт с бананом",
+            proteinPerPortion: 18,
+            coverage: 1,
+            items: [
+              {
+                item: "греческий йогурт",
+                grams: 200,
+                category: "dairy",
+                pantry: false,
+              },
+              { item: "мед", grams: 15, category: "sweet", pantry: true },
+            ],
+          },
+        ],
+      })
+    },
+    CASE_MS
+  )
 
-  it("evaluate_plan and shopping_list take a slot that has only simpleIds", async () => {
-    const plan = {
-      ...basePlan(),
-      meals: [
-        ...basePlan().meals,
-        { day: 0, meal: "breakfast", simpleIds: ["yogurt"] },
-        { day: 1, meal: "breakfast", simpleIds: ["nope"] }
-      ]
-    }
-    const evaluated = await call(main, "evaluate_plan", { plan })
-    expect(evaluated.isError).toBeFalsy()
-    const body = parse(textsOf(evaluated)[0])
-    expect(body).toMatchObject({ ok: false, errors: [{ code: "unknown_simple", simpleIds: ["nope"], days: [1] }] })
+  it(
+    "evaluate_plan and shopping_list take a slot that has only simpleIds",
+    async () => {
+      const plan = {
+        ...basePlan(),
+        meals: [
+          ...basePlan().meals,
+          { day: 0, meal: "breakfast", simpleIds: ["yogurt"] },
+          { day: 1, meal: "breakfast", simpleIds: ["nope"] },
+        ],
+      }
+      const evaluated = await call(main, "evaluate_plan", { plan })
+      expect(evaluated.isError).toBeFalsy()
+      const body = parse(textsOf(evaluated)[0])
+      expect(body).toMatchObject({
+        ok: false,
+        errors: [{ code: "unknown_simple", simpleIds: ["nope"], days: [1] }],
+      })
 
-    const listed = await call(main, "shopping_list", { plan })
-    expect(listed.isError).toBeFalsy()
-    const text = textsOf(listed)[0] ?? ""
-    expect(text).toContain("греческий йогурт")
-    expect(text).toContain("завтраки: yogurt")
-    expect(text).toContain("## Простые завтраки")
-  }, CASE_MS)
+      const listed = await call(main, "shopping_list", { plan })
+      expect(listed.isError).toBeFalsy()
+      const text = textsOf(listed)[0] ?? ""
+      expect(text).toContain("греческий йогурт")
+      expect(text).toContain("завтраки: yogurt")
+      expect(text).toContain("## Простые завтраки")
+    },
+    CASE_MS
+  )
 
-  it("search_recipes finds a dish by a word of the title or an item, with links and no texts", async () => {
-    const result = await call(main, "search_recipes", { text: "курица" })
-    expect(result.isError).toBeFalsy()
-    const body = parse(textsOf(result)[0])
-    expect(body).toMatchObject({ catalogueSize: 7 })
-    const text = textsOf(result)[0] ?? ""
-    expect(text).toContain("https://www.say7.info/cook/recipe/1-")
-    expect(text).toContain("Суп Альфа")
-    expect(text).not.toContain("intro")
-    expect(text).not.toContain("steps")
-  }, CASE_MS)
+  it(
+    "search_recipes finds a dish by a word of the title or an item, with links and no texts",
+    async () => {
+      const result = await call(main, "search_recipes", { text: "курица" })
+      expect(result.isError).toBeFalsy()
+      const body = parse(textsOf(result)[0])
+      expect(body).toMatchObject({ catalogueSize: 7 })
+      const text = textsOf(result)[0] ?? ""
+      expect(text).toContain("https://www.say7.info/cook/recipe/1-")
+      expect(text).toContain("Суп Альфа")
+      expect(text).not.toContain("intro")
+      expect(text).not.toContain("steps")
+    },
+    CASE_MS
+  )
 
-  it("returns isError with a Russian text for an argument that fails the decoder", async () => {
-    const result = await call(main, "search_recipes", { limit: 0 })
-    expect(result.isError).toBe(true)
-    expect(textsOf(result)[0]).toContain("Неверные аргументы инструмента search_recipes.")
-  }, CASE_MS)
+  it(
+    "returns isError with a Russian text for an argument that fails the decoder",
+    async () => {
+      const result = await call(main, "search_recipes", { limit: 0 })
+      expect(result.isError).toBe(true)
+      expect(textsOf(result)[0]).toContain("Неверные аргументы инструмента search_recipes.")
+    },
+    CASE_MS
+  )
 
-  it("returns isError for an unknown tool", async () => {
-    const result = await call(main, "no_such_tool", {})
-    expect(result.isError).toBe(true)
-    expect(textsOf(result)[0]).toContain("Неизвестный инструмент")
-  }, CASE_MS)
+  it(
+    "returns isError for an unknown tool",
+    async () => {
+      const result = await call(main, "no_such_tool", {})
+      expect(result.isError).toBe(true)
+      expect(textsOf(result)[0]).toContain("Неизвестный инструмент")
+    },
+    CASE_MS
+  )
 
-  it("get_recipe returns the facts and the ingredient lines, and no intro or steps", async () => {
-    const result = await call(main, "get_recipe", { id: 2 })
-    expect(result.isError).toBeFalsy()
-    const text = textsOf(result)[0] ?? ""
-    expect(text).toContain("Рагу Браво")
-    expect(text).toContain("куриные бёдра")
-    expect(text).not.toMatch(/"(intro|steps)"/)
-    const missing = await call(main, "get_recipe", { id: 999 })
-    expect(missing.isError).toBe(true)
-    expect(textsOf(missing)[0]).toContain("Рецепта 999 нет в каталоге.")
-  }, CASE_MS)
+  it(
+    "get_recipe returns the facts and the ingredient lines, and no intro or steps",
+    async () => {
+      const result = await call(main, "get_recipe", { id: 2 })
+      expect(result.isError).toBeFalsy()
+      const text = textsOf(result)[0] ?? ""
+      expect(text).toContain("Рагу Браво")
+      expect(text).toContain("куриные бёдра")
+      expect(text).not.toMatch(/"(intro|steps)"/)
+      const missing = await call(main, "get_recipe", { id: 999 })
+      expect(missing.isError).toBe(true)
+      expect(textsOf(missing)[0]).toContain("Рецепта 999 нет в каталоге.")
+    },
+    CASE_MS
+  )
 
-  it("evaluate_plan accepts the base week and shopping_list returns JSON and Markdown", async () => {
-    const evaluated = await call(main, "evaluate_plan", { plan: basePlan() })
-    expect(evaluated.isError).toBeFalsy()
-    expect(parse(textsOf(evaluated)[0])).toMatchObject({ ok: true, metrics: { buyItemCount: 14 } })
+  it(
+    "evaluate_plan accepts the base week and shopping_list returns JSON and Markdown",
+    async () => {
+      const evaluated = await call(main, "evaluate_plan", { plan: basePlan() })
+      expect(evaluated.isError).toBeFalsy()
+      expect(parse(textsOf(evaluated)[0])).toMatchObject({
+        ok: true,
+        metrics: { buyItemCount: 14 },
+      })
 
-    const listed = await call(main, "shopping_list", { plan: basePlan() })
-    expect(listed.isError).toBeFalsy()
-    const body = parse(textsOf(listed)[0])
-    expect(body).toMatchObject({ list: { weekStart: "2026-10-17" } })
-    expect(textsOf(listed)[0]).toContain("# Список покупок: неделя с 2026-10-17")
-  }, CASE_MS)
+      const listed = await call(main, "shopping_list", { plan: basePlan() })
+      expect(listed.isError).toBeFalsy()
+      const body = parse(textsOf(listed)[0])
+      expect(body).toMatchObject({ list: { weekStart: "2026-10-17" } })
+      expect(textsOf(listed)[0]).toContain("# Список покупок: неделя с 2026-10-17")
+    },
+    CASE_MS
+  )
 
-  it("evaluate_plan reports a plan with a missing dish as a result, and a bad plan as isError", async () => {
-    const plan = { ...basePlan(), meals: basePlan().meals.slice(0, 10) }
-    const evaluated = await call(main, "evaluate_plan", { plan })
-    expect(evaluated.isError).toBeFalsy()
-    expect(parse(textsOf(evaluated)[0])).toMatchObject({ ok: false })
-    const bad = await call(main, "evaluate_plan", { plan: { weekStart: "2026-02-30" } })
-    expect(bad.isError).toBe(true)
-    expect(textsOf(bad)[0]).toContain("Неверные аргументы инструмента evaluate_plan.")
-  }, CASE_MS)
+  it(
+    "evaluate_plan reports a plan with a missing dish as a result, and a bad plan as isError",
+    async () => {
+      const plan = { ...basePlan(), meals: basePlan().meals.slice(0, 10) }
+      const evaluated = await call(main, "evaluate_plan", { plan })
+      expect(evaluated.isError).toBeFalsy()
+      expect(parse(textsOf(evaluated)[0])).toMatchObject({ ok: false })
+      const bad = await call(main, "evaluate_plan", {
+        plan: { weekStart: "2026-02-30" },
+      })
+      expect(bad.isError).toBe(true)
+      expect(textsOf(bad)[0]).toContain("Неверные аргументы инструмента evaluate_plan.")
+    },
+    CASE_MS
+  )
 
-  it("household returns the defaults when config/household.json is absent", async () => {
-    const result = await call(main, "household", {})
-    expect(result.isError).toBeFalsy()
-    expect(parse(textsOf(result)[0])).toMatchObject({ persons: 3, days: 7 })
-  }, CASE_MS)
+  it(
+    "household returns the defaults when config/household.json is absent",
+    async () => {
+      const result = await call(main, "household", {})
+      expect(result.isError).toBeFalsy()
+      expect(parse(textsOf(result)[0])).toMatchObject({ persons: 3, days: 7 })
+    },
+    CASE_MS
+  )
 
-  it("save_plan writes the JSON and the Markdown, and plan_history lists the plan", async () => {
-    const before = await call(main, "plan_history", {})
-    expect(parse(textsOf(before)[0])).toMatchObject({ plans: [] })
+  it(
+    "save_plan writes the JSON and the Markdown, and plan_history lists the plan",
+    async () => {
+      const before = await call(main, "plan_history", {})
+      expect(parse(textsOf(before)[0])).toMatchObject({ plans: [] })
 
-    const saved = await call(main, "save_plan", { plan: basePlan() })
-    expect(saved.isError).toBeFalsy()
-    expect(parse(textsOf(saved)[0])).toMatchObject({ weekStart: "2026-10-17", ok: true })
-    const jsonPath = join(dataDir, "plans", "2026-10-17.json")
-    const markdownPath = join(dataDir, "plans", "2026-10-17.md")
-    expect(existsSync(jsonPath)).toBe(true)
-    expect(readFileSync(markdownPath, "utf8")).toContain("[Суп Альфа](https://www.say7.info/cook/recipe/1-")
+      const saved = await call(main, "save_plan", { plan: basePlan() })
+      expect(saved.isError).toBeFalsy()
+      expect(parse(textsOf(saved)[0])).toMatchObject({
+        weekStart: "2026-10-17",
+        ok: true,
+      })
+      const jsonPath = join(dataDir, "plans", "2026-10-17.json")
+      const markdownPath = join(dataDir, "plans", "2026-10-17.md")
+      expect(existsSync(jsonPath)).toBe(true)
+      expect(readFileSync(markdownPath, "utf8")).toContain("[Суп Альфа](https://www.say7.info/cook/recipe/1-")
 
-    const after = await call(main, "plan_history", { limit: 1 })
-    const history = parse(textsOf(after)[0])
-    expect(history).toMatchObject({ plans: [{ weekStart: "2026-10-17" }] })
-    expect(textsOf(after)[0]).toContain("Суп Альфа")
-  }, CASE_MS)
+      const after = await call(main, "plan_history", { limit: 1 })
+      const history = parse(textsOf(after)[0])
+      expect(history).toMatchObject({ plans: [{ weekStart: "2026-10-17" }] })
+      expect(textsOf(after)[0]).toContain("Суп Альфа")
+    },
+    CASE_MS
+  )
 
-  it("serves the prompt plan_week and rejects a bad weekStart", async () => {
-    const { prompts } = await main.client.listPrompts()
-    expect(prompts.map((prompt) => prompt.name)).toEqual(["plan_week"])
-    expect(prompts[0]?.arguments?.map((argument) => argument.name)).toEqual(["weekStart", "proteinFamily"])
+  it(
+    "serves the prompt plan_week and rejects a bad weekStart",
+    async () => {
+      const { prompts } = await main.client.listPrompts()
+      expect(prompts.map((prompt) => prompt.name)).toEqual(["plan_week"])
+      expect(prompts[0]?.arguments?.map((argument) => argument.name)).toEqual(["weekStart", "proteinFamily"])
 
-    const prompt = await main.client.getPrompt({
-      name: "plan_week",
-      arguments: { weekStart: "2026-10-17", proteinFamily: "fish" }
-    })
-    const first = prompt.messages[0]?.content
-    const text = first?.type === "text" ? first.text : ""
-    expect(text).toContain("2026-10-17")
-    expect(text).toContain("`fish`")
-    expect(text).toContain("evaluate_plan")
-    expect(text).toContain("simple_breakfasts")
-    expect(text).toContain("fresh")
+      const prompt = await main.client.getPrompt({
+        name: "plan_week",
+        arguments: { weekStart: "2026-10-17", proteinFamily: "fish" },
+      })
+      const first = prompt.messages[0]?.content
+      const text = first?.type === "text" ? first.text : ""
+      expect(text).toContain("2026-10-17")
+      expect(text).toContain("`fish`")
+      expect(text).toContain("evaluate_plan")
+      expect(text).toContain("simple_breakfasts")
+      expect(text).toContain("fresh")
 
-    await expect(main.client.getPrompt({ name: "plan_week", arguments: { weekStart: "2026-13-01" } })).rejects.toThrow()
-  }, CASE_MS)
+      await expect(
+        main.client.getPrompt({
+          name: "plan_week",
+          arguments: { weekStart: "2026-13-01" },
+        })
+      ).rejects.toThrow()
+    },
+    CASE_MS
+  )
 
-  it("starts with an empty catalogue and gives a hint in the search result", async () => {
-    const result = await call(empty, "search_recipes", {})
-    expect(result.isError).toBeFalsy()
-    expect(parse(textsOf(result)[0])).toMatchObject({ catalogueSize: 0, results: [] })
-    expect(textsOf(result)[0]).toContain("Каталог пуст")
-  }, CASE_MS)
+  it(
+    "starts with an empty catalogue and gives a hint in the search result",
+    async () => {
+      const result = await call(empty, "search_recipes", {})
+      expect(result.isError).toBeFalsy()
+      expect(parse(textsOf(result)[0])).toMatchObject({
+        catalogueSize: 0,
+        results: [],
+      })
+      expect(textsOf(result)[0]).toContain("Каталог пуст")
+    },
+    CASE_MS
+  )
 })

@@ -7,22 +7,33 @@ const real = parseRobots(REAL_ROBOTS_TXT)
 
 describe("parseRobots", () => {
   it("reads the groups and the sitemap line of the real robots.txt", () => {
-    assert.deepStrictEqual(real.groups.map((group) => group.agents), [["*"], ["yandex"]])
-    assert.deepStrictEqual(real.groups[0]?.rules.map((rule) => `${rule.allow ? "Allow" : "Disallow"} ${rule.pattern}`), [
-      "Disallow /cdn-cgi/",
-      "Disallow /gogoogle.html?*",
-      "Disallow /gosearch.php?*",
-      "Disallow /search.html?*",
-      "Allow /cook/recipe/*.html$",
-      "Disallow /cook/recipe/*?",
-      "Disallow /?*"
-    ])
+    assert.deepStrictEqual(
+      real.groups.map((group) => group.agents),
+      [["*"], ["yandex"]]
+    )
+    assert.deepStrictEqual(
+      real.groups[0]?.rules.map((rule) => `${rule.allow ? "Allow" : "Disallow"} ${rule.pattern}`),
+      [
+        "Disallow /cdn-cgi/",
+        "Disallow /gogoogle.html?*",
+        "Disallow /gosearch.php?*",
+        "Disallow /search.html?*",
+        "Allow /cook/recipe/*.html$",
+        "Disallow /cook/recipe/*?",
+        "Disallow /?*",
+      ]
+    )
     assert.deepStrictEqual(real.sitemaps, ["https://www.say7.info/sitemap.xml"])
   })
 
   it("joins consecutive User-agent lines into one group and strips comments", () => {
-    const robots = parseRobots("# top\nUser-agent: A\nUser-agent: B # both\nDisallow: /x # no\n\nUser-agent: C\nAllow: /y\n")
-    assert.deepStrictEqual(robots.groups.map((group) => group.agents), [["a", "b"], ["c"]])
+    const robots = parseRobots(
+      "# top\nUser-agent: A\nUser-agent: B # both\nDisallow: /x # no\n\nUser-agent: C\nAllow: /y\n"
+    )
+    assert.deepStrictEqual(
+      robots.groups.map((group) => group.agents),
+      [["a", "b"], ["c"]]
+    )
     assert.deepStrictEqual(robots.groups[0]?.rules, [{ allow: false, pattern: "/x" }])
   })
 
@@ -56,7 +67,7 @@ describe("patternMatches", () => {
     ["/a.b", "/axb", false],
     ["/?*", "/?x=1", true],
     ["/?*", "/", false],
-    ["/a+b", "/a+b/c", true]
+    ["/a+b", "/a+b/c", true],
   ])("pattern %s on %s is %s", (pattern, path, expected) => {
     assert.strictEqual(patternMatches(pattern, path), expected)
   })
@@ -71,7 +82,7 @@ describe("isAllowed with the real robots.txt", () => {
     "/cook/recipe/1740-Kurinyie-serdechki.html",
     "/",
     "/sitemap.xml",
-    "/robots.txt"
+    "/robots.txt",
   ])("allows %s", (path) => {
     assert.isTrue(allowed(path))
   })
@@ -83,7 +94,7 @@ describe("isAllowed with the real robots.txt", () => {
     "/gosearch.php?q=1",
     "/gogoogle.html?q=1",
     "/cdn-cgi/trace",
-    "/?s=1"
+    "/?s=1",
   ])("forbids %s", (path) => {
     assert.isFalse(allowed(path))
   })

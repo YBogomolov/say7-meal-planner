@@ -10,5 +10,5 @@ export const requestFor = (model: ModelName, recipe: { readonly input: ModelInpu
   model,
   system: SYSTEM_PROMPT,
   messages: [{ role: "user", content: modelInputText(recipe.input) }],
-  maxTokens: MAX_OUTPUT_TOKENS
+  maxTokens: MAX_OUTPUT_TOKENS,
 })

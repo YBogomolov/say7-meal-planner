@@ -2,7 +2,7 @@ import { Option, Result, Schema } from "effect"
 
 export class CharsetError extends Schema.TaggedError<CharsetError>()("CharsetError", {
   label: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 export type CharsetSource = "header" | "meta" | "default"
@@ -65,10 +65,19 @@ export const charsetFromMeta = (bytes: Uint8Array): Option.Option<string> => {
  * A label that this Node.js build does not support is skipped.
  */
 export const detectCharset = (bytes: Uint8Array, options: DecodeOptions): Result.Result<Charset, CharsetError> => {
-  const candidates: ReadonlyArray<{ readonly source: CharsetSource; readonly label: Option.Option<string> }> = [
-    { source: "header", label: options.contentType.pipe(Option.flatMap(charsetFromContentType)) },
-    { source: "meta", label: options.sniffMeta ? charsetFromMeta(bytes) : Option.none() },
-    { source: "default", label: Option.some(options.defaultLabel) }
+  const candidates: ReadonlyArray<{
+    readonly source: CharsetSource
+    readonly label: Option.Option<string>
+  }> = [
+    {
+      source: "header",
+      label: options.contentType.pipe(Option.flatMap(charsetFromContentType)),
+    },
+    {
+      source: "meta",
+      label: options.sniffMeta ? charsetFromMeta(bytes) : Option.none(),
+    },
+    { source: "default", label: Option.some(options.defaultLabel) },
   ]
   for (const candidate of candidates) {
     const label = candidate.label.pipe(Option.flatMap(canonicalLabel))
@@ -79,7 +88,7 @@ export const detectCharset = (bytes: Uint8Array, options: DecodeOptions): Result
   return Result.fail(
     new CharsetError({
       label: options.defaultLabel,
-      message: `This Node.js build cannot decode the charset "${options.defaultLabel}". Use an official Node.js build with full ICU.`
+      message: `This Node.js build cannot decode the charset "${options.defaultLabel}". Use an official Node.js build with full ICU.`,
     })
   )
 }
@@ -87,5 +96,8 @@ export const detectCharset = (bytes: Uint8Array, options: DecodeOptions): Result
 /** Decode `bytes` to text. Invalid byte sequences become U+FFFD. */
 export const decodeText = (bytes: Uint8Array, options: DecodeOptions): Result.Result<DecodedText, CharsetError> =>
   detectCharset(bytes, options).pipe(
-    Result.map((charset) => ({ text: new TextDecoder(charset.label).decode(bytes), charset }))
+    Result.map((charset) => ({
+      text: new TextDecoder(charset.label).decode(bytes),
+      charset,
+    }))
   )

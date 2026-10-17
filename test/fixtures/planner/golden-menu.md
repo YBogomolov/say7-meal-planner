@@ -4,15 +4,15 @@
 
 ## Меню по дням
 
-| День | обед | ужин |
-| --- | --- | --- |
-| суббота, 2026-10-17 | [Суп Альфа](https://www.say7.info/cook/recipe/1-Test.html) | [Рагу Браво](https://www.say7.info/cook/recipe/2-Test.html) |
-| воскресенье, 2026-10-18 | [Суп Альфа](https://www.say7.info/cook/recipe/1-Test.html) | [Рагу Браво](https://www.say7.info/cook/recipe/2-Test.html) |
-| понедельник, 2026-10-19 | [Плов Чарли](https://www.say7.info/cook/recipe/3-Test.html) | [Салат Дельта](https://www.say7.info/cook/recipe/4-Test.html) |
-| вторник, 2026-10-20 | [Плов Чарли](https://www.say7.info/cook/recipe/3-Test.html) | [Салат Дельта](https://www.say7.info/cook/recipe/4-Test.html) |
-| среда, 2026-10-21 | [Запеканка Эхо](https://www.say7.info/cook/recipe/5-Test.html) | [Жаркое Гольф](https://www.say7.info/cook/recipe/7-Test.html) |
-| четверг, 2026-10-22 | [Паста Фокстрот](https://www.say7.info/cook/recipe/6-Test.html) | [Запеканка Эхо](https://www.say7.info/cook/recipe/5-Test.html) |
-| пятница, 2026-10-23 | [Жаркое Гольф](https://www.say7.info/cook/recipe/7-Test.html) | [Паста Фокстрот](https://www.say7.info/cook/recipe/6-Test.html) |
+| День                    | обед                                                            | ужин                                                            |
+| ----------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| суббота, 2026-10-17     | [Суп Альфа](https://www.say7.info/cook/recipe/1-Test.html)      | [Рагу Браво](https://www.say7.info/cook/recipe/2-Test.html)     |
+| воскресенье, 2026-10-18 | [Суп Альфа](https://www.say7.info/cook/recipe/1-Test.html)      | [Рагу Браво](https://www.say7.info/cook/recipe/2-Test.html)     |
+| понедельник, 2026-10-19 | [Плов Чарли](https://www.say7.info/cook/recipe/3-Test.html)     | [Салат Дельта](https://www.say7.info/cook/recipe/4-Test.html)   |
+| вторник, 2026-10-20     | [Плов Чарли](https://www.say7.info/cook/recipe/3-Test.html)     | [Салат Дельта](https://www.say7.info/cook/recipe/4-Test.html)   |
+| среда, 2026-10-21       | [Запеканка Эхо](https://www.say7.info/cook/recipe/5-Test.html)  | [Жаркое Гольф](https://www.say7.info/cook/recipe/7-Test.html)   |
+| четверг, 2026-10-22     | [Паста Фокстрот](https://www.say7.info/cook/recipe/6-Test.html) | [Запеканка Эхо](https://www.say7.info/cook/recipe/5-Test.html)  |
+| пятница, 2026-10-23     | [Жаркое Гольф](https://www.say7.info/cook/recipe/7-Test.html)   | [Паста Фокстрот](https://www.say7.info/cook/recipe/6-Test.html) |
 
 ## Сессии готовки
 

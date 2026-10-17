@@ -4,7 +4,7 @@ const EXTRA: ReadonlyMap<string, number> = new Map([
   ["»", 0xbb], // »
   ["—", 0x97], // em dash
   ["°", 0xb0], // degree sign
-  [" ", 0xa0] // no-break space
+  [" ", 0xa0], // no-break space
 ])
 
 const byteFor = (char: string): number => {

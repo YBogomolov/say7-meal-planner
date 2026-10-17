@@ -12,14 +12,14 @@ export const MAX_RETRY_AFTER = Duration.minutes(2)
 export class NetworkError extends Schema.TaggedError<NetworkError>()("NetworkError", {
   url: Schema.String,
   reason: Schema.Literals(["timeout", "connection", "redirect"]),
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 export class HttpStatusError extends Schema.TaggedError<HttpStatusError>()("HttpStatusError", {
   url: Schema.String,
   status: Schema.Int,
   /** Wait time from the `Retry-After` header. Only read for 429 and 503. */
-  retryAfter: Schema.Option(Schema.Natural)
+  retryAfter: Schema.Option(Schema.Natural),
 }) {}
 
 export type HttpFailure = NetworkError | HttpStatusError
@@ -42,7 +42,7 @@ export interface HttpConfig {
 export const defaultHttpConfig: HttpConfig = {
   userAgent: USER_AGENT,
   timeout: Duration.seconds(30),
-  retryBase: Duration.seconds(2)
+  retryBase: Duration.seconds(2),
 }
 
 /** Short text for the log and for `RawIndexEntry.error`. */
@@ -88,21 +88,19 @@ export const retrySchedule = (base: Duration.Input) =>
     Schedule.upTo({ times: MAX_RETRIES }),
     Schedule.modifyDelay(({ duration, input }) => Effect.succeed(retryDelay(duration, input))),
     Schedule.tap(({ attempt, duration, input }) =>
-      Console.warn(
-        `retry ${attempt}/${MAX_RETRIES} in ${Duration.toMillis(duration)} ms: ${describeFailure(input)}`
-      )
+      Console.warn(`retry ${attempt}/${MAX_RETRIES} in ${Duration.toMillis(duration)} ms: ${describeFailure(input)}`)
     )
   )
 
 type RawResponse =
   | {
-    readonly _tag: "Received"
-    readonly status: number
-    readonly ok: boolean
-    readonly contentType: string | null
-    readonly retryAfter: string | null
-    readonly body: Uint8Array
-  }
+      readonly _tag: "Received"
+      readonly status: number
+      readonly ok: boolean
+      readonly contentType: string | null
+      readonly retryAfter: string | null
+      readonly body: Uint8Array
+    }
   | { readonly _tag: "OffOrigin"; readonly finalUrl: string }
 
 const describeCause = (cause: unknown): string => {
@@ -117,7 +115,10 @@ const describeCause = (cause: unknown): string => {
 const attempt = (config: HttpConfig, url: string): Effect.Effect<HttpResponse, HttpFailure> =>
   Effect.tryPromise({
     try: async (signal): Promise<RawResponse> => {
-      const response = await fetch(url, { signal, headers: { "user-agent": config.userAgent } })
+      const response = await fetch(url, {
+        signal,
+        headers: { "user-agent": config.userAgent },
+      })
       if (new URL(response.url).origin !== new URL(url).origin) {
         await response.body?.cancel()
         return { _tag: "OffOrigin", finalUrl: response.url }
@@ -126,13 +127,31 @@ const attempt = (config: HttpConfig, url: string): Effect.Effect<HttpResponse, H
       const retryAfter = response.headers.get("retry-after")
       if (!response.ok) {
         await response.body?.cancel()
-        return { _tag: "Received", status: response.status, ok: false, contentType, retryAfter, body: new Uint8Array() }
+        return {
+          _tag: "Received",
+          status: response.status,
+          ok: false,
+          contentType,
+          retryAfter,
+          body: new Uint8Array(),
+        }
       }
       const body = new Uint8Array(await response.arrayBuffer())
-      return { _tag: "Received", status: response.status, ok: true, contentType, retryAfter, body }
+      return {
+        _tag: "Received",
+        status: response.status,
+        ok: true,
+        contentType,
+        retryAfter,
+        body,
+      }
     },
     catch: (cause) =>
-      new NetworkError({ url, reason: "connection", message: `Request failed: ${describeCause(cause)}` })
+      new NetworkError({
+        url,
+        reason: "connection",
+        message: `Request failed: ${describeCause(cause)}`,
+      }),
   }).pipe(
     Effect.timeout(config.timeout),
     Effect.catchTag("TimeoutError", () =>
@@ -140,13 +159,18 @@ const attempt = (config: HttpConfig, url: string): Effect.Effect<HttpResponse, H
         new NetworkError({
           url,
           reason: "timeout",
-          message: `Timeout after ${Duration.toMillis(Duration.fromInputUnsafe(config.timeout))} ms`
+          message: `Timeout after ${Duration.toMillis(Duration.fromInputUnsafe(config.timeout))} ms`,
         })
-      )),
+      )
+    ),
     Effect.flatMap((raw): Effect.Effect<HttpResponse, HttpFailure> => {
       if (raw._tag === "OffOrigin") {
         return Effect.fail(
-          new NetworkError({ url, reason: "redirect", message: `Redirect to another origin: ${raw.finalUrl}` })
+          new NetworkError({
+            url,
+            reason: "redirect",
+            message: `Redirect to another origin: ${raw.finalUrl}`,
+          })
         )
       }
       if (raw.ok) {
@@ -154,7 +178,7 @@ const attempt = (config: HttpConfig, url: string): Effect.Effect<HttpResponse, H
           url,
           status: raw.status,
           contentType: Option.fromNullishOr(raw.contentType),
-          body: raw.body
+          body: raw.body,
         })
       }
       return Clock.currentTimeMillis.pipe(
@@ -173,14 +197,17 @@ const attempt = (config: HttpConfig, url: string): Effect.Effect<HttpResponse, H
  * HTTP GET with a time limit and the retry policy of the spec.
  * Succeeds only for 2xx. Every other status fails with `HttpStatusError`.
  */
-export class Http extends Context.Service<Http, {
-  readonly get: (url: string) => Effect.Effect<HttpResponse, HttpFailure>
-}>()("say7/scraper/Http") {
+export class Http extends Context.Service<
+  Http,
+  {
+    readonly get: (url: string) => Effect.Effect<HttpResponse, HttpFailure>
+  }
+>()("say7/scraper/Http") {
   static readonly layer = (config: HttpConfig = defaultHttpConfig): Layer.Layer<Http> =>
     Layer.succeed(
       Http,
       Http.of({
-        get: (url) => attempt(config, url).pipe(Effect.retry(retrySchedule(config.retryBase)))
+        get: (url) => attempt(config, url).pipe(Effect.retry(retrySchedule(config.retryBase))),
       })
     )
 }

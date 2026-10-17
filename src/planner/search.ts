@@ -44,7 +44,7 @@ export const SearchQuery = Schema.Struct({
   /** `popular`: most comments first (default). `fewest_items`: fewest items to buy first. */
   sort: Schema.optionalKey(Schema.Literals(["popular", "fewest_items"])),
   /** Default 20, at most 100. */
-  limit: Schema.optionalKey(Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 1, maximum: MAX_LIMIT }))))
+  limit: Schema.optionalKey(Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 1, maximum: MAX_LIMIT })))),
 })
 export type SearchQuery = typeof SearchQuery.Type
 
@@ -99,7 +99,7 @@ export const toSearchRow = (entry: CatalogueEntry, proteinTable: ProteinTable = 
     buyItems: buyItemsOf(enrichment.ingredients),
     commentsCount: entry.commentsCount,
     breakfastEligible: entry.breakfastEligible,
-    proteinPerPortion: portionProtein(entry, proteinTable).grams
+    proteinPerPortion: portionProtein(entry, proteinTable).grams,
   }
 }
 
@@ -123,7 +123,10 @@ const matchesText = (entry: CatalogueEntry, queryWords: ReadonlyArray<string>): 
   if (queryWords.length === 0) {
     return true
   }
-  const targets = [...wordsOf(entry.title), ...entry.enrichment.ingredients.flatMap((ingredient) => wordsOf(ingredient.item))]
+  const targets = [
+    ...wordsOf(entry.title),
+    ...entry.enrichment.ingredients.flatMap((ingredient) => wordsOf(ingredient.item)),
+  ]
   return queryWords.every((queryWord) => targets.some((target) => wordMatches(queryWord, target)))
 }
 
@@ -131,10 +134,12 @@ const matchesText = (entry: CatalogueEntry, queryWords: ReadonlyArray<string>): 
 const isOneOf = <A>(list: ReadonlyArray<A> | undefined, value: A): boolean =>
   list === undefined || list.length === 0 || list.includes(value)
 
-const compareBy = (sort: "popular" | "fewest_items") => (a: SearchRow, b: SearchRow): number => {
-  const popular = (b.commentsCount ?? 0) - (a.commentsCount ?? 0) || a.id - b.id
-  return sort === "popular" ? popular : a.buyItems.length - b.buyItems.length || popular
-}
+const compareBy =
+  (sort: "popular" | "fewest_items") =>
+  (a: SearchRow, b: SearchRow): number => {
+    const popular = (b.commentsCount ?? 0) - (a.commentsCount ?? 0) || a.id - b.id
+    return sort === "popular" ? popular : a.buyItems.length - b.buyItems.length || popular
+  }
 
 /**
  * Filter and sort the catalogue (spec P4.2.4). Pure.
@@ -151,13 +156,17 @@ export const searchRecipes = (catalogue: Catalogue, query: SearchQuery): Readonl
     if (forMeal === "breakfast") {
       return entry.breakfastEligible
     }
-    return entry.enrichment.mealFit !== "not_a_meal" || (forMeal === undefined && mealFits?.includes("not_a_meal") === true)
+    return (
+      entry.enrichment.mealFit !== "not_a_meal" || (forMeal === undefined && mealFits?.includes("not_a_meal") === true)
+    )
   }
   const matches = (entry: CatalogueEntry): boolean => {
     const { enrichment } = entry
-    return !excluded.has(entry.id) &&
+    return (
+      !excluded.has(entry.id) &&
       fitsMeal(entry) &&
-      (proteinFamilies === undefined || proteinFamilies.length === 0 ||
+      (proteinFamilies === undefined ||
+        proteinFamilies.length === 0 ||
         enrichment.proteinFamilies.some((family) => proteinFamilies.includes(family))) &&
       (query.vegetarian === undefined || enrichment.vegetarian === query.vegetarian) &&
       isOneOf(dishTypes, enrichment.dishType) &&
@@ -169,7 +178,12 @@ export const searchRecipes = (catalogue: Catalogue, query: SearchQuery): Readonl
       (requiresOnly === undefined || enrichment.equipment.every((item) => requiresOnly.includes(item))) &&
       wantedItems.every((wanted) => enrichment.ingredients.some((ingredient) => ingredient.item === wanted)) &&
       matchesText(entry, queryWords)
+    )
   }
 
-  return catalogue.entries.filter(matches).map((entry) => toSearchRow(entry, catalogue.proteinTable)).sort(compareBy(query.sort ?? "popular")).slice(0, limit)
+  return catalogue.entries
+    .filter(matches)
+    .map((entry) => toSearchRow(entry, catalogue.proteinTable))
+    .sort(compareBy(query.sort ?? "popular"))
+    .slice(0, limit)
 }

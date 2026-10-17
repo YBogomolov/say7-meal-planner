@@ -40,9 +40,7 @@ describe("parseSitemap", () => {
   })
 
   it("gives lastmod None when the entry has none", () => {
-    const entries = parse(
-      `<urlset><url><loc>https://www.say7.info/cook/recipe/7-Borshch.html</loc></url></urlset>`
-    )
+    const entries = parse(`<urlset><url><loc>https://www.say7.info/cook/recipe/7-Borshch.html</loc></url></urlset>`)
     assert.strictEqual(entries.length, 1)
     assert.isTrue(Option.isNone(entries[0]?.lastmod ?? Option.some("x")))
   })
@@ -62,7 +60,10 @@ describe("parseSitemap", () => {
         <url><loc>https://www.say7.info/cook/recipe/7-B.html</loc><lastmod>2025-02-02</lastmod></url>
       </urlset>`
     )
-    assert.deepStrictEqual(entries.map((entry) => entry.slug), ["A"])
+    assert.deepStrictEqual(
+      entries.map((entry) => entry.slug),
+      ["A"]
+    )
   })
 
   it("decodes XML entities and trims white space in loc", () => {
@@ -71,7 +72,10 @@ describe("parseSitemap", () => {
         https://www.say7.info/cook/recipe/9-Hleb&amp;sol.html
       </loc></url></urlset>`
     )
-    assert.deepStrictEqual(entries.map((entry) => entry.slug), ["Hleb&sol"])
+    assert.deepStrictEqual(
+      entries.map((entry) => entry.slug),
+      ["Hleb&sol"]
+    )
   })
 
   it("fails when the text is not a sitemap", () => {
@@ -110,7 +114,7 @@ describe("recipe URL filter (toSitemapEntry)", () => {
     ["another folder", "https://www.say7.info/cook/other/1-Salat.html"],
     ["an empty slug", "https://www.say7.info/cook/recipe/1-.html"],
     ["a non-HTTP scheme", "ftp://www.say7.info/cook/recipe/1-A.html"],
-    ["text that is not a URL", "not a url"]
+    ["text that is not a URL", "not a url"],
   ])("rejects %s", (_name, loc) => {
     assert.isFalse(accepts(loc))
   })

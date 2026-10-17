@@ -7,7 +7,7 @@ export const DEFAULT_DELAY_MS = 2500
 export const DEFAULT_DATA_DIR = "data"
 
 export class CliError extends Schema.TaggedError<CliError>()("CliError", {
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 export const USAGE = `Usage: npm run scrape -- [options]
@@ -33,25 +33,21 @@ export interface CliOptions {
   readonly dataDir: string
 }
 
-export type CliCommand =
-  | { readonly _tag: "Help" }
-  | { readonly _tag: "Run"; readonly options: CliOptions }
+export type CliCommand = { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly options: CliOptions }
 
 const DigitsString = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^\d+$/, { message: "Expected a non-negative whole number" }))
+  Schema.check(
+    Schema.isPattern(/^\d+$/, {
+      message: "Expected a non-negative whole number",
+    })
+  )
 )
 
-const NaturalFromString = DigitsString.pipe(
-  Schema.decodeTo(Schema.FiniteFromString),
-  Schema.decodeTo(Schema.Natural)
-)
+const NaturalFromString = DigitsString.pipe(Schema.decodeTo(Schema.FiniteFromString), Schema.decodeTo(Schema.Natural))
 
 const PositiveIntFromString = NaturalFromString.pipe(Schema.check(Schema.isGreaterThan(0)))
 
-const RecipeIdFromString = DigitsString.pipe(
-  Schema.decodeTo(Schema.FiniteFromString),
-  Schema.decodeTo(RecipeId)
-)
+const RecipeIdFromString = DigitsString.pipe(Schema.decodeTo(Schema.FiniteFromString), Schema.decodeTo(RecipeId))
 
 /** `"12,34"` becomes the IDs 12 and 34. */
 export const RecipeIdsFromString = Schema.String.pipe(
@@ -59,7 +55,7 @@ export const RecipeIdsFromString = Schema.String.pipe(
     Schema.Array(RecipeIdFromString).pipe(Schema.check(Schema.isNonEmpty())),
     SchemaTransformation.transform<ReadonlyArray<string>, string>({
       decode: (text) => text.split(",").map((part) => part.trim()),
-      encode: (ids) => ids.join(",")
+      encode: (ids) => ids.join(","),
     })
   )
 )
@@ -70,8 +66,14 @@ export const originOf = (text: string): Option.Option<string> => {
     return Option.none()
   }
   const url = new URL(text)
-  const plain = url.pathname === "/" && url.search === "" && url.hash === "" && !text.includes("?") &&
-    !text.includes("#") && url.username === "" && url.password === ""
+  const plain =
+    url.pathname === "/" &&
+    url.search === "" &&
+    url.hash === "" &&
+    !text.includes("?") &&
+    !text.includes("#") &&
+    url.username === "" &&
+    url.password === ""
   return (url.protocol === "https:" || url.protocol === "http:") && plain ? Option.some(url.origin) : Option.none()
 }
 
@@ -80,12 +82,12 @@ const OriginFromString = Schema.String.pipe(
     Schema.String,
     SchemaTransformation.transform({
       decode: (text: string) => Option.getOrElse(originOf(text), () => text),
-      encode: (origin: string) => origin
+      encode: (origin: string) => origin,
     })
   ),
   Schema.check(
-    Schema.makeFilter((text: string) =>
-      Option.isSome(originOf(text)) || "Expected an http(s) origin such as https://www.say7.info"
+    Schema.makeFilter(
+      (text: string) => Option.isSome(originOf(text)) || "Expected an http(s) origin such as https://www.say7.info"
     )
   )
 )
@@ -97,7 +99,7 @@ const CliArgs = Schema.Struct({
   help: Schema.optional(Schema.Boolean),
   "delay-ms": Schema.optional(NaturalFromString),
   "base-url": Schema.optional(OriginFromString),
-  "data-dir": Schema.optional(Schema.NonEmptyString)
+  "data-dir": Schema.optional(Schema.NonEmptyString),
 })
 
 /** Parse the command line (`process.argv.slice(2)`). */
@@ -113,12 +115,15 @@ export const parseCli = (argv: ReadonlyArray<string>): Result.Result<CliCommand,
           "delay-ms": { type: "string" },
           "base-url": { type: "string" },
           "data-dir": { type: "string" },
-          help: { type: "boolean", short: "h" }
+          help: { type: "boolean", short: "h" },
         },
         allowPositionals: false,
-        strict: true
+        strict: true,
       }).values,
-    catch: (cause) => new CliError({ message: cause instanceof Error ? cause.message : String(cause) })
+    catch: (cause) =>
+      new CliError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
   }).pipe(
     Result.flatMap((values) =>
       Schema.decodeUnknownResult(CliArgs)(values).pipe(
@@ -126,16 +131,18 @@ export const parseCli = (argv: ReadonlyArray<string>): Result.Result<CliCommand,
       )
     ),
     Result.map((args): CliCommand =>
-      args.help === true ? { _tag: "Help" } : {
-        _tag: "Run",
-        options: {
-          limit: Option.fromUndefinedOr(args.limit),
-          ids: Option.fromUndefinedOr(args.ids).pipe(Option.map((ids) => new Set(ids))),
-          force: args.force === true,
-          delayMs: args["delay-ms"] ?? DEFAULT_DELAY_MS,
-          baseUrl: args["base-url"] ?? DEFAULT_BASE_URL,
-          dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR
-        }
-      }
+      args.help === true
+        ? { _tag: "Help" }
+        : {
+            _tag: "Run",
+            options: {
+              limit: Option.fromUndefinedOr(args.limit),
+              ids: Option.fromUndefinedOr(args.ids).pipe(Option.map((ids) => new Set(ids))),
+              force: args.force === true,
+              delayMs: args["delay-ms"] ?? DEFAULT_DELAY_MS,
+              baseUrl: args["base-url"] ?? DEFAULT_BASE_URL,
+              dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR,
+            },
+          }
     )
   )

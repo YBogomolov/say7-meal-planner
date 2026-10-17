@@ -20,7 +20,7 @@ const valid = {
   addedAt: "2023-12-05",
   commentsCount: 0,
   similarIds: [5],
-  sourceSha256: "a".repeat(64)
+  sourceSha256: "a".repeat(64),
 }
 
 const accepts = (value: unknown): boolean => Result.isSuccess(Schema.decodeUnknownResult(ParsedRecipe)(value))
@@ -52,7 +52,7 @@ describe("ParsedRecipe", () => {
     ["an ID of 0 in similarIds", { ...valid, similarIds: [0] }],
     ["an empty yield text", { ...valid, yieldText: "" }],
     ["a missing yield text", { ...valid, yieldText: undefined }],
-    ["a missing field", { ...valid, longWait: undefined }]
+    ["a missing field", { ...valid, longWait: undefined }],
   ])("rejects %s", (_name, value) => {
     assert.isFalse(accepts(value))
   })
@@ -63,15 +63,43 @@ describe("Servings and StepDuration", () => {
     assert.isTrue(Result.isSuccess(Schema.decodeUnknownResult(Servings)({ min: 4, max: 4 })))
     assert.isTrue(Result.isFailure(Schema.decodeUnknownResult(Servings)({ min: 6, max: 4 })))
     assert.isTrue(Result.isFailure(Schema.decodeUnknownResult(Servings)({ min: 0, max: 4 })))
-    assert.isTrue(Result.isSuccess(Schema.decodeUnknownResult(StepDuration)({ minMinutes: 5, maxMinutes: 7, text: "5–7 минут" })))
-    assert.isTrue(Result.isFailure(Schema.decodeUnknownResult(StepDuration)({ minMinutes: 8, maxMinutes: 7, text: "x" })))
-    assert.isTrue(Result.isFailure(Schema.decodeUnknownResult(StepDuration)({ minMinutes: 1.5, maxMinutes: 2, text: "x" })))
+    assert.isTrue(
+      Result.isSuccess(
+        Schema.decodeUnknownResult(StepDuration)({
+          minMinutes: 5,
+          maxMinutes: 7,
+          text: "5–7 минут",
+        })
+      )
+    )
+    assert.isTrue(
+      Result.isFailure(
+        Schema.decodeUnknownResult(StepDuration)({
+          minMinutes: 8,
+          maxMinutes: 7,
+          text: "x",
+        })
+      )
+    )
+    assert.isTrue(
+      Result.isFailure(
+        Schema.decodeUnknownResult(StepDuration)({
+          minMinutes: 1.5,
+          maxMinutes: 2,
+          text: "x",
+        })
+      )
+    )
   })
 })
 
 describe("ParseError", () => {
   it("is a tagged error with the ID, the reason and a message", () => {
-    const error = new ParseError({ id: Schema.decodeUnknownSync(RecipeId)(5), reason: "no_steps", message: "no step" })
+    const error = new ParseError({
+      id: Schema.decodeUnknownSync(RecipeId)(5),
+      reason: "no_steps",
+      message: "no step",
+    })
     assert.strictEqual(error._tag, "ParseError")
     assert.strictEqual(error.reason, "no_steps")
   })

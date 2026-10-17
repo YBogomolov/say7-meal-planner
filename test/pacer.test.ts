@@ -24,15 +24,16 @@ describe("jitteredDelayMs", () => {
 
 describe("Pacer", () => {
   it.effect("does not delay the first request", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pacer = yield* Pacer
       const started = yield* Clock.currentTimeMillis
       yield* pacer.paced(Effect.void)
       assert.strictEqual((yield* Clock.currentTimeMillis) - started, 0)
-    }).pipe(Effect.provide(Pacer.layer(2500))))
+    }).pipe(Effect.provide(Pacer.layer(2500)))
+  )
 
   it.effect("delays the next request by 2000 to 3000 ms after the previous one ends", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pacer = yield* Pacer
       const startTimes: Array<number> = []
       const request = Clock.currentTimeMillis.pipe(Effect.tap((now) => Effect.sync(() => startTimes.push(now))))
@@ -47,10 +48,11 @@ describe("Pacer", () => {
       assert.strictEqual(startTimes.length, 2)
       const gap = (startTimes[1] ?? 0) - (startTimes[0] ?? 0)
       assert.isTrue(gap >= 2000 && gap <= 3000, `gap was ${gap} ms`)
-    }).pipe(Effect.provide(Pacer.layer(2500))))
+    }).pipe(Effect.provide(Pacer.layer(2500)))
+  )
 
   it.effect("counts the wait from the end of the previous request", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pacer = yield* Pacer
       yield* pacer.paced(Effect.void)
       // The previous request ends. A long pause follows that is longer than the maximum delay.
@@ -58,14 +60,16 @@ describe("Pacer", () => {
       const before = yield* Clock.currentTimeMillis
       yield* pacer.paced(Effect.void)
       assert.strictEqual((yield* Clock.currentTimeMillis) - before, 0)
-    }).pipe(Effect.provide(Pacer.layer(2500))))
+    }).pipe(Effect.provide(Pacer.layer(2500)))
+  )
 
   it.effect("does not wait with a zero delay", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pacer = yield* Pacer
       yield* pacer.paced(Effect.void)
       yield* pacer.paced(Effect.void)
       yield* pacer.paced(Effect.void)
       assert.strictEqual(yield* Clock.currentTimeMillis, 0)
-    }).pipe(Effect.provide(Pacer.layer(0))))
+    }).pipe(Effect.provide(Pacer.layer(0)))
+  )
 })

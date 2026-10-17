@@ -39,9 +39,13 @@ export const toCatalogueEntry = (
     commentsCount: parsed.commentsCount,
     enrichment: {
       ...enrichment,
-      ingredients: ingredients.map(({ item, ...rest }) => ({ ...rest, item: normaliseItem(item, aliases), rawItem: item }))
+      ingredients: ingredients.map(({ item, ...rest }) => ({
+        ...rest,
+        item: normaliseItem(item, aliases),
+        rawItem: item,
+      })),
     },
-    breakfastEligible: isBreakfastEligible(parsed, breakfastExtraIds)
+    breakfastEligible: isBreakfastEligible(parsed, breakfastExtraIds),
   }
 }
 
@@ -61,7 +65,7 @@ export const makeCatalogue = (
     overridden,
     proteinTable,
     simpleBreakfasts,
-    simpleById: new Map(simpleBreakfasts.map((simple) => [simple.id, simple]))
+    simpleById: new Map(simpleBreakfasts.map((simple) => [simple.id, simple])),
   }
 }
 
@@ -96,10 +100,13 @@ const io = <A>(target: string, effect: Effect.Effect<A, { readonly message: stri
 
 /** The recipe IDs of the files `<dir>/<id>.json`. The directory must exist. */
 const listRecipeIds = (dir: string, hint: string) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     if (!(yield* io(dir, fs.exists(dir)))) {
-      return yield* new StoreError({ path: dir, message: `Каталог ${dir} не найден. ${hint}` })
+      return yield* new StoreError({
+        path: dir,
+        message: `Каталог ${dir} не найден. ${hint}`,
+      })
     }
     const names = yield* io(dir, fs.readDirectory(dir))
     return names.flatMap((name) => {
@@ -110,11 +117,11 @@ const listRecipeIds = (dir: string, hint: string) =>
 
 /** Read and decode a recipe file. The failure is the Russian text for the list of skipped recipes. */
 const readRecipeFile = <A, I>(target: string, id: RecipeId, codec: Schema.Codec<A, I>, idOf: (value: A) => RecipeId) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
-    const text = yield* fs.readFileString(target).pipe(
-      Effect.mapError((error) => `Файл ${target} не читается: ${error.message}`)
-    )
+    const text = yield* fs
+      .readFileString(target)
+      .pipe(Effect.mapError((error) => `Файл ${target} не читается: ${error.message}`))
     const value = yield* Schema.decodeUnknownEffect(codec)(text).pipe(
       Effect.mapError((error) => `Файл ${target} не прошёл проверку: ${error.message}`)
     )
@@ -142,7 +149,7 @@ export const loadCatalogue = (
   proteinTable: ProteinTable = NO_PROTEIN,
   extras: CatalogueExtras = {}
 ): Effect.Effect<LoadedCatalogue, StoreError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const path = yield* Path.Path
     const parsedDir = path.join(dataDir, "parsed")
     const enrichedDir = path.join(dataDir, "enriched")
@@ -152,7 +159,7 @@ export const loadCatalogue = (
     const extraIds = new Set(extras.breakfastExtraIds ?? [])
 
     const load = (id: RecipeId) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const parsedPath = path.join(parsedDir, `${id}.json`)
         const enrichedPath = path.join(enrichedDir, `${id}.json`)
         const skip = (reason: SkipReason, message: string): Result.Result<CatalogueEntry, SkippedRecipe> =>
@@ -167,7 +174,9 @@ export const loadCatalogue = (
         if (Result.isFailure(parsed)) {
           return skip("invalid_parsed", parsed.failure)
         }
-        const enriched = yield* Effect.result(readRecipeFile(enrichedPath, id, EnrichedRecipeJson, (recipe) => recipe.id))
+        const enriched = yield* Effect.result(
+          readRecipeFile(enrichedPath, id, EnrichedRecipeJson, (recipe) => recipe.id)
+        )
         if (Result.isFailure(enriched)) {
           return skip("invalid_enriched", enriched.failure)
         }
@@ -177,15 +186,17 @@ export const loadCatalogue = (
           : Result.succeed(entry)
       })
 
-    const results = yield* Effect.forEach(ids, load, { concurrency: READ_CONCURRENCY })
+    const results = yield* Effect.forEach(ids, load, {
+      concurrency: READ_CONCURRENCY,
+    })
     const applied = applyServingsOverrides(
-      results.flatMap((result) => Result.isSuccess(result) ? [result.success] : []),
+      results.flatMap((result) => (Result.isSuccess(result) ? [result.success] : [])),
       overrides
     )
     return {
       catalogue: makeCatalogue(applied.entries, aliases, applied.overridden, proteinTable, extras.simpleBreakfasts),
-      skipped: results.flatMap((result) => Result.isFailure(result) ? [result.failure] : []),
-      unknownOverrides: applied.unknown
+      skipped: results.flatMap((result) => (Result.isFailure(result) ? [result.failure] : [])),
+      unknownOverrides: applied.unknown,
     }
   })
 
@@ -200,7 +211,7 @@ export const getRecipeDetails = (
   dataDir: string,
   id: RecipeId
 ): Effect.Effect<RecipeDetails, ParsedReadError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const target = path.join(dataDir, "parsed", `${id}.json`)
@@ -214,6 +225,6 @@ export const getRecipeDetails = (
       ingredientGroups: parsed.ingredientGroups,
       steps: parsed.steps,
       yieldText: parsed.yieldText,
-      servingsText: parsed.servingsText
+      servingsText: parsed.servingsText,
     }
   }).pipe(Effect.mapError((error) => new ParsedReadError({ id, message: error.message })))

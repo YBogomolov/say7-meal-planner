@@ -2,7 +2,14 @@ import { assert, describe, it } from "@effect/vitest"
 import { Option } from "effect"
 import type { RecipeId } from "../src/domain/recipe.ts"
 import { buildModelInput, computeInputHash } from "../src/enrich/input.ts"
-import { BATCH_THRESHOLD, chooseMode, customIdOf, planEnrichment, selectIds, SYNC_CONCURRENCY } from "../src/enrich/plan.ts"
+import {
+  BATCH_THRESHOLD,
+  chooseMode,
+  customIdOf,
+  planEnrichment,
+  selectIds,
+  SYNC_CONCURRENCY,
+} from "../src/enrich/plan.ts"
 import { DESSERTS, id, idSet, parsedRecipe, SALADS } from "./support/enrich.ts"
 
 const ids = (...numbers: ReadonlyArray<number>): ReadonlyArray<RecipeId> => numbers.map(id)
@@ -20,12 +27,25 @@ describe("selectIds", () => {
 })
 
 describe("planEnrichment", () => {
-  const base = { model: "claude-haiku-5-5", promptVersion: 1, storedHashes: new Map<RecipeId, string>(), limit: Option.none<number>() } as const
-  const recipes = [parsedRecipe(30), parsedRecipe(5, { categories: [SALADS] }), parsedRecipe(9, { categories: [DESSERTS] }), parsedRecipe(12)]
+  const base = {
+    model: "claude-haiku-5-5",
+    promptVersion: 1,
+    storedHashes: new Map<RecipeId, string>(),
+    limit: Option.none<number>(),
+  } as const
+  const recipes = [
+    parsedRecipe(30),
+    parsedRecipe(5, { categories: [SALADS] }),
+    parsedRecipe(9, { categories: [DESSERTS] }),
+    parsedRecipe(12),
+  ]
 
   it("processes the recipes in scope in ascending order of ID and skips the others", () => {
     const plan = planEnrichment({ ...base, recipes })
-    assert.deepStrictEqual<ReadonlyArray<number>>(plan.toProcess.map((recipe) => recipe.id), [5, 12, 30])
+    assert.deepStrictEqual<ReadonlyArray<number>>(
+      plan.toProcess.map((recipe) => recipe.id),
+      [5, 12, 30]
+    )
     assert.deepStrictEqual<ReadonlyArray<number>>(plan.outOfScope, [9])
     assert.deepStrictEqual(plan.cached, [])
     assert.strictEqual(plan.deferred, 0)
@@ -39,45 +59,97 @@ describe("planEnrichment", () => {
     assert.deepStrictEqual(planned?.input, buildModelInput(recipe))
     assert.strictEqual(
       planned?.inputHash,
-      computeInputHash({ input: buildModelInput(recipe), promptVersion: 1, model: "claude-haiku-5-5" })
+      computeInputHash({
+        input: buildModelInput(recipe),
+        promptVersion: 1,
+        model: "claude-haiku-5-5",
+      })
     )
   })
 
   it("skips a recipe whose stored hash is the current hash (spec A8)", () => {
     const hash = planEnrichment({ ...base, recipes }).toProcess.find((recipe) => recipe.id === 12)?.inputHash ?? ""
-    const plan = planEnrichment({ ...base, recipes, storedHashes: new Map([[id(12), hash]]) })
+    const plan = planEnrichment({
+      ...base,
+      recipes,
+      storedHashes: new Map([[id(12), hash]]),
+    })
     assert.deepStrictEqual<ReadonlyArray<number>>(plan.cached, [12])
-    assert.deepStrictEqual<ReadonlyArray<number>>(plan.toProcess.map((recipe) => recipe.id), [5, 30])
+    assert.deepStrictEqual<ReadonlyArray<number>>(
+      plan.toProcess.map((recipe) => recipe.id),
+      [5, 30]
+    )
   })
 
   it("processes a recipe again when its hash is old, or when the model or prompt version is new", () => {
     const old = planEnrichment({ ...base, recipes })
     const stored = new Map(old.toProcess.map((recipe) => [recipe.id, recipe.inputHash] as const))
     assert.strictEqual(planEnrichment({ ...base, recipes, storedHashes: stored }).toProcess.length, 0)
-    assert.strictEqual(planEnrichment({ ...base, recipes, storedHashes: stored, promptVersion: 2 }).toProcess.length, 3)
-    assert.strictEqual(planEnrichment({ ...base, recipes, storedHashes: stored, model: "claude-sonnet-5-5" }).toProcess.length, 3)
-    const edited = [parsedRecipe(5, { categories: [SALADS], lines: ["x"] }), ...recipes.filter((recipe) => recipe.id !== 5)]
-    const again = planEnrichment({ ...base, recipes: edited, storedHashes: stored })
-    assert.deepStrictEqual<ReadonlyArray<number>>(again.toProcess.map((recipe) => recipe.id), [5])
+    assert.strictEqual(
+      planEnrichment({
+        ...base,
+        recipes,
+        storedHashes: stored,
+        promptVersion: 2,
+      }).toProcess.length,
+      3
+    )
+    assert.strictEqual(
+      planEnrichment({
+        ...base,
+        recipes,
+        storedHashes: stored,
+        model: "claude-sonnet-5-5",
+      }).toProcess.length,
+      3
+    )
+    const edited = [
+      parsedRecipe(5, { categories: [SALADS], lines: ["x"] }),
+      ...recipes.filter((recipe) => recipe.id !== 5),
+    ]
+    const again = planEnrichment({
+      ...base,
+      recipes: edited,
+      storedHashes: stored,
+    })
+    assert.deepStrictEqual<ReadonlyArray<number>>(
+      again.toProcess.map((recipe) => recipe.id),
+      [5]
+    )
     assert.deepStrictEqual<ReadonlyArray<number>>(again.cached, [12, 30])
   })
 
   it("does not count a cached recipe that is out of scope as cached", () => {
-    const plan = planEnrichment({ ...base, recipes, storedHashes: new Map([[id(9), "x"]]) })
+    const plan = planEnrichment({
+      ...base,
+      recipes,
+      storedHashes: new Map([[id(9), "x"]]),
+    })
     assert.deepStrictEqual(plan.cached, [])
     assert.deepStrictEqual<ReadonlyArray<number>>(plan.outOfScope, [9])
   })
 
   it("takes the first n recipes with --limit and counts the others as deferred", () => {
     const plan = planEnrichment({ ...base, recipes, limit: Option.some(2) })
-    assert.deepStrictEqual<ReadonlyArray<number>>(plan.toProcess.map((recipe) => recipe.id), [5, 12])
+    assert.deepStrictEqual<ReadonlyArray<number>>(
+      plan.toProcess.map((recipe) => recipe.id),
+      [5, 12]
+    )
     assert.strictEqual(plan.deferred, 1)
   })
 
   it("does not count cached recipes against --limit", () => {
     const first = planEnrichment({ ...base, recipes }).toProcess[0]?.inputHash ?? ""
-    const plan = planEnrichment({ ...base, recipes, storedHashes: new Map([[id(5), first]]), limit: Option.some(1) })
-    assert.deepStrictEqual<ReadonlyArray<number>>(plan.toProcess.map((recipe) => recipe.id), [12])
+    const plan = planEnrichment({
+      ...base,
+      recipes,
+      storedHashes: new Map([[id(5), first]]),
+      limit: Option.some(1),
+    })
+    assert.deepStrictEqual<ReadonlyArray<number>>(
+      plan.toProcess.map((recipe) => recipe.id),
+      [12]
+    )
     assert.strictEqual(plan.deferred, 1)
   })
 

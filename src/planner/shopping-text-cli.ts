@@ -11,7 +11,7 @@ import { renderShoppingText } from "./shopping-render.ts"
 const EXIT_NO_PLAN = 1
 const EXIT_USAGE = 2
 
-const main = Effect.gen(function*() {
+const main = Effect.gen(function* () {
   const command = yield* Effect.fromResult(parseShoppingTextCli(process.argv.slice(2)))
   if (command._tag === "Help") {
     yield* Console.log(SHOPPING_TEXT_USAGE)
@@ -23,11 +23,16 @@ const main = Effect.gen(function*() {
   const file = path.join(dataDir, "plans", `${weekStart}.json`)
   if (!(yield* fs.exists(file))) {
     return yield* new PlanInvalidError({
-      message: `План на неделю ${weekStart} не найден: ${file}. Сначала сохраните план.`
+      message: `План на неделю ${weekStart} не найден: ${file}. Сначала сохраните план.`,
     })
   }
   const text = yield* fs.readFileString(file).pipe(
-    Effect.mapError((error) => new PlanInvalidError({ message: `Файл ${file} не читается: ${error.message}` }))
+    Effect.mapError(
+      (error) =>
+        new PlanInvalidError({
+          message: `Файл ${file} не читается: ${error.message}`,
+        })
+    )
   )
   const plan = yield* decodePlanJson(text)
   const [household, { aliases, overrides, proteinTable, extras }] = yield* Effect.all(
@@ -39,7 +44,9 @@ const main = Effect.gen(function*() {
     yield* Console.warn(`предупреждение: в servings-overrides.json есть рецепт ${id}, которого нет в каталоге.`)
   }
   // Only the text goes to stdout, so that the output can be piped to `pbcopy`.
-  const output = renderShoppingText(shoppingList(plan, catalogue, household), { withOptional })
+  const output = renderShoppingText(shoppingList(plan, catalogue, household), {
+    withOptional,
+  })
   yield* Console.log(output.replace(/\n$/, ""))
 }).pipe(
   Effect.provide(plannerLayer),
@@ -48,9 +55,11 @@ const main = Effect.gen(function*() {
       Effect.andThen(
         error._tag === "CliError" ? Console.error("Подсказка: `npm run shopping:text -- --help`.") : Effect.void
       ),
-      Effect.andThen(Effect.sync(() => {
-        process.exitCode = error._tag === "CliError" ? EXIT_USAGE : EXIT_NO_PLAN
-      }))
+      Effect.andThen(
+        Effect.sync(() => {
+          process.exitCode = error._tag === "CliError" ? EXIT_USAGE : EXIT_NO_PLAN
+        })
+      )
     )
   )
 )

@@ -11,8 +11,8 @@ import { baseCatalogue, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, ing, pla
 describe("renderShoppingList: golden week", () => {
   // The synthetic week of test/support/planner.ts. Dish 3 is cooked at scale 1,5.
   const plan = planOf({
-    cooking: BASE_COOKING.map((entry) => entry.recipeId === 3 ? { ...entry, scale: 1.5 } : entry),
-    meals: BASE_MEALS
+    cooking: BASE_COOKING.map((entry) => (entry.recipeId === 3 ? { ...entry, scale: 1.5 } : entry)),
+    meals: BASE_MEALS,
   })
   const rendered = renderShoppingList(shoppingList(plan, baseCatalogue(), DEFAULT_HOUSEHOLD))
 
@@ -52,31 +52,64 @@ describe("renderShoppingList: golden week", () => {
 })
 
 describe("renderShoppingList: spoons", () => {
-  const spoonList = (item: string, lines: ReadonlyArray<{ readonly quantity: number; readonly unit: "tbsp" | "tsp" | "ml" }>, scale: 1 | 1.5 = 1): string => {
+  const spoonList = (
+    item: string,
+    lines: ReadonlyArray<{
+      readonly quantity: number
+      readonly unit: "tbsp" | "tsp" | "ml"
+    }>,
+    scale: 1 | 1.5 = 1
+  ): string => {
     const catalogue = catalogueOf([
-      entryOf(1, { ingredients: lines.map((line) => ing(item, { category: "sauce", ...line })) })
+      entryOf(1, {
+        ingredients: lines.map((line) => ing(item, { category: "sauce", ...line })),
+      }),
     ])
-    const plan = planOf({ cooking: [{ session: "A", recipeId: 1, scale }], meals: [] })
+    const plan = planOf({
+      cooking: [{ session: "A", recipeId: 1, scale }],
+      meals: [],
+    })
     return renderShoppingList(shoppingList(plan, catalogue, DEFAULT_HOUSEHOLD))
   }
 
   it("writes tablespoons when the total is a multiple of 3 teaspoons", () => {
-    assert.include(spoonList("уксус", [{ quantity: 2, unit: "tbsp" }, { quantity: 3, unit: "tsp" }]), "- [ ] уксус — 3 ст. л. (блюда: 1)")
+    assert.include(
+      spoonList("уксус", [
+        { quantity: 2, unit: "tbsp" },
+        { quantity: 3, unit: "tsp" },
+      ]),
+      "- [ ] уксус — 3 ст. л. (блюда: 1)"
+    )
     assert.include(spoonList("уксус", [{ quantity: 3, unit: "tsp" }]), "- [ ] уксус — 1 ст. л. (блюда: 1)")
   })
 
   it("writes teaspoons for a total below 1 tablespoon, and both for the rest, without the approximate sign", () => {
     assert.include(spoonList("уксус", [{ quantity: 2, unit: "tsp" }]), "- [ ] уксус — 2 ч. л. (блюда: 1)")
-    assert.include(spoonList("уксус", [{ quantity: 1, unit: "tbsp" }, { quantity: 1, unit: "tsp" }]), "- [ ] уксус — 1 ст. л. + 1 ч. л. (блюда: 1)")
+    assert.include(
+      spoonList("уксус", [
+        { quantity: 1, unit: "tbsp" },
+        { quantity: 1, unit: "tsp" },
+      ]),
+      "- [ ] уксус — 1 ст. л. + 1 ч. л. (блюда: 1)"
+    )
   })
 
   it("writes the scale of 1,5 with a decimal comma", () => {
-    assert.include(spoonList("уксус", [{ quantity: 1, unit: "tbsp" }], 1.5), "- [ ] уксус — 1 ст. л. + 1,5 ч. л. (блюда: 1)")
+    assert.include(
+      spoonList("уксус", [{ quantity: 1, unit: "tbsp" }], 1.5),
+      "- [ ] уксус — 1 ст. л. + 1,5 ч. л. (блюда: 1)"
+    )
     assert.include(spoonList("уксус", [{ quantity: 2, unit: "tbsp" }], 1.5), "- [ ] уксус — 3 ст. л. (блюда: 1)")
   })
 
   it("writes millilitres when the product also has ml", () => {
-    assert.include(spoonList("уксус", [{ quantity: 2, unit: "tbsp" }, { quantity: 100, unit: "ml" }]), "- [ ] уксус — 130 мл (блюда: 1)")
+    assert.include(
+      spoonList("уксус", [
+        { quantity: 2, unit: "tbsp" },
+        { quantity: 100, unit: "ml" },
+      ]),
+      "- [ ] уксус — 130 мл (блюда: 1)"
+    )
   })
 })
 
@@ -92,7 +125,7 @@ describe("renderShoppingList: small lists", () => {
     unknownRecipeIds: [],
     extras: [],
     simpleBreakfasts: [],
-    unknownSimpleIds: []
+    unknownSimpleIds: [],
   }
 
   it("says that there is nothing to buy, and leaves the empty sections out", () => {
@@ -104,8 +137,18 @@ describe("renderShoppingList: small lists", () => {
 
   it("writes the weekly extras after the departments, and leaves the section out when empty", () => {
     const extras = [
-      { item: "вафли", amount: "1 упаковка", category: "sweet", note: "Соне на завтраки" },
-      { item: "яйца", amount: "7 шт", category: "eggs", note: "Соне на завтраки" }
+      {
+        item: "вафли",
+        amount: "1 упаковка",
+        category: "sweet",
+        note: "Соне на завтраки",
+      },
+      {
+        item: "яйца",
+        amount: "7 шт",
+        category: "eggs",
+        note: "Соне на завтраки",
+      },
     ] as const
     const text = renderShoppingList({ ...empty, extras })
     assert.include(
@@ -116,14 +159,27 @@ describe("renderShoppingList: small lists", () => {
   })
 
   it("warns about recipes that the catalogue does not have", () => {
-    const text = renderShoppingList({ ...empty, unknownRecipeIds: [12, 99].map(id) })
+    const text = renderShoppingList({
+      ...empty,
+      unknownRecipeIds: [12, 99].map(id),
+    })
     assert.include(text, "**Внимание:** рецептов 12, 99 нет в каталоге.")
   })
 
   it("escapes brackets in the title of a link", () => {
     const text = renderShoppingList({
       ...empty,
-      dishes: [{ recipeId: id(5), title: "Суп [тест]", url: "https://example.org/5", session: "A", sessionDay: 0, freshDays: [], scale: 1 }]
+      dishes: [
+        {
+          recipeId: id(5),
+          title: "Суп [тест]",
+          url: "https://example.org/5",
+          session: "A",
+          sessionDay: 0,
+          freshDays: [],
+          scale: 1,
+        },
+      ],
     })
     assert.include(text, "- [Суп \\[тест\\]](https://example.org/5) (5)")
   })
@@ -163,7 +219,16 @@ describe("formatAmount", () => {
     const forms = (unit: "pinch" | "bunch" | "clove" | "slice" | "pack") =>
       [1, 2, 4, 5, 11, 12, 21, 22, 25, 111].map((value) => formatAmount(unit, value))
     assert.deepStrictEqual(forms("bunch"), [
-      "1 пучок", "2 пучка", "4 пучка", "5 пучков", "11 пучков", "12 пучков", "21 пучок", "22 пучка", "25 пучков", "111 пучков"
+      "1 пучок",
+      "2 пучка",
+      "4 пучка",
+      "5 пучков",
+      "11 пучков",
+      "12 пучков",
+      "21 пучок",
+      "22 пучка",
+      "25 пучков",
+      "111 пучков",
     ])
     assert.strictEqual(formatAmount("clove", 3), "3 зубчика")
     assert.strictEqual(formatAmount("clove", 6), "6 зубчиков")
@@ -208,11 +273,24 @@ describe("renderShoppingList: units for the shopper", () => {
     )
 
   it("writes eggs as «8 шт. (≈ 413 г)»", () => {
-    assert.include(render([ing("яйца", { category: "eggs", quantity: 413, unit: "g", grams: 413 })]), "- [ ] яйца — 8 шт. (≈ 413 г) (блюда: 1)")
+    assert.include(
+      render([ing("яйца", { category: "eggs", quantity: 413, unit: "g", grams: 413 })]),
+      "- [ ] яйца — 8 шт. (≈ 413 г) (блюда: 1)"
+    )
   })
 
   it("writes a cereal in millilitres as «≈ 255 г»", () => {
-    assert.include(render([ing("гречка", { category: "grain", quantity: 300, unit: "ml", grams: 300 })]), "- [ ] гречка — ≈ 255 г (блюда: 1)")
+    assert.include(
+      render([
+        ing("гречка", {
+          category: "grain",
+          quantity: 300,
+          unit: "ml",
+          grams: 300,
+        }),
+      ]),
+      "- [ ] гречка — ≈ 255 г (блюда: 1)"
+    )
   })
 
   it("keeps the usual mix of grams and pieces", () => {
@@ -224,21 +302,40 @@ describe("renderShoppingList: units for the shopper", () => {
 })
 
 describe("renderShoppingText", () => {
-  const item = (name: string, amounts: ShoppingItem["amounts"], recipeIds: ReadonlyArray<number> = [1]): ShoppingItem => ({
+  const item = (
+    name: string,
+    amounts: ShoppingItem["amounts"],
+    recipeIds: ReadonlyArray<number> = [1]
+  ): ShoppingItem => ({
     item: name,
     category: "other",
     amounts,
     approximate: false,
     recipeIds: recipeIds.map(id),
-    simpleIds: []
+    simpleIds: [],
   })
   const list: ShoppingList = {
     weekStart: "2026-10-17",
     shoppingDay: 0,
     buy: [
-      { category: "vegetable", items: [item("лук репчатый", [{ unit: "g", value: 450 }], [1, 2, 3])] },
-      { category: "eggs", items: [item("яйца", [{ unit: "pcs", value: 8 }, { unit: "g", value: 413 }], [4, 5])] },
-      { category: "spice", items: [item("соль", [])] }
+      {
+        category: "vegetable",
+        items: [item("лук репчатый", [{ unit: "g", value: 450 }], [1, 2, 3])],
+      },
+      {
+        category: "eggs",
+        items: [
+          item(
+            "яйца",
+            [
+              { unit: "pcs", value: 8 },
+              { unit: "g", value: 413 },
+            ],
+            [4, 5]
+          ),
+        ],
+      },
+      { category: "spice", items: [item("соль", [])] },
     ],
     optional: [item("сметана", [{ unit: "ml", value: 1500 }], [6])],
     check_at_home: [item("мука", [{ unit: "g", value: 300 }])],
@@ -247,7 +344,7 @@ describe("renderShoppingText", () => {
     unknownRecipeIds: [],
     extras: [],
     simpleBreakfasts: [],
-    unknownSimpleIds: []
+    unknownSimpleIds: [],
   }
 
   it("writes one line per item to buy, with the amount and without the recipe IDs, and ends with 1 newline", () => {
@@ -265,7 +362,14 @@ describe("renderShoppingText", () => {
   })
 
   it("adds one line per weekly extra after the items to buy", () => {
-    const extras = [{ item: "яйца", amount: "7 шт", category: "eggs", note: "Соне на завтраки" }] as const
+    const extras = [
+      {
+        item: "яйца",
+        amount: "7 шт",
+        category: "eggs",
+        note: "Соне на завтраки",
+      },
+    ] as const
     assert.strictEqual(
       renderShoppingText({ ...list, extras }, { withOptional: true }),
       "лук репчатый — 450 г\nяйца — 8 шт. (≈ 413 г)\nсоль\nяйца — 7 шт (Соне на завтраки)\nсметана — 1,5 л\n"
@@ -277,10 +381,23 @@ describe("renderShoppingText", () => {
   })
 
   it("writes the approximate sign as in the Markdown list", () => {
-    const text = renderShoppingText({
-      ...list,
-      buy: [{ category: "grain", items: [{ ...item("гречка", [{ unit: "g", value: 255 }]), approximate: true }] }]
-    }, { withOptional: false })
+    const text = renderShoppingText(
+      {
+        ...list,
+        buy: [
+          {
+            category: "grain",
+            items: [
+              {
+                ...item("гречка", [{ unit: "g", value: 255 }]),
+                approximate: true,
+              },
+            ],
+          },
+        ],
+      },
+      { withOptional: false }
+    )
     assert.strictEqual(text, "гречка — ≈ 255 г\n")
   })
 

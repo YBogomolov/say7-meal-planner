@@ -21,24 +21,45 @@ const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR
 export const LONG_WAIT_MINUTES = 6 * MINUTES_PER_HOUR
 
 const NUMBER_WORDS: ReadonlyArray<readonly [string, number]> = [
-  ["одного", 1], ["одной", 1], ["одну", 1], ["одна", 1], ["один", 1],
-  ["двух", 2], ["две", 2], ["два", 2],
-  ["трех", 3], ["трёх", 3], ["три", 3],
-  ["четырех", 4], ["четырёх", 4], ["четыре", 4],
-  ["пяти", 5], ["пять", 5],
-  ["шести", 6], ["шесть", 6],
-  ["семи", 7], ["семь", 7],
-  ["восьми", 8], ["восемь", 8],
-  ["девяти", 9], ["девять", 9],
-  ["десяти", 10], ["десять", 10],
-  ["пятнадцати", 15], ["пятнадцать", 15],
-  ["двадцати", 20], ["двадцать", 20],
-  ["тридцати", 30], ["тридцать", 30]
+  ["одного", 1],
+  ["одной", 1],
+  ["одну", 1],
+  ["одна", 1],
+  ["один", 1],
+  ["двух", 2],
+  ["две", 2],
+  ["два", 2],
+  ["трех", 3],
+  ["трёх", 3],
+  ["три", 3],
+  ["четырех", 4],
+  ["четырёх", 4],
+  ["четыре", 4],
+  ["пяти", 5],
+  ["пять", 5],
+  ["шести", 6],
+  ["шесть", 6],
+  ["семи", 7],
+  ["семь", 7],
+  ["восьми", 8],
+  ["восемь", 8],
+  ["девяти", 9],
+  ["девять", 9],
+  ["десяти", 10],
+  ["десять", 10],
+  ["пятнадцати", 15],
+  ["пятнадцать", 15],
+  ["двадцати", 20],
+  ["двадцать", 20],
+  ["тридцати", 30],
+  ["тридцать", 30],
 ]
 
 const WORD_VALUES: ReadonlyMap<string, number> = new Map(NUMBER_WORDS)
 
-const NUMBER_WORD_PATTERN = NUMBER_WORDS.map(([word]) => word).toSorted((a, b) => b.length - a.length).join("|")
+const NUMBER_WORD_PATTERN = NUMBER_WORDS.map(([word]) => word)
+  .toSorted((a, b) => b.length - a.length)
+  .join("|")
 
 /** A number: digits with an optional decimal part (`,` or `.`), or a short number word. */
 const NUMBER = `(?:\\d+(?:[.,]\\d+)?|${NUMBER_WORD_PATTERN})`
@@ -91,22 +112,20 @@ const range = (from: string | undefined, to: string | undefined, factor: number)
 const MATCHERS: ReadonlyArray<Matcher> = [
   // 1 час 20 минут
   {
-    pattern: new RegExp(`(?<![\\d.,а-яё])(?<h>${NUMBER})\\s*${HOURS}\\s*(?:и\\s+)?(?<m>${NUMBER})\\s*${MINUTES}`, "giu"),
+    pattern: new RegExp(
+      `(?<![\\d.,а-яё])(?<h>${NUMBER})\\s*${HOURS}\\s*(?:и\\s+)?(?<m>${NUMBER})\\s*${MINUTES}`,
+      "giu"
+    ),
     minutes: (g) => {
       const hours = range(g["h"], undefined, MINUTES_PER_HOUR)
       const minutes = range(g["m"], undefined, 1)
-      return hours === undefined || minutes === undefined
-        ? undefined
-        : [hours[0] + minutes[0], hours[1] + minutes[1]]
-    }
+      return hours === undefined || minutes === undefined ? undefined : [hours[0] + minutes[0], hours[1] + minutes[1]]
+    },
   },
   // от 20 до 30 минут
   {
-    pattern: new RegExp(
-      `(?<![а-яё])от\\s+(?<a>${NUMBER})\\s+до\\s+(?<b>${NUMBER})\\s*(?<unit>${ANY_UNIT})`,
-      "giu"
-    ),
-    minutes: (g) => range(g["a"], g["b"], factorOf(g["unit"] ?? ""))
+    pattern: new RegExp(`(?<![а-яё])от\\s+(?<a>${NUMBER})\\s+до\\s+(?<b>${NUMBER})\\s*(?<unit>${ANY_UNIT})`, "giu"),
+    minutes: (g) => range(g["a"], g["b"], factorOf(g["unit"] ?? "")),
   },
   // 30 минут, 1,5 часа, 40–50 минут, 2-3 часа
   {
@@ -114,23 +133,23 @@ const MATCHERS: ReadonlyArray<Matcher> = [
       `(?<![\\d.,а-яё])(?<a>${NUMBER})(?:\\s*${DASH}\\s*(?<b>${NUMBER}))?\\s*(?<unit>${ANY_UNIT})`,
       "giu"
     ),
-    minutes: (g) => range(g["a"], g["b"], factorOf(g["unit"] ?? ""))
+    minutes: (g) => range(g["a"], g["b"], factorOf(g["unit"] ?? "")),
   },
   // полчаса, полтора часа
   {
     pattern: /(?<![а-яё])(?<w>полчаса|пол[\s-]часа|полтора\s+часа)(?![а-яё])/giu,
-    minutes: (g) => (g["w"]?.toLowerCase().startsWith("полтора") === true ? [90, 90] : [30, 30])
+    minutes: (g) => (g["w"]?.toLowerCase().startsWith("полтора") === true ? [90, 90] : [30, 30]),
   },
   // на час, в течение часа, на сутки, в течение суток
   {
     pattern: new RegExp(`(?<=(?<![а-яё])${PREPOSITIONS}\\s+)(?<unit>час|часа|сутки|суток)(?![а-яё])`, "giu"),
-    minutes: (g) => range("1", undefined, factorOf(g["unit"] ?? ""))
+    minutes: (g) => range("1", undefined, factorOf(g["unit"] ?? "")),
   },
   // сутки
   {
     pattern: /(?<![а-яё])сутки(?![а-яё])/giu,
-    minutes: () => [MINUTES_PER_DAY, MINUTES_PER_DAY]
-  }
+    minutes: () => [MINUTES_PER_DAY, MINUTES_PER_DAY],
+  },
 ]
 
 const candidatesOf = (text: string): ReadonlyArray<Candidate> =>
@@ -139,13 +158,15 @@ const candidatesOf = (text: string): ReadonlyArray<Candidate> =>
       const found = minutes(match.groups ?? {})
       return found === undefined || found[1] <= 0
         ? []
-        : [{
-          start: match.index,
-          end: match.index + match[0].length,
-          text: match[0],
-          minMinutes: found[0],
-          maxMinutes: found[1]
-        }]
+        : [
+            {
+              start: match.index,
+              end: match.index + match[0].length,
+              text: match[0],
+              minMinutes: found[0],
+              maxMinutes: found[1],
+            },
+          ]
     })
   )
 
@@ -164,7 +185,11 @@ export const extractDurations = (text: string): ReadonlyArray<StepDuration> => {
       lastEnd = candidate.end
     }
   }
-  return kept.map(({ text: fragment, minMinutes, maxMinutes }) => ({ minMinutes, maxMinutes, text: fragment }))
+  return kept.map(({ text: fragment, minMinutes, maxMinutes }) => ({
+    minMinutes,
+    maxMinutes,
+    text: fragment,
+  }))
 }
 
 /** The time mentions of all steps, step by step. A mention never crosses the end of a step. */
@@ -180,5 +205,4 @@ const OVERNIGHT =
  * an overnight wait, or a day.
  */
 export const mentionsLongWait = (steps: ReadonlyArray<string>, durations: ReadonlyArray<StepDuration>): boolean =>
-  durations.some((duration) => duration.maxMinutes >= LONG_WAIT_MINUTES) ||
-  steps.some((step) => OVERNIGHT.test(step))
+  durations.some((duration) => duration.maxMinutes >= LONG_WAIT_MINUTES) || steps.some((step) => OVERNIGHT.test(step))

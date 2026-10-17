@@ -11,7 +11,7 @@ import {
   normaliseName,
   percentOf,
   scoreEntry,
-  summariseChecks
+  summariseChecks,
 } from "../src/enrich/eval.ts"
 import type { EntryInput, StoredEntry } from "../src/enrich/eval.ts"
 import { enrichmentFor, id } from "./support/enrich.ts"
@@ -30,12 +30,27 @@ const goldEntry = (changes: Record<string, unknown> = {}): GoldEntry =>
     activeMinutes: { min: 50, max: 100 },
     longWait: false,
     keyLines: [
-      { raw: "500 г трески", item: ["треска", "рыба"], category: ["fish"], pantry: false },
-      { raw: "200 г моркови", item: ["морковь"], category: ["vegetable"], pantry: false },
-      { raw: "соль", item: ["соль"], category: ["spice", "other"], pantry: true }
+      {
+        raw: "500 г трески",
+        item: ["треска", "рыба"],
+        category: ["fish"],
+        pantry: false,
+      },
+      {
+        raw: "200 г моркови",
+        item: ["морковь"],
+        category: ["vegetable"],
+        pantry: false,
+      },
+      {
+        raw: "соль",
+        item: ["соль"],
+        category: ["spice", "other"],
+        pantry: true,
+      },
     ],
     note: "invented",
-    ...changes
+    ...changes,
   })
 
 const LINES = ["500 г трески", "200 г моркови", "соль"]
@@ -52,7 +67,15 @@ const passing = (): Enrichment => {
     ingredients: [
       { ...first, item: "треска", category: "fish", pantry: false },
       { ...second, item: "морковь", category: "vegetable", pantry: false },
-      { ...third, item: "соль", category: "spice", pantry: true, quantity: null, unit: null, grams: null }
+      {
+        ...third,
+        item: "соль",
+        category: "spice",
+        pantry: true,
+        quantity: null,
+        unit: null,
+        grams: null,
+      },
     ],
     proteinFamilies: ["fish"],
     vegetarian: false,
@@ -61,7 +84,7 @@ const passing = (): Enrichment => {
     servings: { min: 6, max: 8, source: "estimated" },
     activeMinutes: 60,
     heat: 1,
-    longWaitHours: 3
+    longWaitHours: 3,
   }
 }
 
@@ -69,7 +92,7 @@ const score = (enrichment: Enrichment | null, gold = goldEntry(), lines: Readonl
   scoreEntry({
     gold,
     enrichment: Option.fromNullishOr(enrichment),
-    lines: Option.fromNullishOr(lines)
+    lines: Option.fromNullishOr(lines),
   } satisfies EntryInput)
 
 const failedFields = (checks: ReturnType<typeof score>): ReadonlyArray<EvalField> =>
@@ -94,17 +117,20 @@ describe("scoreEntry", () => {
     ["activeMinutes above the range", { activeMinutes: 101 }, "activeMinutes"],
     ["longWait for a long wait", { longWaitHours: 6 }, "longWait"],
     ["servings min below the range", { servings: { min: 4, max: 8, source: "estimated" } }, "servings"],
-    ["servings max above the range", { servings: { min: 6, max: 10, source: "estimated" } }, "servings"]
+    ["servings max above the range", { servings: { min: 6, max: 10, source: "estimated" } }, "servings"],
   ])("fails only %s", (_name, changes, field) => {
     assert.deepStrictEqual(failedFields(score({ ...passing(), ...changes })), [field])
   })
 
   it("accepts any accepted value of dishType and mealFit", () => {
-    const gold = goldEntry({ dishType: ["main", "side"], mealFit: ["full_meal"] })
+    const gold = goldEntry({
+      dishType: ["main", "side"],
+      mealFit: ["full_meal"],
+    })
     assert.deepStrictEqual(failedFields(score({ ...passing(), dishType: "side", mealFit: "full_meal" }, gold)), [])
     assert.deepStrictEqual(failedFields(score({ ...passing(), dishType: "salad", mealFit: "needs_side" }, gold)), [
       "dishType",
-      "mealFit"
+      "mealFit",
     ])
   })
 
@@ -125,8 +151,12 @@ describe("scoreEntry", () => {
 
     it("widen the servings range by the tolerance at both ends", () => {
       const pass = (min: number, max: number, tolerance: number) =>
-        !failedFields(score({ ...passing(), servings: { min, max, source: "estimated" } }, goldEntry({ servings: { min: 6, max: 8, tolerance } })))
-          .includes("servings")
+        !failedFields(
+          score(
+            { ...passing(), servings: { min, max, source: "estimated" } },
+            goldEntry({ servings: { min: 6, max: 8, tolerance } })
+          )
+        ).includes("servings")
       assert.isTrue(pass(5, 9, 1))
       assert.isFalse(pass(4, 8, 1))
       assert.isFalse(pass(6, 10, 1))
@@ -140,8 +170,12 @@ describe("scoreEntry", () => {
     it("need min and max of the model to be inside the range", () => {
       // min inside and max outside: fail. Both inside: pass.
       const gold = goldEntry({ servings: { min: 4, max: 4, tolerance: 0 } })
-      assert.isTrue(failedFields(score({ ...passing(), servings: { min: 4, max: 5, source: "page" } }, gold)).includes("servings"))
-      assert.isFalse(failedFields(score({ ...passing(), servings: { min: 4, max: 4, source: "page" } }, gold)).includes("servings"))
+      assert.isTrue(
+        failedFields(score({ ...passing(), servings: { min: 4, max: 5, source: "page" } }, gold)).includes("servings")
+      )
+      assert.isFalse(
+        failedFields(score({ ...passing(), servings: { min: 4, max: 4, source: "page" } }, gold)).includes("servings")
+      )
     })
   })
 
@@ -172,22 +206,38 @@ describe("scoreEntry", () => {
     it("accepts every accepted name of item, and ignores case and the letter ё", () => {
       const named = (item: string): Enrichment => {
         const base = passing()
-        return { ...base, ingredients: base.ingredients.map((entry) => (entry.line === 0 ? { ...entry, item } : entry)) }
+        return {
+          ...base,
+          ingredients: base.ingredients.map((entry) => (entry.line === 0 ? { ...entry, item } : entry)),
+        }
       }
       assert.deepStrictEqual(keyFailures(named("рыба")), [])
       assert.deepStrictEqual(keyFailures(named("Треска")), [])
       assert.strictEqual(normaliseName("  Свёкла   Красная "), "свекла красная")
-      assert.strictEqual(keyFailures(named("палтус")).map((check) => check.field).join(), "keyLine.item")
+      assert.strictEqual(
+        keyFailures(named("палтус"))
+          .map((check) => check.field)
+          .join(),
+        "keyLine.item"
+      )
     })
 
     it("fails category and pantry separately", () => {
       const base = passing()
       const changed: Enrichment = {
         ...base,
-        ingredients: base.ingredients.map((entry) => (entry.line === 2 ? { ...entry, category: "sauce", pantry: false } : entry))
+        ingredients: base.ingredients.map((entry) =>
+          entry.line === 2 ? { ...entry, category: "sauce", pantry: false } : entry
+        ),
       }
-      assert.deepStrictEqual(keyFailures(changed).map((check) => check.field), ["keyLine.category", "keyLine.pantry"])
-      assert.deepStrictEqual(keyFailures(changed).map((check) => check.key), ["соль", "соль"])
+      assert.deepStrictEqual(
+        keyFailures(changed).map((check) => check.field),
+        ["keyLine.category", "keyLine.pantry"]
+      )
+      assert.deepStrictEqual(
+        keyFailures(changed).map((check) => check.key),
+        ["соль", "соль"]
+      )
     })
 
     it("takes the item that matches when a line has 2 items", () => {
@@ -197,7 +247,11 @@ describe("scoreEntry", () => {
       const two: Enrichment = {
         ...base,
         // The first item of line 2 is wrong, the second is right.
-        ingredients: [...base.ingredients.slice(0, 2), { ...second, item: "перец", category: "spice", pantry: true }, second]
+        ingredients: [
+          ...base.ingredients.slice(0, 2),
+          { ...second, item: "перец", category: "spice", pantry: true },
+          second,
+        ],
       }
       assert.deepStrictEqual(keyFailures(two), [])
     })
@@ -206,17 +260,28 @@ describe("scoreEntry", () => {
       const base = passing()
       const wrong: Enrichment = {
         ...base,
-        ingredients: base.ingredients.map((entry) => (entry.line === 1 ? { ...entry, item: "свекла", category: "vegetable" } : entry))
+        ingredients: base.ingredients.map((entry) =>
+          entry.line === 1 ? { ...entry, item: "свекла", category: "vegetable" } : entry
+        ),
       }
       const failures = keyFailures(wrong)
-      assert.deepStrictEqual(failures.map((check) => check.field), ["keyLine.item"])
+      assert.deepStrictEqual(
+        failures.map((check) => check.field),
+        ["keyLine.item"]
+      )
       assert.include(failures[0]?.actual, "свекла")
     })
 
     it("fails the 3 checks of a line that has no item", () => {
       const base = passing()
-      const without: Enrichment = { ...base, ingredients: base.ingredients.filter((entry) => entry.line !== 1) }
-      assert.deepStrictEqual(keyFailures(without).map((check) => check.field), ["keyLine.item", "keyLine.category", "keyLine.pantry"])
+      const without: Enrichment = {
+        ...base,
+        ingredients: base.ingredients.filter((entry) => entry.line !== 1),
+      }
+      assert.deepStrictEqual(
+        keyFailures(without).map((check) => check.field),
+        ["keyLine.item", "keyLine.category", "keyLine.pantry"]
+      )
     })
 
     it("finds the line by its exact raw text", () => {
@@ -225,7 +290,10 @@ describe("scoreEntry", () => {
       const base = passing()
       const renumbered: Enrichment = {
         ...base,
-        ingredients: base.ingredients.map((entry) => ({ ...entry, line: 2 - entry.line }))
+        ingredients: base.ingredients.map((entry) => ({
+          ...entry,
+          line: 2 - entry.line,
+        })),
       }
       assert.deepStrictEqual(keyFailures(renumbered, shuffled), [])
       assert.lengthOf(keyFailures(base, shuffled), 6)
@@ -239,7 +307,10 @@ describe("scoreEntry", () => {
 
     it("fails all the key lines when there is no parsed recipe, and keeps the other fields", () => {
       const checks = score(passing(), goldEntry(), null)
-      assert.lengthOf(checks.filter((check) => !check.passed), 9)
+      assert.lengthOf(
+        checks.filter((check) => !check.passed),
+        9
+      )
       assert.isTrue(checks.filter((check) => !check.field.startsWith("keyLine")).every((check) => check.passed))
     })
   })
@@ -253,7 +324,14 @@ describe("scoreEntry", () => {
 
   it("names the recipe, the expected value and the actual value in a failed check", () => {
     const check = score({ ...passing(), heat: 3 }).find((entry) => !entry.passed)
-    assert.deepStrictEqual(check, { id: id(7), field: "heat", key: null, passed: false, expected: "0..1", actual: "3" })
+    assert.deepStrictEqual(check, {
+      id: id(7),
+      field: "heat",
+      key: null,
+      passed: false,
+      expected: "0..1",
+      actual: "3",
+    })
   })
 })
 
@@ -273,9 +351,19 @@ describe("percentOf and summariseChecks", () => {
     const checks = [...score(passing()), ...score({ ...passing(), heat: 3, dishType: "soup" })]
     const summary = summariseChecks(checks)
     assert.lengthOf(summary.fields, 11)
-    assert.deepStrictEqual(summary.fields.find((row) => row.field === "heat"), { field: "heat", passed: 1, total: 2, percent: 50 })
-    assert.deepStrictEqual(summary.fields.find((row) => row.field === "keyLine.item"), { field: "keyLine.item", passed: 6, total: 6, percent: 100 })
-    assert.deepStrictEqual(summary.total, { passed: 32, total: 34, percent: 94.1 })
+    assert.deepStrictEqual(
+      summary.fields.find((row) => row.field === "heat"),
+      { field: "heat", passed: 1, total: 2, percent: 50 }
+    )
+    assert.deepStrictEqual(
+      summary.fields.find((row) => row.field === "keyLine.item"),
+      { field: "keyLine.item", passed: 6, total: 6, percent: 100 }
+    )
+    assert.deepStrictEqual(summary.total, {
+      passed: 32,
+      total: 34,
+      percent: 94.1,
+    })
   })
 })
 
@@ -288,21 +376,26 @@ describe("buildEvalReport and formatEvalReport", () => {
       promptVersion: 1,
       inputHash: "a".repeat(64),
       createdAt: "2026-10-12T14:00:00.000Z",
-      usage: { inputTokens: 1_000_000, outputTokens: 1_000_000, cacheReadTokens: 0, cacheCreationTokens: 0 },
-      enrichment
+      usage: {
+        inputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+      enrichment,
     })
 
   const entry = (gold: GoldEntry, file: EnrichedRecipe | null, enrichment: Enrichment | null): StoredEntry => ({
     gold,
     stored: Option.fromNullishOr(file),
     enrichment: Option.fromNullishOr(enrichment),
-    lines: Option.some(LINES)
+    lines: Option.some(LINES),
   })
 
   const report = buildEvalReport(
     [
       entry(goldEntry(), stored("claude-haiku-5-5", { ...passing(), heat: 3 }), { ...passing(), heat: 3 }),
-      entry(goldEntry({ id: 8 }), null, null)
+      entry(goldEntry({ id: 8 }), null, null),
     ],
     "2026-10-12T15:00:00.000Z"
   )
@@ -310,7 +403,11 @@ describe("buildEvalReport and formatEvalReport", () => {
   it("counts the entries, the missing recipes and all checks", () => {
     assert.strictEqual(report.entries, 2)
     assert.deepStrictEqual(report.missing, [id(8)])
-    assert.deepStrictEqual(report.total, { passed: 16, total: 34, percent: 47.1 })
+    assert.deepStrictEqual(report.total, {
+      passed: 16,
+      total: 34,
+      percent: 47.1,
+    })
   })
 
   it("lists the models and prompt versions of the stored files, and adds the usage and the sync cost", () => {
@@ -325,7 +422,7 @@ describe("buildEvalReport and formatEvalReport", () => {
     const both = buildEvalReport(
       [
         entry(goldEntry(), stored("claude-sonnet-5-5", passing()), passing()),
-        entry(goldEntry({ id: 8 }), stored("claude-haiku-5-5", passing()), passing())
+        entry(goldEntry({ id: 8 }), stored("claude-haiku-5-5", passing()), passing()),
       ],
       "2026-10-12T15:00:00.000Z"
     )
@@ -340,14 +437,26 @@ describe("buildEvalReport and formatEvalReport", () => {
     assert.include(text, "7 heat: expected 0..1, got 3")
     assert.include(text, "models: claude-haiku-5-5; prompt versions: 1")
     assert.include(text, "estimated cost 0.6000 USD")
-    for (const field of ["dishType", "mealFit", "proteinFamilies", "vegetarian", "activeMinutes", "servings", "longWait", "keyLine.item"]) {
+    for (const field of [
+      "dishType",
+      "mealFit",
+      "proteinFamilies",
+      "vegetarian",
+      "activeMinutes",
+      "servings",
+      "longWait",
+      "keyLine.item",
+    ]) {
       assert.include(text, field)
     }
   })
 
   it("prints a short text when every check passes", () => {
     const text = formatEvalReport(
-      buildEvalReport([entry(goldEntry(), stored("claude-haiku-5-5", passing()), passing())], "2026-10-12T15:00:00.000Z")
+      buildEvalReport(
+        [entry(goldEntry(), stored("claude-haiku-5-5", passing()), passing())],
+        "2026-10-12T15:00:00.000Z"
+      )
     ).join("\n")
     assert.include(text, "all checks passed")
     assert.include(text, "100.0")

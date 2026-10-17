@@ -18,7 +18,10 @@ const MIN_COVERAGE_DEN = 10
 
 const PositiveInt = Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))
 
-const ServingsOverride = Schema.Struct({ min: PositiveInt, max: PositiveInt }).pipe(
+const ServingsOverride = Schema.Struct({
+  min: PositiveInt,
+  max: PositiveInt,
+}).pipe(
   Schema.check(
     Schema.makeFilter<{ readonly min: number; readonly max: number }>(
       (range) => range.min <= range.max || "Expected min to be less than or equal to max"
@@ -79,10 +82,16 @@ export const applyServingsOverrides = (
       const override = overrides.get(entry.id)
       return override === undefined
         ? entry
-        : { ...entry, enrichment: { ...entry.enrichment, servings: { ...entry.enrichment.servings, ...override } } }
+        : {
+            ...entry,
+            enrichment: {
+              ...entry.enrichment,
+              servings: { ...entry.enrichment.servings, ...override },
+            },
+          }
     }),
     overridden: new Set(entries.filter((entry) => overrides.has(entry.id)).map((entry) => entry.id)),
-    unknown: [...overrides.keys()].filter((id) => !known.has(id)).sort((a, b) => a - b)
+    unknown: [...overrides.keys()].filter((id) => !known.has(id)).sort((a, b) => a - b),
   }
 }
 
@@ -96,7 +105,10 @@ const portionOf = (entry: CatalogueEntry): { readonly grams: number | null; read
   const coverage = withGrams.length / lines.length
   const enough = withGrams.length * MIN_COVERAGE_DEN >= lines.length * MIN_COVERAGE_NUM
   const total = withGrams.reduce((sum, grams) => sum + grams, 0)
-  return { grams: enough ? total / entry.enrichment.servings.max : null, coverage }
+  return {
+    grams: enough ? total / entry.enrichment.servings.max : null,
+    coverage,
+  }
 }
 
 const round1 = (value: number): number => Math.round(value * 10) / 10
@@ -112,7 +124,10 @@ const priorityOf = (dishType: DishType): number => {
  * The reason codes of one recipe and its portion facts. Pure.
  * A human wrote an overridden range, so `estimated` does not apply to it. The other checks still do.
  */
-export const servingsReasons = (entry: CatalogueEntry, overridden = false): {
+export const servingsReasons = (
+  entry: CatalogueEntry,
+  overridden = false
+): {
   readonly reasons: ReadonlyArray<ServingsReason>
   readonly portionGrams: number | null
   readonly gramsCoverage: number | null
@@ -123,12 +138,13 @@ export const servingsReasons = (entry: CatalogueEntry, overridden = false): {
     estimated: !overridden && source === "estimated",
     max_above_12: max > MAX_SERVINGS,
     range_above_3x: max > MAX_SERVINGS_RATIO * min,
-    portion_mass_out_of_range: portion.grams !== null && (portion.grams < MIN_PORTION_GRAMS || portion.grams > MAX_PORTION_GRAMS)
+    portion_mass_out_of_range:
+      portion.grams !== null && (portion.grams < MIN_PORTION_GRAMS || portion.grams > MAX_PORTION_GRAMS),
   }
   return {
     reasons: SERVINGS_REASONS.filter((reason) => flags[reason]),
     portionGrams: portion.grams,
-    gramsCoverage: portion.coverage
+    gramsCoverage: portion.coverage,
   }
 }
 
@@ -150,17 +166,21 @@ export const servingsAudit = (catalogue: Catalogue): ServingsAudit => {
     .flatMap((entry): Array<ServingsReportEntry> => {
       const overridden = catalogue.overridden.has(entry.id)
       const { reasons, portionGrams, gramsCoverage } = servingsReasons(entry, overridden)
-      return reasons.length === 0 ? [] : [{
-        id: entry.id,
-        title: entry.title,
-        url: entry.url,
-        dishType: entry.enrichment.dishType,
-        servings: entry.enrichment.servings,
-        portionGrams: portionGrams === null ? null : round1(portionGrams),
-        gramsCoverage: gramsCoverage === null ? null : Math.round(gramsCoverage * 1000) / 1000,
-        reasons,
-        overridden
-      }]
+      return reasons.length === 0
+        ? []
+        : [
+            {
+              id: entry.id,
+              title: entry.title,
+              url: entry.url,
+              dishType: entry.enrichment.dishType,
+              servings: entry.enrichment.servings,
+              portionGrams: portionGrams === null ? null : round1(portionGrams),
+              gramsCoverage: gramsCoverage === null ? null : Math.round(gramsCoverage * 1000) / 1000,
+              reasons,
+              overridden,
+            },
+          ]
     })
     .sort((a, b) => priorityOf(a.dishType) - priorityOf(b.dishType) || a.id - b.id)
   const count = (reason: ServingsReason): number => entries.filter((entry) => entry.reasons.includes(reason)).length
@@ -171,8 +191,8 @@ export const servingsAudit = (catalogue: Catalogue): ServingsAudit => {
       estimated: count("estimated"),
       max_above_12: count("max_above_12"),
       range_above_3x: count("range_above_3x"),
-      portion_mass_out_of_range: count("portion_mass_out_of_range")
+      portion_mass_out_of_range: count("portion_mass_out_of_range"),
     },
-    flaggedMainSoupSalad: entries.filter((entry) => priorityOf(entry.dishType) < DISH_PRIORITY.length).length
+    flaggedMainSoupSalad: entries.filter((entry) => priorityOf(entry.dishType) < DISH_PRIORITY.length).length,
   }
 }

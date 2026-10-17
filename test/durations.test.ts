@@ -12,7 +12,7 @@ describe("extractDurations: the forms of the spec", () => {
     ["2-3 часа", "2-3 часа", 120, 180],
     ["1 час 20 минут", "1 час 20 минут", 80, 80],
     ["в течение 10 минут", "10 минут", 10, 10],
-    ["полчаса", "полчаса", 30, 30]
+    ["полчаса", "полчаса", 30, 30],
   ])("reads %s", (text, fragment, min, max) => {
     assert.deepStrictEqual(mentions(text), [[fragment, min, max]])
   })
@@ -23,7 +23,7 @@ describe("extractDurations: the forms of the spec", () => {
     "Добавить 2 ст.л. масла и 150 г муки.",
     "Взбить 3 яйца.",
     "",
-    "Это займет некоторое время."
+    "Это займет некоторое время.",
   ])("finds no time in %j", (text) => {
     assert.deepStrictEqual(mentions(text), [])
   })
@@ -91,7 +91,7 @@ describe("extractDurations: other forms of the pages", () => {
     assert.deepStrictEqual(mentions("Жарить 5 минут, затем тушить 15–20 минут и оставить на 2 часа."), [
       ["5 минут", 5, 5],
       ["15–20 минут", 15, 20],
-      ["2 часа", 120, 120]
+      ["2 часа", 120, 120],
     ])
   })
 
@@ -105,21 +105,27 @@ describe("extractDurations: other forms of the pages", () => {
   })
 
   it("is not case sensitive", () => {
-    assert.deepStrictEqual(mentions("Варить 20 Минут. Полчаса отдыхать."), [["20 Минут", 20, 20], ["Полчаса", 30, 30]])
+    assert.deepStrictEqual(mentions("Варить 20 Минут. Полчаса отдыхать."), [
+      ["20 Минут", 20, 20],
+      ["Полчаса", 30, 30],
+    ])
   })
 })
 
 describe("extractStepDurations", () => {
   it("collects the mentions step by step", () => {
     const found = extractStepDurations(["Варить 10 минут.", "Нарезать.", "Остудить 1 час."])
-    assert.deepStrictEqual(found.map((d) => d.text), ["10 минут", "1 час"])
+    assert.deepStrictEqual(
+      found.map((d) => d.text),
+      ["10 минут", "1 час"]
+    )
   })
 
   it("does not join text across the end of a step", () => {
-    assert.deepStrictEqual(extractStepDurations(["Оставить на 1 час", "20 минут отдыхать"]).map((d) => d.text), [
-      "1 час",
-      "20 минут"
-    ])
+    assert.deepStrictEqual(
+      extractStepDurations(["Оставить на 1 час", "20 минут отдыхать"]).map((d) => d.text),
+      ["1 час", "20 минут"]
+    )
   })
 })
 

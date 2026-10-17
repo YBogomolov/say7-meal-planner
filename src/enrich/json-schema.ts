@@ -20,18 +20,18 @@ const enumOf = (...values: ReadonlyArray<string>) => ({ type: "string", enum: va
  * so the enum stays in a typed branch and `null` is a branch of its own.
  * The Effect Schema side is `Schema.NullOr(Schema.Literals(values))`, so the decoded type has `null` as well.
  */
-const nullableEnumOf = (...values: ReadonlyArray<string>) =>
-  ({ anyOf: [enumOf(...values), { type: "null" }] }) as const
+const nullableEnumOf = (...values: ReadonlyArray<string>) => ({ anyOf: [enumOf(...values), { type: "null" }] }) as const
 
 const array = <const Items extends object>(items: Items) => ({ type: "array", items }) as const
 
 /** An object schema in which every property is required and no other property is allowed. */
-const object = <const Properties extends Readonly<Record<string, object>>>(properties: Properties) => ({
-  type: "object",
-  additionalProperties: false,
-  required: Object.keys(properties),
-  properties
-}) as const
+const object = <const Properties extends Readonly<Record<string, object>>>(properties: Properties) =>
+  ({
+    type: "object",
+    additionalProperties: false,
+    required: Object.keys(properties),
+    properties,
+  }) as const
 
 const INGREDIENT_ITEM = object({
   line: { type: "integer" },
@@ -64,14 +64,12 @@ const INGREDIENT_ITEM = object({
   quantity: { type: ["number", "null"] },
   unit: nullableEnumOf("g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack"),
   grams: { type: ["number", "null"] },
-  optional: { type: "boolean" }
+  optional: { type: "boolean" },
 })
 
 export const ENRICHMENT_JSON_SCHEMA = object({
   ingredients: array(INGREDIENT_ITEM),
-  proteinFamilies: array(
-    enumOf("chicken", "turkey", "duck", "pork", "beef", "lamb", "rabbit", "fish", "seafood")
-  ),
+  proteinFamilies: array(enumOf("chicken", "turkey", "duck", "pork", "beef", "lamb", "rabbit", "fish", "seafood")),
   vegetarian: { type: "boolean" },
   dishType: enumOf("soup", "main", "side", "salad", "snack", "savory_bake", "pancakes", "sauce", "other"),
   mealFit: enumOf("full_meal", "needs_side", "side_only", "not_a_meal"),
@@ -79,7 +77,7 @@ export const ENRICHMENT_JSON_SCHEMA = object({
   servings: object({
     min: { type: "integer" },
     max: { type: "integer" },
-    source: enumOf("page", "estimated")
+    source: enumOf("page", "estimated"),
   }),
   activeMinutes: { type: "integer" },
   totalMinutes: { type: "integer" },
@@ -104,7 +102,7 @@ export const ENRICHMENT_JSON_SCHEMA = object({
   ),
   fridgeDays: { type: "integer" },
   freezable: { type: "boolean" },
-  reheats: enumOf("well", "ok", "poor", "served_cold")
+  reheats: enumOf("well", "ok", "poor", "served_cold"),
 })
 
 /** Limits of spec A4. */
@@ -124,7 +122,7 @@ const ALLOWED_KEYWORDS: ReadonlySet<string> = new Set([
   "minItems",
   "pattern",
   "description",
-  "title"
+  "title",
 ])
 
 /** Keywords that the API rejects or ignores, with the reason for the message. */
@@ -145,7 +143,7 @@ const UNSUPPORTED_KEYWORDS: Readonly<Record<string, string>> = {
   allOf: "not used in this project",
   not: "not supported",
   $ref: "not used in this project (no recursion is allowed)",
-  $defs: "not used in this project"
+  $defs: "not used in this project",
 }
 
 /** A regular expression with a look-around or a back reference does not work in the API. */
@@ -199,7 +197,11 @@ export const checkApiSchema = (schema: unknown): ApiSchemaCheck => {
     if (minItems !== undefined && minItems !== 0 && minItems !== 1) {
       violations.push(`${path}: "minItems" must be 0 or 1`)
     }
-    if (type !== undefined && typeof type !== "string" && !(Array.isArray(type) && type.every((t) => typeof t === "string"))) {
+    if (
+      type !== undefined &&
+      typeof type !== "string" &&
+      !(Array.isArray(type) && type.every((t) => typeof t === "string"))
+    ) {
       violations.push(`${path}: "type" must be a string or an array of strings`)
     }
 
@@ -256,7 +258,7 @@ export const checkApiSchema = (schema: unknown): ApiSchemaCheck => {
 
   walk(schema, "$")
   if (!isRecord(schema) || schema["type"] !== "object") {
-    violations.push("$: the root schema must have type \"object\"")
+    violations.push('$: the root schema must have type "object"')
   }
   if (nullableProperties > MAX_NULLABLE_PROPERTIES) {
     violations.push(
@@ -266,5 +268,11 @@ export const checkApiSchema = (schema: unknown): ApiSchemaCheck => {
   if (optionalProperties > MAX_OPTIONAL_PROPERTIES) {
     violations.push(`${optionalProperties} optional properties; the limit is ${MAX_OPTIONAL_PROPERTIES}`)
   }
-  return { violations, nullableProperties, optionalProperties, properties, objects }
+  return {
+    violations,
+    nullableProperties,
+    optionalProperties,
+    properties,
+    objects,
+  }
 }

@@ -24,7 +24,10 @@ export interface Tool<R> {
 /** Decoding options for tool arguments: report every problem of the shape in one pass. */
 export const ARGUMENT_DECODE_OPTIONS = { errors: "all" } as const
 
-const ok = (texts: ReadonlyArray<string>): ToolResult => ({ texts, isError: false })
+const ok = (texts: ReadonlyArray<string>): ToolResult => ({
+  texts,
+  isError: false,
+})
 const failed = (text: string): ToolResult => ({ texts: [text], isError: true })
 
 /**
@@ -35,7 +38,11 @@ export const inputJsonSchema = <A, I>(schema: Schema.Codec<A, I>): ToolInputSche
   const document = Schema.toJsonSchemaDocument(schema)
   const { type: _type, ...rest } = document.schema
   const hasDefinitions = Object.keys(document.definitions).length > 0
-  return { ...rest, type: "object", ...(hasDefinitions ? { $defs: document.definitions } : {}) }
+  return {
+    ...rest,
+    type: "object",
+    ...(hasDefinitions ? { $defs: document.definitions } : {}),
+  }
 }
 
 /** Decode the arguments of a tool call. The failure is a Russian text with the details of the decoder. */
@@ -73,5 +80,5 @@ export const defineTool = <A, I, E extends { readonly message: string }, R>(defi
         Effect.succeed(failed(`Внутренняя ошибка инструмента ${definition.name}.\n${Cause.pretty(cause)}`))
       )
     )
-  }
+  },
 })

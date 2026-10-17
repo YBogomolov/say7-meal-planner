@@ -7,15 +7,19 @@ import { batchFactor, costUsd, formatUsd, PRICES } from "./pricing.ts"
 
 /** What happened to one recipe that went to the model. */
 export type RecipeOutcome =
-  | { readonly _tag: "Stored"; readonly id: RecipeId; readonly usage: TokenUsage }
   | {
-    readonly _tag: "Failed"
-    readonly id: RecipeId
-    readonly kind: FailureKind
-    readonly message: string
-    /** Tokens of the failed answers. The API bills them. */
-    readonly usage: TokenUsage
-  }
+      readonly _tag: "Stored"
+      readonly id: RecipeId
+      readonly usage: TokenUsage
+    }
+  | {
+      readonly _tag: "Failed"
+      readonly id: RecipeId
+      readonly kind: FailureKind
+      readonly message: string
+      /** Tokens of the failed answers. The API bills them. */
+      readonly usage: TokenUsage
+    }
 
 export interface ReportParts {
   readonly generatedAt: string
@@ -61,7 +65,7 @@ export const buildReport = (parts: ReportParts): EnrichReport => {
       deferred: parts.deferred,
       processed,
       succeeded: processed - failedOutcomes.length,
-      failed: failures.length
+      failed: failures.length,
     },
     failures,
     usage,
@@ -71,8 +75,8 @@ export const buildReport = (parts: ReportParts): EnrichReport => {
       mode: parts.mode,
       pricePerMillionTokens: PRICES[parts.model],
       batchFactor: batchFactor(parts.mode),
-      estimatedUsd: round6(costUsd(usage, parts.model, parts.mode))
-    }
+      estimatedUsd: round6(costUsd(usage, parts.model, parts.mode)),
+    },
   }
 }
 
@@ -82,7 +86,7 @@ export const formatTotals = (report: EnrichReport): string => {
   const base = `processed ${totals.processed}, succeeded ${totals.succeeded}, failed ${totals.failed}, cached ${totals.cached}`
   const notes = [
     totals.outOfScope > 0 ? `out of scope ${totals.outOfScope}` : "",
-    totals.deferred > 0 ? `not processed because of --limit ${totals.deferred}` : ""
+    totals.deferred > 0 ? `not processed because of --limit ${totals.deferred}` : "",
   ].filter((note) => note !== "")
   return notes.length === 0 ? base : `${base}, ${notes.join(", ")}`
 }
@@ -90,6 +94,8 @@ export const formatTotals = (report: EnrichReport): string => {
 /** `tokens: input 1000, output 2000, cache read 0, cache write 0; estimated cost 0.1234 USD (sync)` */
 export const formatUsage = (report: EnrichReport): string => {
   const { usage, cost } = report
-  return `tokens: input ${usage.inputTokens}, output ${usage.outputTokens}, cache read ${usage.cacheReadTokens}, ` +
+  return (
+    `tokens: input ${usage.inputTokens}, output ${usage.outputTokens}, cache read ${usage.cacheReadTokens}, ` +
     `cache write ${usage.cacheCreationTokens}; estimated cost ${formatUsd(cost.estimatedUsd)} USD (${cost.mode}, ${cost.model})`
+  )
 }

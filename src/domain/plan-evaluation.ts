@@ -33,7 +33,7 @@ export const ISSUE_CODES = [
   "fresh_not_breakfast",
   "unknown_simple",
   "simple_not_breakfast",
-  "breakfast_only_recipe"
+  "breakfast_only_recipe",
 ] as const
 export const IssueCode = Schema.Literals(ISSUE_CODES)
 export type IssueCode = typeof IssueCode.Type
@@ -45,7 +45,7 @@ export const PlanIssue = Schema.Struct({
   recipeIds: Schema.Array(RecipeId),
   /** The simple breakfasts that the problem is about (spec P7.2.3). Empty for most codes. */
   simpleIds: Schema.Array(Schema.String),
-  days: Schema.Array(DayIndex)
+  days: Schema.Array(DayIndex),
 })
 export type PlanIssue = typeof PlanIssue.Type
 
@@ -63,14 +63,14 @@ export const DishPortions = Schema.Struct({
    */
   eaten: Schema.Natural,
   /** `made − eaten`. */
-  left: PortionRange
+  left: PortionRange,
 })
 export type DishPortions = typeof DishPortions.Type
 
 export const SessionMinutes = Schema.Struct({
   session: SessionId,
   /** The sum of `activeMinutes × scale factor` of the dishes of the session. */
-  minutes: Schema.Finite
+  minutes: Schema.Finite,
 })
 export type SessionMinutes = typeof SessionMinutes.Type
 
@@ -80,7 +80,7 @@ export const SlotProtein = Schema.Struct({
   meal: MealName,
   grams: Schema.Finite,
   /** The lowest coverage of the dishes of the slot (0 to 1). Below 0.7 the estimate is uncertain. */
-  coverage: Schema.Finite
+  coverage: Schema.Finite,
 })
 export type SlotProtein = typeof SlotProtein.Type
 
@@ -101,7 +101,7 @@ export const PlanMetrics = Schema.Struct({
   /** Number of slots of `days × meals`. */
   slotsRequired: Schema.Natural,
   /** P7.1. Protein per slot with at least 1 dish, sorted by day and meal. */
-  proteinPerSlot: Schema.Array(SlotProtein)
+  proteinPerSlot: Schema.Array(SlotProtein),
 })
 export type PlanMetrics = typeof PlanMetrics.Type
 
@@ -110,6 +110,6 @@ export const PlanEvaluation = Schema.Struct({
   ok: Schema.Boolean,
   errors: Schema.Array(PlanIssue),
   warnings: Schema.Array(PlanIssue),
-  metrics: PlanMetrics
+  metrics: PlanMetrics,
 })
 export type PlanEvaluation = typeof PlanEvaluation.Type

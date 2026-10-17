@@ -50,7 +50,7 @@ export const selectIds = (
   const have = new Set(available)
   return {
     selected: sorted.filter((id) => ids.value.has(id)),
-    unknown: [...ids.value].filter((id) => !have.has(id)).toSorted((a, b) => a - b)
+    unknown: [...ids.value].filter((id) => !have.has(id)).toSorted((a, b) => a - b),
   }
 }
 
@@ -76,19 +76,33 @@ export const planEnrichment = (parts: {
       continue
     }
     const input = buildModelInput(recipe)
-    const inputHash = computeInputHash({ input, promptVersion: parts.promptVersion, model: parts.model })
+    const inputHash = computeInputHash({
+      input,
+      promptVersion: parts.promptVersion,
+      model: parts.model,
+    })
     if (parts.storedHashes.get(recipe.id) === inputHash) {
       cached.push(recipe.id)
     } else {
-      needed.push({ id: recipe.id, input, lineCount: lineCount(input), inputHash })
+      needed.push({
+        id: recipe.id,
+        input,
+        lineCount: lineCount(input),
+        inputHash,
+      })
     }
   }
 
   const toProcess = Option.match(parts.limit, {
     onNone: () => needed,
-    onSome: (limit) => needed.slice(0, limit)
+    onSome: (limit) => needed.slice(0, limit),
   })
-  return { toProcess, cached, outOfScope, deferred: needed.length - toProcess.length }
+  return {
+    toProcess,
+    cached,
+    outOfScope,
+    deferred: needed.length - toProcess.length,
+  }
 }
 
 /** Batch for more than `BATCH_THRESHOLD` recipes, otherwise sync. `--sync` and `--retry-failed` force sync (spec A5, A9). */

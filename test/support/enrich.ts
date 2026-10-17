@@ -16,10 +16,18 @@ export const must = <A>(value: A | undefined, what: string): A =>
 
 export const SALADS = { id: 38, slug: "Salatyi", name: "Салаты" } as const
 export const DESSERTS = { id: 39, slug: "Deserty", name: "Десерты" } as const
-export const SOUPS = { id: 47, slug: "Pervyie-bljuda", name: "Первые блюда" } as const
+export const SOUPS = {
+  id: 47,
+  slug: "Pervyie-bljuda",
+  name: "Первые блюда",
+} as const
 
 export interface ParsedOptions {
-  readonly categories?: ReadonlyArray<{ readonly id: number; readonly slug: string; readonly name: string }>
+  readonly categories?: ReadonlyArray<{
+    readonly id: number
+    readonly slug: string
+    readonly name: string
+  }>
   /** Ingredient lines. They are all in one group. */
   readonly lines?: ReadonlyArray<string>
   readonly title?: string
@@ -44,7 +52,7 @@ export const parsedRecipe = (n: number, options: ParsedOptions = {}): ParsedReci
     addedAt: "2024-01-02",
     commentsCount: 3,
     similarIds: [],
-    sourceSha256: "b".repeat(64)
+    sourceSha256: "b".repeat(64),
   })
 
 /** A valid `Enrichment` with 1 item for each of the lines `0` to `lines - 1`. */
@@ -58,7 +66,7 @@ export const enrichmentFor = (lines: number, overrides: Partial<Enrichment> = {}
     quantity: 100,
     unit: "g" as const,
     grams: 100,
-    optional: false
+    optional: false,
   })),
   proteinFamilies: [],
   vegetarian: true,
@@ -75,7 +83,7 @@ export const enrichmentFor = (lines: number, overrides: Partial<Enrichment> = {}
   fridgeDays: 3,
   freezable: true,
   reheats: "well",
-  ...overrides
+  ...overrides,
 })
 
 export interface Dirs {
@@ -97,9 +105,14 @@ const platform = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
  */
 export const withEnrichDirs = <A, E, R>(
   recipes: ReadonlyArray<ParsedRecipe>,
-  use: (context: Dirs & { readonly captured: Captured; readonly store: ReturnType<typeof enrichStoreLayer> }) => Effect.Effect<A, E, R>
+  use: (
+    context: Dirs & {
+      readonly captured: Captured
+      readonly store: ReturnType<typeof enrichStoreLayer>
+    }
+  ) => Effect.Effect<A, E, R>
 ) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const root = yield* fs.makeTempDirectoryScoped({ prefix: "say7-enrich-" })
     const dataDir = `${root}/data`
@@ -109,18 +122,23 @@ export const withEnrichDirs = <A, E, R>(
       yield* fs.writeFileString(`${dataDir}/parsed/${recipe.id}.json`, Schema.encodeSync(ParsedRecipeJson)(recipe))
     }
     const captured: Captured = { lines: [], warnings: [], errors: [] }
-    return yield* use({ dataDir, outDir, captured, store: enrichStoreLayer({ dataDir, outDir }) }).pipe(
+    return yield* use({
+      dataDir,
+      outDir,
+      captured,
+      store: enrichStoreLayer({ dataDir, outDir }),
+    }).pipe(
       Effect.provideService(Console.Console, {
         ...globalThis.console,
         log: (...parts: ReadonlyArray<unknown>) => void captured.lines.push(parts.join(" ")),
         warn: (...parts: ReadonlyArray<unknown>) => void captured.warnings.push(parts.join(" ")),
-        error: (...parts: ReadonlyArray<unknown>) => void captured.errors.push(parts.join(" "))
+        error: (...parts: ReadonlyArray<unknown>) => void captured.errors.push(parts.join(" ")),
       })
     )
   }).pipe(Effect.provide(platform))
 
 export const readJson = (path: string) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     return JSON.parse(yield* fs.readFileString(path))
   })
@@ -132,7 +150,7 @@ export const runOptions = (overrides: Partial<EnrichOptions> = {}): EnrichOption
   limit: Option.none(),
   sync: false,
   retryFailed: false,
-  ...overrides
+  ...overrides,
 })
 
 /** The recipe IDs of a list of numbers, as the `ids` option. */

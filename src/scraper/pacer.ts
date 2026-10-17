@@ -11,20 +11,21 @@ export const jitteredDelayMs = (baseMs: number, unit: number): number =>
  * Keeps the gap between requests (D4). The wait starts when the previous request ends.
  * The first request has no wait.
  */
-export class Pacer extends Context.Service<Pacer, {
-  readonly paced: <A, E, R>(request: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
-}>()("say7/scraper/Pacer") {
+export class Pacer extends Context.Service<
+  Pacer,
+  {
+    readonly paced: <A, E, R>(request: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
+  }
+>()("say7/scraper/Pacer") {
   static readonly layer = (baseDelayMs: number): Layer.Layer<Pacer> =>
     Layer.effect(
       Pacer,
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const lastEnd = yield* Ref.make(Option.none<number>())
 
-        const markEnd = Clock.currentTimeMillis.pipe(
-          Effect.flatMap((now) => Ref.set(lastEnd, Option.some(now)))
-        )
+        const markEnd = Clock.currentTimeMillis.pipe(Effect.flatMap((now) => Ref.set(lastEnd, Option.some(now))))
 
-        const waitForTurn = Effect.gen(function*() {
+        const waitForTurn = Effect.gen(function* () {
           const last = yield* Ref.get(lastEnd)
           if (Option.isNone(last)) {
             return
@@ -38,7 +39,7 @@ export class Pacer extends Context.Service<Pacer, {
         })
 
         return Pacer.of({
-          paced: (request) => waitForTurn.pipe(Effect.andThen(request), Effect.ensuring(markEnd))
+          paced: (request) => waitForTurn.pipe(Effect.andThen(request), Effect.ensuring(markEnd)),
         })
       })
     )

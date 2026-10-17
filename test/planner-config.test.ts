@@ -15,7 +15,10 @@ describe("Household", () => {
       persons: 3,
       days: 7,
       meals: ["lunch", "dinner"],
-      sessions: [{ id: "A", dayOffset: 0 }, { id: "B", dayOffset: 4 }],
+      sessions: [
+        { id: "A", dayOffset: 0 },
+        { id: "B", dayOffset: 4 },
+      ],
       shoppingDayOffset: 0,
       maxDaysPerDish: 3,
       maxHeat: 2,
@@ -37,21 +40,35 @@ describe("Household", () => {
         sideMinGrams: 100,
         dinnerAvoidSideGroups: [],
         dinnerAvoidItems: [],
-        itemLimits: []
-      }
+        itemLimits: [],
+      },
     })
   })
 
   it("decodes weeklyExtras and rejects an empty field or an unknown category", () => {
-    const extra = { item: "яйца", amount: "7 шт", category: "eggs", note: "Соне на завтраки" } as const
+    const extra = {
+      item: "яйца",
+      amount: "7 шт",
+      category: "eggs",
+      note: "Соне на завтраки",
+    } as const
     assert.deepStrictEqual(Result.getOrThrow(decodeHousehold({ weeklyExtras: [extra] })).weeklyExtras, [extra])
     assert.isTrue(Result.isFailure(decodeHousehold({ weeklyExtras: [{ ...extra, note: "" }] })))
-    assert.isTrue(Result.isFailure(decodeHousehold({ weeklyExtras: [{ ...extra, category: "x" as string }] })))
+    assert.isTrue(
+      Result.isFailure(
+        decodeHousehold({
+          weeklyExtras: [{ ...extra, category: "x" as string }],
+        })
+      )
+    )
   })
 
   it("fills the missing keys of preferences with the defaults", () => {
     const household = Result.getOrThrow(decodeHousehold({ preferences: { excludedDishTypes: ["soup"] } }))
-    assert.deepStrictEqual(household.preferences, { ...DEFAULT_HOUSEHOLD.preferences, excludedDishTypes: ["soup"] })
+    assert.deepStrictEqual(household.preferences, {
+      ...DEFAULT_HOUSEHOLD.preferences,
+      excludedDishTypes: ["soup"],
+    })
   })
 
   it("rejects an unknown key and a wrong dish type in preferences", () => {
@@ -66,9 +83,18 @@ describe("Household", () => {
     // The file has breakfast (spec P7.2.1): `meals` and `mealPersons` differ from the defaults.
     assert.deepStrictEqual(decoded.meals, ["breakfast", "lunch", "dinner"])
     assert.deepStrictEqual(decoded.mealPersons, { breakfast: 2 })
-    assert.deepStrictEqual(decoded.weeklyExtras.map((extra) => extra.item), ["вафли", "яйца"])
     assert.deepStrictEqual(
-      { ...decoded, preferences: DEFAULT_HOUSEHOLD.preferences, meals: DEFAULT_HOUSEHOLD.meals, mealPersons: {}, weeklyExtras: [] },
+      decoded.weeklyExtras.map((extra) => extra.item),
+      ["вафли", "яйца"]
+    )
+    assert.deepStrictEqual(
+      {
+        ...decoded,
+        preferences: DEFAULT_HOUSEHOLD.preferences,
+        meals: DEFAULT_HOUSEHOLD.meals,
+        mealPersons: {},
+        weeklyExtras: [],
+      },
       DEFAULT_HOUSEHOLD
     )
     assert.deepStrictEqual(decoded.preferences.excludedDishTypes, ["soup"])
@@ -107,13 +133,23 @@ describe("Household", () => {
       { breakfastExtraIds: [0] },
       { breakfastExtraIds: [5, 5] },
       { sessions: [{ id: "A", dayOffset: 0 }] },
-      { sessions: [{ id: "A", dayOffset: 0 }, { id: "A", dayOffset: 4 }] },
-      { sessions: [{ id: "A", dayOffset: 0 }, { id: "B", dayOffset: 7 }] },
+      {
+        sessions: [
+          { id: "A", dayOffset: 0 },
+          { id: "A", dayOffset: 4 },
+        ],
+      },
+      {
+        sessions: [
+          { id: "A", dayOffset: 0 },
+          { id: "B", dayOffset: 7 },
+        ],
+      },
       { shoppingDayOffset: -1 },
       { maxHeat: 4 },
       { activeMinutesPerSession: 0 },
       { equipment: ["laser"] },
-      { maxProteinFamilies: 0 }
+      { maxProteinFamilies: 0 },
     ]) {
       assert.isTrue(Result.isFailure(decodeHousehold(bad)), JSON.stringify(bad))
     }
@@ -130,7 +166,7 @@ describe("WeekPlan", () => {
     weekStart: "2026-10-17",
     cooking: [{ session: "A", recipeId: 1, scale: 1.5 }],
     meals: [{ day: 0, meal: "lunch", recipeIds: [1] }],
-    notes: null
+    notes: null,
   }
   const decode = (input: unknown) => Schema.decodeUnknownResult(WeekPlan)(input, PLAN_DECODE_OPTIONS)
 
@@ -144,10 +180,16 @@ describe("WeekPlan", () => {
   it("accepts the scales of the spec only", () => {
     assert.deepStrictEqual(PLAN_SCALES, [0.5, 1, 1.5, 2, 2.5, 3])
     for (const scale of PLAN_SCALES) {
-      assert.isTrue(Result.isSuccess(decode({ ...plan, cooking: [{ session: "A", recipeId: 1, scale }] })), String(scale))
+      assert.isTrue(
+        Result.isSuccess(decode({ ...plan, cooking: [{ session: "A", recipeId: 1, scale }] })),
+        String(scale)
+      )
     }
     for (const scale of [0, 0.25, 1.25, 3.5, 4, -1]) {
-      assert.isTrue(Result.isFailure(decode({ ...plan, cooking: [{ session: "A", recipeId: 1, scale }] })), String(scale))
+      assert.isTrue(
+        Result.isFailure(decode({ ...plan, cooking: [{ session: "A", recipeId: 1, scale }] })),
+        String(scale)
+      )
     }
   })
 
@@ -159,7 +201,10 @@ describe("WeekPlan", () => {
   })
 
   it("accepts 1 to 3 different dishes in a slot", () => {
-    const slot = (recipeIds: ReadonlyArray<number>) => ({ ...plan, meals: [{ day: 0, meal: "lunch", recipeIds }] })
+    const slot = (recipeIds: ReadonlyArray<number>) => ({
+      ...plan,
+      meals: [{ day: 0, meal: "lunch", recipeIds }],
+    })
     assert.isTrue(Result.isSuccess(decode(slot([1, 2, 3]))))
     assert.isTrue(Result.isFailure(decode(slot([]))))
     assert.isTrue(Result.isFailure(decode(slot([1, 2, 3, 4]))))
@@ -169,16 +214,34 @@ describe("WeekPlan", () => {
   })
 
   it("cooks a recipe once: 1 cooking entry for each recipe ID", () => {
-    const twice = { ...plan, cooking: [{ session: "A", recipeId: 1, scale: 1 }, { session: "B", recipeId: 1, scale: 2 }] }
+    const twice = {
+      ...plan,
+      cooking: [
+        { session: "A", recipeId: 1, scale: 1 },
+        { session: "B", recipeId: 1, scale: 2 },
+      ],
+    }
     const result = decode(twice)
     assert.isTrue(Result.isFailure(result))
     assert.include(Result.isFailure(result) ? result.failure.message : "", "cooked once per week")
   })
 
   it("has each slot once", () => {
-    const twice = { ...plan, meals: [{ day: 0, meal: "lunch", recipeIds: [1] }, { day: 0, meal: "lunch", recipeIds: [2] }] }
+    const twice = {
+      ...plan,
+      meals: [
+        { day: 0, meal: "lunch", recipeIds: [1] },
+        { day: 0, meal: "lunch", recipeIds: [2] },
+      ],
+    }
     assert.isTrue(Result.isFailure(decode(twice)))
-    const different = { ...plan, meals: [{ day: 0, meal: "lunch", recipeIds: [1] }, { day: 0, meal: "dinner", recipeIds: [2] }] }
+    const different = {
+      ...plan,
+      meals: [
+        { day: 0, meal: "lunch", recipeIds: [1] },
+        { day: 0, meal: "dinner", recipeIds: [2] },
+      ],
+    }
     assert.isTrue(Result.isSuccess(decode(different)))
   })
 
@@ -193,7 +256,10 @@ describe("WeekPlan", () => {
     const result = decode({
       weekStart: "2026-02-30",
       cooking: [{ session: "Z", recipeId: 1, scale: 7 }],
-      meals: [{ day: 9, meal: "lunch", recipeIds: [1] }, { day: 1, meal: "lunch", recipeIds: [] }]
+      meals: [
+        { day: 9, meal: "lunch", recipeIds: [1] },
+        { day: 1, meal: "lunch", recipeIds: [] },
+      ],
     })
     assert.isTrue(Result.isFailure(result))
     const message = Result.isFailure(result) ? result.failure.message : ""
@@ -203,7 +269,10 @@ describe("WeekPlan", () => {
   })
 
   it("needs at least 1 recipe or 1 simple breakfast in a slot", () => {
-    const result = decode({ ...plan, meals: [{ day: 1, meal: "lunch", recipeIds: [] }] })
+    const result = decode({
+      ...plan,
+      meals: [{ day: 1, meal: "lunch", recipeIds: [] }],
+    })
     assert.isTrue(Result.isFailure(result))
     assert.include(Result.isFailure(result) ? result.failure.message : "", "recipeIds")
   })
@@ -218,15 +287,27 @@ describe("WeekPlan: breakfasts (spec P7.2)", () => {
     const result = decode({
       weekStart: "2026-10-17",
       cooking: [{ session: "A", recipeId: 1, scale: 1 }],
-      meals: [{ day: 0, meal: "lunch", recipeIds: [1] }]
+      meals: [{ day: 0, meal: "lunch", recipeIds: [1] }],
     })
-    assert.deepStrictEqual(Result.getOrThrow(result).meals.map((meal) => ({ ...meal, recipeIds: meal.recipeIds.map(Number) })), [
-      { day: 0, meal: "lunch", recipeIds: [1], simpleIds: [] }
-    ])
+    assert.deepStrictEqual(
+      Result.getOrThrow(result).meals.map((meal) => ({
+        ...meal,
+        recipeIds: meal.recipeIds.map(Number),
+      })),
+      [{ day: 0, meal: "lunch", recipeIds: [1], simpleIds: [] }]
+    )
   })
 
   it("accepts the meal breakfast and the session fresh", () => {
-    assert.isTrue(Result.isSuccess(decode({ ...base, cooking: [{ session: "fresh", recipeId: 1, scale: 1.5 }], meals: [{ day: 0, meal: "breakfast", recipeIds: [1] }] })))
+    assert.isTrue(
+      Result.isSuccess(
+        decode({
+          ...base,
+          cooking: [{ session: "fresh", recipeId: 1, scale: 1.5 }],
+          meals: [{ day: 0, meal: "breakfast", recipeIds: [1] }],
+        })
+      )
+    )
   })
 
   it("accepts a slot with only simple breakfasts, with recipes only, and with both", () => {
@@ -252,19 +333,20 @@ describe("WeekPlan: breakfasts (spec P7.2)", () => {
 describe("loadHousehold and loadAliases", () => {
   it.live("use the defaults and an empty map if the files are missing", () =>
     withTempDir((root) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         assert.deepStrictEqual(yield* loadHousehold(`${root}/config`), DEFAULT_HOUSEHOLD)
         const aliases = yield* loadAliases(`${root}/config`)
         assert.strictEqual(aliases.size, 0)
       })
-    ))
+    )
+  )
 
   it.live("read the files of the config directory", () =>
     withTempDir((root) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         yield* writeFiles(root, {
           "config/household.json": '{"persons": 2, "recentWeeks": 6}',
-          "config/item-aliases.json": '{"Репчатый лук": "лук репчатый"}'
+          "config/item-aliases.json": '{"Репчатый лук": "лук репчатый"}',
         })
         const household = yield* loadHousehold(`${root}/config`)
         assert.strictEqual(household.persons, 2)
@@ -273,14 +355,15 @@ describe("loadHousehold and loadAliases", () => {
         const aliases = yield* loadAliases(`${root}/config`)
         assert.strictEqual(normaliseItem("репчатый лук", aliases), "лук репчатый")
       })
-    ))
+    )
+  )
 
   it.live("fail with ConfigError that names the file, for invalid content", () =>
     withTempDir((root) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         yield* writeFiles(root, {
           "config/household.json": '{"persons": 0}',
-          "config/item-aliases.json": '{"a": 1}'
+          "config/item-aliases.json": '{"a": 1}',
         })
         const household = yield* Effect.flip(loadHousehold(`${root}/config`))
         assert.instanceOf(household, ConfigError)
@@ -289,16 +372,21 @@ describe("loadHousehold and loadAliases", () => {
         assert.instanceOf(aliases, ConfigError)
         assert.include(aliases.path, "item-aliases.json")
       })
-    ))
+    )
+  )
 
   it.live("fail for a key that the household does not know, and for text that is not JSON", () =>
     withTempDir((root) =>
-      Effect.gen(function*() {
-        yield* writeFiles(root, { "config/household.json": '{"persns": 3}', "config/item-aliases.json": "{" })
+      Effect.gen(function* () {
+        yield* writeFiles(root, {
+          "config/household.json": '{"persns": 3}',
+          "config/item-aliases.json": "{",
+        })
         assert.include((yield* Effect.flip(loadHousehold(`${root}/config`))).message, "persns")
         assert.instanceOf(yield* Effect.flip(loadAliases(`${root}/config`)), ConfigError)
       })
-    ))
+    )
+  )
 
   it("the committed config/item-aliases.json is clean and has no chains", () => {
     const text = readFileSync(new URL("../config/item-aliases.json", import.meta.url), "utf8")

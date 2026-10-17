@@ -83,15 +83,15 @@ The same command also updates the cache later, because it fetches the pages whos
 
 Put the flags after `--`, for example `npm run scrape -- --ids 56,1590 --force`.
 
-| Flag | Default | Meaning |
-|------|---------|---------|
-| `--limit <n>` | all | Process the first n sitemap entries that need a fetch. |
-| `--ids <id,id,...>` | all | Process only these recipe IDs. |
-| `--force` | off | Fetch again, also if the cache is current. |
-| `--delay-ms <n>` | `2500` | Base delay between requests in milliseconds. |
-| `--base-url <url>` | `https://www.say7.info` | Origin of the site. Tests use this flag. |
-| `--data-dir <path>` | `data` | Directory for the downloaded data. |
-| `-h`, `--help` | | Print the list of flags. |
+| Flag                | Default                 | Meaning                                                |
+| ------------------- | ----------------------- | ------------------------------------------------------ |
+| `--limit <n>`       | all                     | Process the first n sitemap entries that need a fetch. |
+| `--ids <id,id,...>` | all                     | Process only these recipe IDs.                         |
+| `--force`           | off                     | Fetch again, also if the cache is current.             |
+| `--delay-ms <n>`    | `2500`                  | Base delay between requests in milliseconds.           |
+| `--base-url <url>`  | `https://www.say7.info` | Origin of the site. Tests use this flag.               |
+| `--data-dir <path>` | `data`                  | Directory for the downloaded data.                     |
+| `-h`, `--help`      |                         | Print the list of flags.                               |
 
 Do not set `--delay-ms` below 2500 for the real site.
 Use a lower value only with `--base-url` and a local test server.
@@ -194,11 +194,11 @@ The scraper can run at the same time.
 
 Put the flags after `--`, for example `npm run parse -- --ids 56,1590`.
 
-| Flag | Default | Meaning |
-|------|---------|---------|
-| `--ids <id,id,...>` | all | Parse only these recipe IDs. |
-| `--data-dir <path>` | `data` | Directory of the downloaded data. |
-| `-h`, `--help` | | Print the list of flags. |
+| Flag                | Default | Meaning                           |
+| ------------------- | ------- | --------------------------------- |
+| `--ids <id,id,...>` | all     | Parse only these recipe IDs.      |
+| `--data-dir <path>` | `data`  | Directory of the downloaded data. |
+| `-h`, `--help`      |         | Print the list of flags.          |
 
 Exit codes: `0` when all pages are parsed, `1` when a page failed or a fatal error occurred, `2` for a wrong flag.
 A fatal error is a missing or invalid `index.json`, or a file that the parser cannot write.
@@ -225,23 +225,23 @@ It replaces `_report.json`, so the report then covers only the pages of that run
 
 A recipe file has these fields:
 
-| Field | Meaning |
-|-------|---------|
-| `parserVersion` | Version of the file format. Now `1`. |
-| `id`, `url`, `title` | ID, canonical URL and name of the recipe. |
-| `intro` | Paragraphs of the description before the ingredient list. Quotations are not included. |
-| `categories` | The categories of the block "Категории рецепта": `id`, `slug`, `name`. |
-| `ingredientGroups` | Groups of ingredient lines. `title` is `null` when the page has one list without parts. |
-| `steps` | Text of each step. A line break in a step is `\n`. |
-| `yieldText` | Text of the element `.p-yield`, for example `8–10 порций` or `100–110 штук`. `null` when the page has none. |
-| `servingsText` | Text that names the portions. The source is the first of: `yieldText` (if it contains "порци"), a sentence of the intro with "порци", a sentence of the steps with "порци". Otherwise `null`. |
-| `servings` | `min` and `max` from `servingsText`. `null` when the parser reads no number. A yield in pieces (`штук`, `котлет`) gives no `servings`. |
-| `durations` | Times in the steps, in minutes: `minMinutes`, `maxMinutes`, `text`. |
-| `longWait` | `true` when a step names a wait of 6 hours or more, a night or a day. |
-| `addedAt` | Date of the recipe as `YYYY-MM-DD`, or `null`. |
-| `commentsCount` | Number of comments, or `null`. |
-| `similarIds` | IDs in the block "Похожие". |
-| `sourceSha256` | SHA-256 of the UTF-8 text of the page. |
+| Field                | Meaning                                                                                                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parserVersion`      | Version of the file format. Now `1`.                                                                                                                                                          |
+| `id`, `url`, `title` | ID, canonical URL and name of the recipe.                                                                                                                                                     |
+| `intro`              | Paragraphs of the description before the ingredient list. Quotations are not included.                                                                                                        |
+| `categories`         | The categories of the block "Категории рецепта": `id`, `slug`, `name`.                                                                                                                        |
+| `ingredientGroups`   | Groups of ingredient lines. `title` is `null` when the page has one list without parts.                                                                                                       |
+| `steps`              | Text of each step. A line break in a step is `\n`.                                                                                                                                            |
+| `yieldText`          | Text of the element `.p-yield`, for example `8–10 порций` or `100–110 штук`. `null` when the page has none.                                                                                   |
+| `servingsText`       | Text that names the portions. The source is the first of: `yieldText` (if it contains "порци"), a sentence of the intro with "порци", a sentence of the steps with "порци". Otherwise `null`. |
+| `servings`           | `min` and `max` from `servingsText`. `null` when the parser reads no number. A yield in pieces (`штук`, `котлет`) gives no `servings`.                                                        |
+| `durations`          | Times in the steps, in minutes: `minMinutes`, `maxMinutes`, `text`.                                                                                                                           |
+| `longWait`           | `true` when a step names a wait of 6 hours or more, a night or a day.                                                                                                                         |
+| `addedAt`            | Date of the recipe as `YYYY-MM-DD`, or `null`.                                                                                                                                                |
+| `commentsCount`      | Number of comments, or `null`.                                                                                                                                                                |
+| `similarIds`         | IDs in the block "Похожие".                                                                                                                                                                   |
+| `sourceSha256`       | SHA-256 of the UTF-8 text of the page.                                                                                                                                                        |
 
 The text in the file is clean:
 a non-breaking space is a space, a non-breaking hyphen is `-`, and white space is collapsed.
@@ -256,17 +256,17 @@ The reason is `no_title`, `no_url`, `id_mismatch`, `no_ingredients`, `no_steps`,
 A page with missing optional data passes.
 The report counts it as a warning and lists the IDs for each kind:
 
-| Warning | Meaning |
-|---------|---------|
-| `no_intro` | The page has no description. |
-| `no_servings` | No source for `servingsText`: the yield has no "порци", and no sentence of the intro or the steps has it. |
-| `servings_unparsed` | `servingsText` exists, but it has no number of servings. |
-| `no_durations` | No time in the steps. |
-| `no_added_date` | The page has no date of addition. |
-| `no_comments_count` | The page has no "Комментарии (N)" heading. |
-| `no_categories` | The page has no category. |
+| Warning                      | Meaning                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `no_intro`                   | The page has no description.                                                                               |
+| `no_servings`                | No source for `servingsText`: the yield has no "порци", and no sentence of the intro or the steps has it.  |
+| `servings_unparsed`          | `servingsText` exists, but it has no number of servings.                                                   |
+| `no_durations`               | No time in the steps.                                                                                      |
+| `no_added_date`              | The page has no date of addition.                                                                          |
+| `no_comments_count`          | The page has no "Комментарии (N)" heading.                                                                 |
+| `no_categories`              | The page has no category.                                                                                  |
 | `categories_from_breadcrumb` | The page has no block "Категории рецепта". The categories come from the breadcrumb at the top of the page. |
-| `no_similar` | The page has no block "Похожие". |
+| `no_similar`                 | The page has no block "Похожие".                                                                           |
 
 `_report.json` has this form:
 
@@ -397,12 +397,12 @@ Compare the total score and the cost of both models, then choose one.
 If the output says `no enrichment for: <ids>`, run the command of step 1 or step 2 again.
 Use `--retry-failed` instead of `--ids`, with the same `--model` and `--out-dir` (see "Retry the failures").
 
-| Flag of `enrich:eval` | Default | Meaning |
-|-----------------------|---------|---------|
-| `--out-dir <path>` | `<data-dir>/enriched` | Directory with the enrichments to score. |
-| `--data-dir <path>` | `data` | Directory with `parsed/`. The evaluation reads the ingredient lines from it. |
-| `--gold <path>` | `test/fixtures/gold.json` | The gold file. |
-| `-h`, `--help` | | Print the list of flags. |
+| Flag of `enrich:eval` | Default                   | Meaning                                                                      |
+| --------------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `--out-dir <path>`    | `<data-dir>/enriched`     | Directory with the enrichments to score.                                     |
+| `--data-dir <path>`   | `data`                    | Directory with `parsed/`. The evaluation reads the ingredient lines from it. |
+| `--gold <path>`       | `test/fixtures/gold.json` | The gold file.                                                               |
+| `-h`, `--help`        |                           | Print the list of flags.                                                     |
 
 ### Full run
 
@@ -471,17 +471,17 @@ The program exits with code 1 when a recipe has no valid enrichment.
 
 Put the flags after `--`, for example `npm run enrich -- --model claude-haiku-5-5 --limit 5`.
 
-| Flag | Default | Meaning |
-|------|---------|---------|
-| `--model <name>` | `claude-haiku-5-5` | `claude-haiku-5-5` or `claude-sonnet-5-5`. Without `--model`, `--dry-run` estimates both models. |
-| `--ids <id,id,...>` | all | Process only these recipe IDs. |
-| `--limit <n>` | all | Process the first n recipes that need a call. |
-| `--sync` | off | Send one request for each recipe, also for more than 20 recipes. |
-| `--retry-failed` | off | Process the failures of `<out-dir>/_report.json` in sync mode. |
-| `--data-dir <path>` | `data` | Directory of the downloaded data. The program reads `<data-dir>/parsed/`. |
-| `--out-dir <path>` | `<data-dir>/enriched` | Directory for the results. Use one directory for each model in an evaluation. |
-| `--dry-run` | off | Build and check the requests, print the estimate. No key, no request, no file. |
-| `-h`, `--help` | | Print the list of flags. |
+| Flag                | Default               | Meaning                                                                                          |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------ |
+| `--model <name>`    | `claude-haiku-5-5`    | `claude-haiku-5-5` or `claude-sonnet-5-5`. Without `--model`, `--dry-run` estimates both models. |
+| `--ids <id,id,...>` | all                   | Process only these recipe IDs.                                                                   |
+| `--limit <n>`       | all                   | Process the first n recipes that need a call.                                                    |
+| `--sync`            | off                   | Send one request for each recipe, also for more than 20 recipes.                                 |
+| `--retry-failed`    | off                   | Process the failures of `<out-dir>/_report.json` in sync mode.                                   |
+| `--data-dir <path>` | `data`                | Directory of the downloaded data. The program reads `<data-dir>/parsed/`.                        |
+| `--out-dir <path>`  | `<data-dir>/enriched` | Directory for the results. Use one directory for each model in an evaluation.                    |
+| `--dry-run`         | off                   | Build and check the requests, print the estimate. No key, no request, no file.                   |
+| `-h`, `--help`      |                       | Print the list of flags.                                                                         |
 
 Exit codes: `0` when all recipes are done, `1` when a recipe failed or a fatal error occurred, `2` for a wrong flag.
 A wrong key, a key without permission and an account without credit stop the run at once.
@@ -552,24 +552,24 @@ The server loads the catalogue at the start. Restart the server after a new `npm
 The server finds the project directory from the location of `src/mcp/server.ts`. The working directory does not matter.
 To use other directories, set these variables:
 
-| Variable | Meaning |
-|----------|---------|
-| `SAY7_DATA_DIR` | The directory with `parsed/`, `enriched/` and `plans/`. The default is `data` in the project. |
+| Variable          | Meaning                                                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SAY7_DATA_DIR`   | The directory with `parsed/`, `enriched/` and `plans/`. The default is `data` in the project.                                                                                  |
 | `SAY7_CONFIG_DIR` | The directory with `household.json`, `item-aliases.json`, `servings-overrides.json`, `item-protein.json` and `simple-breakfasts.json`. The default is `config` in the project. |
 
 ### Tools and prompt
 
-| Name | Action |
-|------|--------|
-| `search_recipes` | Search the catalogue with filters, for example `forMeal: "breakfast"`. Returns compact rows with links. |
-| `get_recipe` | Return the facts and the ingredient lines of one recipe. |
-| `evaluate_plan` | Check a week plan against the rules of the household. |
-| `shopping_list` | Return the shopping list as JSON and as Markdown. |
-| `save_plan` | Write `data/plans/<weekStart>.json` and `data/plans/<weekStart>.md`. |
-| `plan_history` | List the last saved plans. The default is 4. |
-| `household` | Return the household settings. |
-| `simple_breakfasts` | List the simple breakfasts with the protein per portion and the items. |
-| prompt `plan_week` | Give the planning method to the model. Arguments: `weekStart` and optional `proteinFamily`. |
+| Name                | Action                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `search_recipes`    | Search the catalogue with filters, for example `forMeal: "breakfast"`. Returns compact rows with links. |
+| `get_recipe`        | Return the facts and the ingredient lines of one recipe.                                                |
+| `evaluate_plan`     | Check a week plan against the rules of the household.                                                   |
+| `shopping_list`     | Return the shopping list as JSON and as Markdown.                                                       |
+| `save_plan`         | Write `data/plans/<weekStart>.json` and `data/plans/<weekStart>.md`.                                    |
+| `plan_history`      | List the last saved plans. The default is 4.                                                            |
+| `household`         | Return the household settings.                                                                          |
+| `simple_breakfasts` | List the simple breakfasts with the protein per portion and the items.                                  |
+| prompt `plan_week`  | Give the planning method to the model. Arguments: `weekStart` and optional `proteinFamily`.             |
 
 A tool that fails returns `isError: true` and a message in Russian.
 
@@ -578,7 +578,11 @@ A tool that fails returns `isError: true` and a message in Russian.
 Create the file `.mcp.json` in the project directory:
 
 ```json
-{ "mcpServers": { "say7": { "command": "npx", "args": ["tsx", "src/mcp/server.ts"] } } }
+{
+  "mcpServers": {
+    "say7": { "command": "npx", "args": ["tsx", "src/mcp/server.ts"] }
+  }
+}
 ```
 
 Then run these commands in the project directory:
@@ -613,10 +617,7 @@ You can also add the server with `claude mcp add --scope project say7 -- npx tsx
      "mcpServers": {
        "say7": {
          "command": "<absolute path of node>",
-         "args": [
-           "<project directory>/node_modules/tsx/dist/cli.mjs",
-           "<project directory>/src/mcp/server.ts"
-         ]
+         "args": ["<project directory>/node_modules/tsx/dist/cli.mjs", "<project directory>/src/mcp/server.ts"]
        }
      }
    }
@@ -636,23 +637,23 @@ The model reads the household and the history, chooses dishes, checks them with 
 The key `preferences` in `config/household.json` sets the taste rules. Every sub-key is optional. If the key is missing, the lists are empty and the rules find nothing.
 The item names must be normalised names. The program cleans each name and maps it through `config/item-aliases.json`, as for the recipes.
 
-| Key | Meaning |
-|-----|---------|
-| `excludedDishTypes` | Dish types that the household does not eat, for example `["soup"]`. |
-| `sideGroups` | The base of a plate: `{ "<group>": ["<item>", ...] }`. |
-| `sideMinGrams` | The minimum grams of an ingredient at scale 1 to give its group to a dish. The default is 100. An ingredient with unknown grams counts. |
-| `dinnerAvoidSideGroups` | Side groups that are too heavy for dinner. |
-| `dinnerAvoidItems` | Items that are too heavy for dinner. |
-| `itemLimits` | A list of `{ "name", "items", "maxDishes" }`. A week can have at most `maxDishes` cooked dishes with any of the items. |
+| Key                     | Meaning                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `excludedDishTypes`     | Dish types that the household does not eat, for example `["soup"]`.                                                                     |
+| `sideGroups`            | The base of a plate: `{ "<group>": ["<item>", ...] }`.                                                                                  |
+| `sideMinGrams`          | The minimum grams of an ingredient at scale 1 to give its group to a dish. The default is 100. An ingredient with unknown grams counts. |
+| `dinnerAvoidSideGroups` | Side groups that are too heavy for dinner.                                                                                              |
+| `dinnerAvoidItems`      | Items that are too heavy for dinner.                                                                                                    |
+| `itemLimits`            | A list of `{ "name", "items", "maxDishes" }`. A week can have at most `maxDishes` cooked dishes with any of the items.                  |
 
 Only ingredients that you buy count. Pantry and optional ingredients do not count.
 
-| Code | Level | Meaning |
-|------|-------|---------|
-| `dish_type_excluded` | error | A cooked dish has an excluded dish type. |
-| `side_repeated` | warning | Two or more cooked dishes have the same side group. |
-| `heavy_dinner` | warning | A dish in a dinner slot has a heavy side group or a heavy item. |
-| `item_limit` | warning | More cooked dishes than `maxDishes` have an item of a limit. |
+| Code                 | Level   | Meaning                                                         |
+| -------------------- | ------- | --------------------------------------------------------------- |
+| `dish_type_excluded` | error   | A cooked dish has an excluded dish type.                        |
+| `side_repeated`      | warning | Two or more cooked dishes have the same side group.             |
+| `heavy_dinner`       | warning | A dish in a dinner slot has a heavy side group or a heavy item. |
+| `item_limit`         | warning | More cooked dishes than `maxDishes` have an item of a limit.    |
 
 ### Protein table and `low_protein`
 
@@ -674,12 +675,12 @@ A household whose `meals` has no `breakfast` works as before. The plan needs no 
 
 These keys of `config/household.json` set the breakfast:
 
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `meals` | `["lunch", "dinner"]` | The meals of a day. The file of the project has `["breakfast", "lunch", "dinner"]`. |
-| `mealPersons` | `{}` | The persons of a meal, for example `{ "breakfast": 2 }`. A meal without a key uses `persons`. |
-| `freshMinutesMax` | 20 | The most active minutes of the fresh dishes of one day. |
-| `breakfastExtraIds` | `[]` | Recipe IDs that are breakfast candidates in addition to the categories below. |
+| Key                 | Default               | Meaning                                                                                       |
+| ------------------- | --------------------- | --------------------------------------------------------------------------------------------- |
+| `meals`             | `["lunch", "dinner"]` | The meals of a day. The file of the project has `["breakfast", "lunch", "dinner"]`.           |
+| `mealPersons`       | `{}`                  | The persons of a meal, for example `{ "breakfast": 2 }`. A meal without a key uses `persons`. |
+| `freshMinutesMax`   | 20                    | The most active minutes of the fresh dishes of one day.                                       |
+| `breakfastExtraIds` | `[]`                  | Recipe IDs that are breakfast candidates in addition to the categories below.                 |
 
 #### Three kinds of breakfast dish
 
@@ -714,7 +715,12 @@ The file `config/simple-breakfasts.json` lists the simple breakfasts. A missing 
 A slot of the plan can have `recipeIds` and `simpleIds`. It must have at least one of the two. A plan file without `simpleIds` is still valid.
 
 ```json
-{ "day": 0, "meal": "breakfast", "recipeIds": [], "simpleIds": ["tvorog-yagody"] }
+{
+  "day": 0,
+  "meal": "breakfast",
+  "recipeIds": [],
+  "simpleIds": ["tvorog-yagody"]
+}
 ```
 
 #### Breakfast candidates
@@ -730,13 +736,13 @@ The filter `forMeal` of `search_recipes` takes `breakfast`, `lunch` or `dinner`.
 
 #### Rules of the breakfast
 
-| Code | Level | Meaning |
-|------|-------|---------|
-| `fresh_time` | warning | The active minutes of the fresh dishes of one day are more than `freshMinutesMax`. |
-| `fresh_not_breakfast` | error | A fresh dish is in a lunch or dinner slot. |
-| `unknown_simple` | error | A slot names a simple breakfast that `config/simple-breakfasts.json` does not have. |
-| `simple_not_breakfast` | error | A simple breakfast is in a lunch or dinner slot. |
-| `breakfast_only_recipe` | error | A `not_a_meal` recipe is in a lunch or dinner slot. |
+| Code                    | Level   | Meaning                                                                             |
+| ----------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `fresh_time`            | warning | The active minutes of the fresh dishes of one day are more than `freshMinutesMax`.  |
+| `fresh_not_breakfast`   | error   | A fresh dish is in a lunch or dinner slot.                                          |
+| `unknown_simple`        | error   | A slot names a simple breakfast that `config/simple-breakfasts.json` does not have. |
+| `simple_not_breakfast`  | error   | A simple breakfast is in a lunch or dinner slot.                                    |
+| `breakfast_only_recipe` | error   | A `not_a_meal` recipe is in a lunch or dinner slot.                                 |
 
 The issue of a rule has the list `simpleIds` next to `recipeIds`.
 
@@ -783,20 +789,20 @@ If the plan file is missing, save the plan first with `save_plan`.
 
 ## Development
 
-| Command | Action |
-|---------|--------|
-| `npm run typecheck` | Check the types with `tsc --noEmit`. |
-| `npm test` | Run the tests with Vitest. |
-| `npm run scrape -- <flags>` | Run the scraper. |
-| `npm run parse -- <flags>` | Run the parser. |
-| `npm run enrich -- <flags>` | Run the enrichment (`--dry-run` needs no key). |
-| `npm run enrich:eval -- <flags>` | Score the enrichments of the gold recipes. |
-| `npm run items:report -- <flags>` | Write `data/items-report.json`: the normalised ingredient names of the catalogue, to build `config/item-aliases.json`. |
-| `npm run servings:report -- <flags>` | Write `data/servings-report.json`: the recipes with servings that look wrong. See "Servings check". |
-| `npm run plan:check -- <plan.json> <flags>` | Check a week plan against the rules of the household, then print the shopping list in Markdown. Exit code 1 if the plan has errors. |
+| Command                                        | Action                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`                            | Check the types with `tsc --noEmit`.                                                                                                  |
+| `npm test`                                     | Run the tests with Vitest.                                                                                                            |
+| `npm run scrape -- <flags>`                    | Run the scraper.                                                                                                                      |
+| `npm run parse -- <flags>`                     | Run the parser.                                                                                                                       |
+| `npm run enrich -- <flags>`                    | Run the enrichment (`--dry-run` needs no key).                                                                                        |
+| `npm run enrich:eval -- <flags>`               | Score the enrichments of the gold recipes.                                                                                            |
+| `npm run items:report -- <flags>`              | Write `data/items-report.json`: the normalised ingredient names of the catalogue, to build `config/item-aliases.json`.                |
+| `npm run servings:report -- <flags>`           | Write `data/servings-report.json`: the recipes with servings that look wrong. See "Servings check".                                   |
+| `npm run plan:check -- <plan.json> <flags>`    | Check a week plan against the rules of the household, then print the shopping list in Markdown. Exit code 1 if the plan has errors.   |
 | `npm run shopping:text -- <weekStart> <flags>` | Print the shopping list of a saved plan as plain text, one line per item, for a Keep checklist. See "Copy the shopping list to Keep". |
-| `npm run mcp` | Start the MCP server on stdio. See "MCP server". |
-| `npm run fixtures:refresh` | Copy the test pages from `data/raw/` to `test/fixtures/real/`. |
+| `npm run mcp`                                  | Start the MCP server on stdio. See "MCP server".                                                                                      |
+| `npm run fixtures:refresh`                     | Copy the test pages from `data/raw/` to `test/fixtures/real/`.                                                                        |
 
 Source layout:
 

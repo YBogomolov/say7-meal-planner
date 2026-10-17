@@ -65,7 +65,7 @@ export const startTestSite: Effect.Effect<TestSite, never, Scope.Scope> = Effect
               new Promise<void>((done) => {
                 server.closeAllConnections()
                 server.close(() => done())
-              })
+              }),
           })
         })
       })
@@ -97,12 +97,12 @@ Sitemap: https://www.say7.info/sitemap.xml
 export const textReply = (contentType: string, text: string): Reply => ({
   status: 200,
   headers: { "content-type": contentType },
-  body: text
+  body: text,
 })
 
 /** A windows-1251 page, as the real site serves it. */
 export const win1251Reply = (html: string, contentType = "text/html; charset=windows-1251"): Reply => ({
   status: 200,
   headers: { "content-type": contentType },
-  body: encodeWindows1251(html)
+  body: encodeWindows1251(html),
 })

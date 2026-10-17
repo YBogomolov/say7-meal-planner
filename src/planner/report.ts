@@ -12,12 +12,12 @@ const proteinLine = (slots: PlanEvaluation["metrics"]["proteinPerSlot"]): string
   if (slots.length === 0) {
     return "нет данных"
   }
-  return MEAL_NAMES
-    .flatMap((meal) => {
-      const grams = slots.filter((slot) => slot.meal === meal).map((slot) => slot.grams)
-      return grams.length === 0 ? [] : [`${MEAL_LABELS[meal]} ${formatNumber(Math.min(...grams))}–${formatNumber(Math.max(...grams))} г`]
-    })
-    .join("; ")
+  return MEAL_NAMES.flatMap((meal) => {
+    const grams = slots.filter((slot) => slot.meal === meal).map((slot) => slot.grams)
+    return grams.length === 0
+      ? []
+      : [`${MEAL_LABELS[meal]} ${formatNumber(Math.min(...grams))}–${formatNumber(Math.max(...grams))} г`]
+  }).join("; ")
 }
 
 /** The evaluation of a plan as Russian text for the console (`npm run plan:check`). */
@@ -25,7 +25,9 @@ export const formatEvaluation = (weekStart: IsoDate, evaluation: PlanEvaluation)
   const { errors, warnings, metrics } = evaluation
   const verdict = evaluation.ok ? "ошибок нет" : `ошибок: ${errors.length}`
   const families = metrics.proteinFamilies.map((family) => PROTEIN_LABELS[family]).join(", ")
-  const minutes = metrics.activeMinutes.map(({ session, minutes: value }) => `сессия ${session} — ${formatNumber(value)} мин.`)
+  const minutes = metrics.activeMinutes.map(
+    ({ session, minutes: value }) => `сессия ${session} — ${formatNumber(value)} мин.`
+  )
   return [
     `План недели с ${weekStart}: ${verdict}, предупреждений: ${warnings.length}.`,
     "",
@@ -37,6 +39,6 @@ export const formatEvaluation = (weekStart: IsoDate, evaluation: PlanEvaluation)
     `  - белок: ${families === "" ? "нет" : families}`,
     `  - белок на порцию по приёмам пищи: ${proteinLine(metrics.proteinPerSlot)}`,
     `  - активное время: ${minutes.join("; ")}`,
-    ""
+    "",
   ].join("\n")
 }

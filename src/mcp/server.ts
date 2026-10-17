@@ -25,7 +25,9 @@ const main = async (): Promise<void> => {
   const world = await Effect.runPromise(
     loadWorld(dataDir, configDir, (message) => log(`предупреждение: ${message}`)).pipe(Effect.provide(plannerLayer))
   )
-  log(`каталог: ${world.catalogue.entries.length} рецептов, пропущено ${world.skipped}. Данные: ${dataDir}. Настройки: ${configDir}.`)
+  log(
+    `каталог: ${world.catalogue.entries.length} рецептов, пропущено ${world.skipped}. Данные: ${dataDir}. Настройки: ${configDir}.`
+  )
   const server = createServer(world, log)
   await server.connect(new StdioServerTransport())
   log("сервер запущен (stdio).")

@@ -16,13 +16,13 @@ const RECIPE_FILE = /^([1-9]\d*)\.json$/
 /** The parsed file of a recipe cannot be read, or it is not a valid `ParsedRecipe`. */
 export class ParsedReadError extends Schema.TaggedError<ParsedReadError>()("ParsedReadError", {
   id: RecipeId,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /** A control file of the output directory (`_report.json`, `_batch.json`) exists but is not valid. */
 export class ControlFileInvalidError extends Schema.TaggedError<ControlFileInvalidError>()("ControlFileInvalidError", {
   path: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /**
@@ -31,30 +31,33 @@ export class ControlFileInvalidError extends Schema.TaggedError<ControlFileInval
  * The output directory has `<id>.json` for each recipe, `_report.json`, `_batch.json` and `_eval.json`.
  * Every write goes to a temporary file in the same directory first, then a rename puts it in place.
  */
-export class EnrichStore extends Context.Service<EnrichStore, {
-  /** Create the output directory and remove the temporary files of an interrupted write. */
-  readonly prepare: Effect.Effect<void, StoreError>
-  /** The IDs of the files `<data-dir>/parsed/<id>.json`. */
-  readonly listParsedIds: Effect.Effect<ReadonlyArray<RecipeId>, StoreError>
-  readonly readParsed: (id: RecipeId) => Effect.Effect<ParsedRecipe, ParsedReadError>
-  /** `None` if the file is absent or not valid. A stored file that is not valid counts as absent and is replaced. */
-  readonly readEnriched: (id: RecipeId) => Effect.Effect<Option.Option<EnrichedRecipe>, StoreError>
-  readonly writeEnriched: (recipe: EnrichedRecipe) => Effect.Effect<void, StoreError>
-  readonly readReport: Effect.Effect<Option.Option<EnrichReport>, StoreError | ControlFileInvalidError>
-  readonly writeReport: (report: EnrichReport) => Effect.Effect<void, StoreError>
-  readonly readBatch: Effect.Effect<Option.Option<BatchState>, StoreError | ControlFileInvalidError>
-  readonly writeBatch: (state: BatchState) => Effect.Effect<void, StoreError>
-  /** No error if the file does not exist. */
-  readonly removeBatch: Effect.Effect<void, StoreError>
-  readonly writeEval: (report: EvalReport) => Effect.Effect<void, StoreError>
-}>()("say7/enrich/EnrichStore") {
+export class EnrichStore extends Context.Service<
+  EnrichStore,
+  {
+    /** Create the output directory and remove the temporary files of an interrupted write. */
+    readonly prepare: Effect.Effect<void, StoreError>
+    /** The IDs of the files `<data-dir>/parsed/<id>.json`. */
+    readonly listParsedIds: Effect.Effect<ReadonlyArray<RecipeId>, StoreError>
+    readonly readParsed: (id: RecipeId) => Effect.Effect<ParsedRecipe, ParsedReadError>
+    /** `None` if the file is absent or not valid. A stored file that is not valid counts as absent and is replaced. */
+    readonly readEnriched: (id: RecipeId) => Effect.Effect<Option.Option<EnrichedRecipe>, StoreError>
+    readonly writeEnriched: (recipe: EnrichedRecipe) => Effect.Effect<void, StoreError>
+    readonly readReport: Effect.Effect<Option.Option<EnrichReport>, StoreError | ControlFileInvalidError>
+    readonly writeReport: (report: EnrichReport) => Effect.Effect<void, StoreError>
+    readonly readBatch: Effect.Effect<Option.Option<BatchState>, StoreError | ControlFileInvalidError>
+    readonly writeBatch: (state: BatchState) => Effect.Effect<void, StoreError>
+    /** No error if the file does not exist. */
+    readonly removeBatch: Effect.Effect<void, StoreError>
+    readonly writeEval: (report: EvalReport) => Effect.Effect<void, StoreError>
+  }
+>()("say7/enrich/EnrichStore") {
   static readonly layer = (config: {
     readonly dataDir: string
     readonly outDir: string
   }): Layer.Layer<EnrichStore, never, FileSystem.FileSystem | Path.Path> =>
     Layer.effect(
       EnrichStore,
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
 
@@ -90,7 +93,7 @@ export class EnrichStore extends Context.Service<EnrichStore, {
 
         /** Read and decode a control file. `None` if it does not exist. */
         const readControl = <A, I>(target: string, codec: Schema.Codec<A, I>, hint: string) =>
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const present = yield* io(target, fs.exists(target))
             if (!present) {
               return Option.none<A>()
@@ -98,14 +101,18 @@ export class EnrichStore extends Context.Service<EnrichStore, {
             const text = yield* io(target, fs.readFileString(target))
             return Option.some(
               yield* Schema.decodeUnknownEffect(codec)(text).pipe(
-                Effect.mapError((error) =>
-                  new ControlFileInvalidError({ path: target, message: `${error.message}\n${hint}` })
+                Effect.mapError(
+                  (error) =>
+                    new ControlFileInvalidError({
+                      path: target,
+                      message: `${error.message}\n${hint}`,
+                    })
                 )
               )
             )
           })
 
-        const prepare = Effect.gen(function*() {
+        const prepare = Effect.gen(function* () {
           yield* io(outDir, fs.makeDirectory(outDir, { recursive: true }))
           const names = yield* io(outDir, fs.readDirectory(outDir))
           yield* Effect.forEach(
@@ -115,11 +122,11 @@ export class EnrichStore extends Context.Service<EnrichStore, {
           )
         })
 
-        const listParsedIds = Effect.gen(function*() {
+        const listParsedIds = Effect.gen(function* () {
           if (!(yield* io(parsedDir, fs.exists(parsedDir)))) {
             return yield* new StoreError({
               path: parsedDir,
-              message: "The directory does not exist. Run `npm run parse` first."
+              message: "The directory does not exist. Run `npm run parse` first.",
             })
           }
           const names = yield* io(parsedDir, fs.readDirectory(parsedDir))
@@ -136,7 +143,7 @@ export class EnrichStore extends Context.Service<EnrichStore, {
           )
 
         const readEnriched = (id: RecipeId) =>
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const target = enrichedPath(id)
             if (!(yield* io(target, fs.exists(target)))) {
               return Option.none<EnrichedRecipe>()
@@ -160,7 +167,7 @@ export class EnrichStore extends Context.Service<EnrichStore, {
           ),
           writeBatch: (state) => writeJson(batchPath, BatchStateJson, state),
           removeBatch: io(batchPath, fs.remove(batchPath, { force: true })),
-          writeEval: (report) => writeJson(evalPath, EvalReportJson, report)
+          writeEval: (report) => writeJson(evalPath, EvalReportJson, report),
         })
       })
     )

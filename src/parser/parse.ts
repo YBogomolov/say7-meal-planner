@@ -18,7 +18,7 @@ import {
   extractTitle,
   extractUrl,
   extractYieldText,
-  idFromUrl
+  idFromUrl,
 } from "./extract.ts"
 import { warningsOf } from "./report.ts"
 import { findServingsText, parseServings } from "./servings.ts"
@@ -46,7 +46,7 @@ export const parseRecipe = (html: string, id: RecipeId): Result.Result<ParsedRec
 
 /** Like `parseRecipe`, and also the warnings of the report (also those that the recipe alone does not show). */
 export const parseRecipeWithWarnings = (html: string, id: RecipeId): Result.Result<ParseOutcome, ParseError> =>
-  Result.gen(function*() {
+  Result.gen(function* () {
     const fail = (reason: ParseFailureReason, message: string) => Result.fail(new ParseError({ id, reason, message }))
 
     const document = parse(html)
@@ -59,24 +59,21 @@ export const parseRecipeWithWarnings = (html: string, id: RecipeId): Result.Resu
 
     const url = extractUrl(document)
     if (Option.isNone(url)) {
-      return yield* fail("no_url", "The page has neither <link rel=\"canonical\"> nor <meta property=\"og:url\">")
+      return yield* fail("no_url", 'The page has neither <link rel="canonical"> nor <meta property="og:url">')
     }
     const urlId = idFromUrl(url.value)
     if (Option.isNone(urlId) || urlId.value !== id) {
-      return yield* fail(
-        "id_mismatch",
-        `The ID ${id} does not match the URL of the page: ${url.value}`
-      )
+      return yield* fail("id_mismatch", `The ID ${id} does not match the URL of the page: ${url.value}`)
     }
 
     const ingredientGroups = extractIngredientGroups(root)
     if (ingredientGroups.length === 0) {
-      return yield* fail("no_ingredients", "The page has no ingredient line under the heading \"Ингредиенты\"")
+      return yield* fail("no_ingredients", 'The page has no ingredient line under the heading "Ингредиенты"')
     }
 
     const steps = extractSteps(root)
     if (steps.length === 0) {
-      return yield* fail("no_steps", "The page has no step under the heading \"Приготовление\"")
+      return yield* fail("no_steps", 'The page has no step under the heading "Приготовление"')
     }
 
     const intro = extractIntro(root)
@@ -102,11 +99,23 @@ export const parseRecipeWithWarnings = (html: string, id: RecipeId): Result.Resu
       addedAt: Option.getOrNull(parseAddedAt(textOf(root))),
       commentsCount: Option.getOrNull(extractCommentsCount(document)),
       similarIds: extractSimilarIds(document),
-      sourceSha256: sha256Hex(new TextEncoder().encode(html))
+      sourceSha256: sha256Hex(new TextEncoder().encode(html)),
     }
 
     const recipe = yield* decodeParsedRecipe(candidate).pipe(
-      Result.mapError((error) => new ParseError({ id, reason: "invalid_output", message: error.message }))
+      Result.mapError(
+        (error) =>
+          new ParseError({
+            id,
+            reason: "invalid_output",
+            message: error.message,
+          })
+      )
     )
-    return { recipe, warnings: warningsOf(recipe, { categoriesFromBreadcrumb: fromBreadcrumb }) }
+    return {
+      recipe,
+      warnings: warningsOf(recipe, {
+        categoriesFromBreadcrumb: fromBreadcrumb,
+      }),
+    }
   })

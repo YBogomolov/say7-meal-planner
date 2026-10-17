@@ -21,15 +21,19 @@ Options:
 export type EvalCliCommand =
   | { readonly _tag: "Help" }
   | {
-    readonly _tag: "Run"
-    readonly options: { readonly dataDir: string; readonly outDir: string; readonly goldFile: string }
-  }
+      readonly _tag: "Run"
+      readonly options: {
+        readonly dataDir: string
+        readonly outDir: string
+        readonly goldFile: string
+      }
+    }
 
 const EvalArgs = Schema.Struct({
   help: Schema.optional(Schema.Boolean),
   "data-dir": Schema.optional(Schema.NonEmptyString),
   "out-dir": Schema.optional(Schema.NonEmptyString),
-  gold: Schema.optional(Schema.NonEmptyString)
+  gold: Schema.optional(Schema.NonEmptyString),
 })
 
 export const parseEvalCli = (argv: ReadonlyArray<string>): Result.Result<EvalCliCommand, CliError> =>
@@ -41,12 +45,15 @@ export const parseEvalCli = (argv: ReadonlyArray<string>): Result.Result<EvalCli
           "data-dir": { type: "string" },
           "out-dir": { type: "string" },
           gold: { type: "string" },
-          help: { type: "boolean", short: "h" }
+          help: { type: "boolean", short: "h" },
         },
         allowPositionals: false,
-        strict: true
+        strict: true,
       }).values,
-    catch: (cause) => new CliError({ message: cause instanceof Error ? cause.message : String(cause) })
+    catch: (cause) =>
+      new CliError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
   }).pipe(
     Result.flatMap((values) =>
       Schema.decodeUnknownResult(EvalArgs)(values).pipe(
@@ -63,8 +70,8 @@ export const parseEvalCli = (argv: ReadonlyArray<string>): Result.Result<EvalCli
         options: {
           dataDir,
           outDir: args["out-dir"] ?? join(dataDir, "enriched"),
-          goldFile: args.gold ?? DEFAULT_GOLD_FILE
-        }
+          goldFile: args.gold ?? DEFAULT_GOLD_FILE,
+        },
       }
     })
   )

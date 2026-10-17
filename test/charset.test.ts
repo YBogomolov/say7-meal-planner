@@ -6,7 +6,7 @@ import {
   charsetFromMeta,
   decodeText,
   detectCharset,
-  META_SNIFF_BYTES
+  META_SNIFF_BYTES,
 } from "../src/scraper/charset.ts"
 import type { DecodeOptions } from "../src/scraper/charset.ts"
 import { encodeWindows1251 } from "./support/win1251.ts"
@@ -17,7 +17,7 @@ const page = (head: string, body = "Куриные сердечки") =>
 const pageOptions = (contentType: string | null): DecodeOptions => ({
   contentType: Option.fromNullishOr(contentType),
   defaultLabel: "windows-1251",
-  sniffMeta: true
+  sniffMeta: true,
 })
 
 const decode = (bytes: Uint8Array, options: DecodeOptions) => {
@@ -35,7 +35,7 @@ describe("charsetFromContentType", () => {
     ["text/html;charset=UTF-8", "UTF-8"],
     ['text/html; charset="windows-1251"', "windows-1251"],
     ["text/xml; charset=utf-8; boundary=x", "utf-8"],
-    ["text/plain; charset=windows-1251", "windows-1251"]
+    ["text/plain; charset=windows-1251", "windows-1251"],
   ])("reads %s", (header, label) => {
     assert.strictEqual(Option.getOrNull(charsetFromContentType(header)), label)
   })
@@ -83,20 +83,30 @@ describe("detectCharset", () => {
 
   it("uses the default when nothing names a charset", () => {
     const charset = Result.getOrThrow(detectCharset(page(""), pageOptions(null)))
-    assert.deepStrictEqual(charset, { label: "windows-1251", source: "default" })
+    assert.deepStrictEqual(charset, {
+      label: "windows-1251",
+      source: "default",
+    })
   })
 
   it("skips a label that Node.js does not know", () => {
     const charset = Result.getOrThrow(
       detectCharset(page('<meta charset="no-such-charset">'), pageOptions("text/html; charset=also-unknown"))
     )
-    assert.deepStrictEqual(charset, { label: "windows-1251", source: "default" })
+    assert.deepStrictEqual(charset, {
+      label: "windows-1251",
+      source: "default",
+    })
   })
 
   it("does not read meta tags when sniffing is off", () => {
     const bytes = page('<meta charset="koi8-r">')
     const charset = Result.getOrThrow(
-      detectCharset(bytes, { contentType: Option.none(), defaultLabel: "utf-8", sniffMeta: false })
+      detectCharset(bytes, {
+        contentType: Option.none(),
+        defaultLabel: "utf-8",
+        sniffMeta: false,
+      })
     )
     assert.deepStrictEqual(charset, { label: "utf-8", source: "default" })
   })
@@ -105,7 +115,7 @@ describe("detectCharset", () => {
     const result = detectCharset(new Uint8Array(), {
       contentType: Option.none(),
       defaultLabel: "no-such-charset",
-      sniffMeta: false
+      sniffMeta: false,
     })
     assert.isTrue(Result.isFailure(result))
   })
@@ -134,14 +144,21 @@ describe("decodeText", () => {
   })
 
   it("decodes with the meta tag when the header has no charset", () => {
-    const decoded = decode(page('<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">'), pageOptions("text/html"))
+    const decoded = decode(
+      page('<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">'),
+      pageOptions("text/html")
+    )
     assert.include(decoded.text, "Куриные сердечки")
     assert.strictEqual(decoded.charset.source, "meta")
   })
 
   it("decodes UTF-8", () => {
     const bytes = new TextEncoder().encode("Куриные сердечки")
-    const decoded = decode(bytes, { contentType: Option.some("text/xml; charset=utf-8"), defaultLabel: "utf-8", sniffMeta: false })
+    const decoded = decode(bytes, {
+      contentType: Option.some("text/xml; charset=utf-8"),
+      defaultLabel: "utf-8",
+      sniffMeta: false,
+    })
     assert.strictEqual(decoded.text, "Куриные сердечки")
   })
 
@@ -149,7 +166,7 @@ describe("decodeText", () => {
     const decoded = decode(Uint8Array.from([0x61, 0xff, 0xfe, 0x62]), {
       contentType: Option.some("text/plain; charset=utf-8"),
       defaultLabel: "utf-8",
-      sniffMeta: false
+      sniffMeta: false,
     })
     assert.strictEqual(decoded.text, "a��b")
   })

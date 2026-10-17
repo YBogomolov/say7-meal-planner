@@ -14,21 +14,22 @@ export const RawIndexEntry = Schema.Struct({
   httpStatus: Schema.NullOr(Schema.Int),
   bytes: Schema.NullOr(Schema.Natural),
   sha256: Schema.NullOr(Schema.String.pipe(Schema.check(Schema.isPattern(/^[0-9a-f]{64}$/)))),
-  error: Schema.NullOr(Schema.String)
+  error: Schema.NullOr(Schema.String),
 })
 export type RawIndexEntry = typeof RawIndexEntry.Type
 
 const entryKeysMatchIds = Schema.makeFilter<{
   readonly entries: { readonly [key: string]: RawIndexEntry }
-}>((index) =>
-  Object.entries(index.entries).every(([key, entry]) => key === String(entry.id)) ||
-  "Every key of `entries` must equal the `id` of its entry"
+}>(
+  (index) =>
+    Object.entries(index.entries).every(([key, entry]) => key === String(entry.id)) ||
+    "Every key of `entries` must equal the `id` of its entry"
 )
 
 /** The whole `data/raw/index.json` file. `entries` is keyed by the recipe ID as a string. */
 export const RawIndex = Schema.Struct({
   version: Schema.Literal(1),
-  entries: Schema.Record(Schema.String.pipe(Schema.check(Schema.isPattern(/^[1-9]\d*$/))), RawIndexEntry)
+  entries: Schema.Record(Schema.String.pipe(Schema.check(Schema.isPattern(/^[1-9]\d*$/))), RawIndexEntry),
 }).pipe(Schema.check(entryKeysMatchIds))
 export type RawIndex = typeof RawIndex.Type
 

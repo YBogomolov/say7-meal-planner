@@ -14,7 +14,7 @@ import { encodeWindows1251 } from "./win1251.ts"
 export const fastHttp: HttpConfig = {
   userAgent: USER_AGENT,
   timeout: Duration.seconds(2),
-  retryBase: Duration.millis(5)
+  retryBase: Duration.millis(5),
 }
 
 export interface RecipeFixture {
@@ -31,21 +31,21 @@ export const TORT: RecipeFixture = {
   slug: "Tort-Tri",
   lastmod: "2025-10-20",
   title: "Торт «Три шоколада»",
-  charsetHint: "header"
+  charsetHint: "header",
 }
 export const SALAT: RecipeFixture = {
   id: 56,
   slug: "Salat-Mimoza",
   lastmod: "2026-03-11",
   title: "Салат Мимоза",
-  charsetHint: "meta"
+  charsetHint: "meta",
 }
 export const SERDECHKI: RecipeFixture = {
   id: 1740,
   slug: "Kurinyie-serdechki",
   lastmod: null,
   title: "Куриные сердечки",
-  charsetHint: "none"
+  charsetHint: "none",
 }
 export const RECIPES: ReadonlyArray<RecipeFixture> = [TORT, SALAT, SERDECHKI]
 
@@ -53,11 +53,12 @@ export const pagePath = (recipe: RecipeFixture): string => `/cook/recipe/${recip
 
 /** The page text before it is encoded to windows-1251. */
 export const recipeHtml = (recipe: RecipeFixture): string => {
-  const meta = recipe.charsetHint === "meta"
-    ? `<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">`
-    : ""
-  return `<!DOCTYPE html>\n<html><head>${meta}<title>${recipe.title}</title></head>` +
+  const meta =
+    recipe.charsetHint === "meta" ? `<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">` : ""
+  return (
+    `<!DOCTYPE html>\n<html><head>${meta}<title>${recipe.title}</title></head>` +
     `<body><h1>${recipe.title}</h1><p>Ёж, ёлка и № 5 — вкусно.</p></body></html>\n`
+  )
 }
 
 /** The original bytes that the server sends. */
@@ -72,11 +73,14 @@ export const sitemapXml = (recipes: ReadonlyArray<RecipeFixture>): string =>
   `<url><loc>https://www.say7.info/</loc></url>\n\n` +
   `<url><loc>https://www.say7.info/search.html?q=%D1%81%D1%83%D0%BF</loc></url>\n\n` +
   `<url><loc>https://www.say7.info/cook/recipe/img/1590.jpg</loc></url>\n\n` +
-  recipes.map((recipe) =>
-    `<url><loc>https://www.say7.info${pagePath(recipe)}</loc>\n` +
-    (recipe.lastmod === null ? "" : `<lastmod>${recipe.lastmod}</lastmod>\n`) +
-    `</url>\n`
-  ).join("\n") +
+  recipes
+    .map(
+      (recipe) =>
+        `<url><loc>https://www.say7.info${pagePath(recipe)}</loc>\n` +
+        (recipe.lastmod === null ? "" : `<lastmod>${recipe.lastmod}</lastmod>\n`) +
+        `</url>\n`
+    )
+    .join("\n") +
   `\n</urlset>\n`
 
 export const routeRecipe = (site: TestSite, recipe: RecipeFixture): void => {
@@ -92,7 +96,7 @@ export const routeRobots = (site: TestSite, text: string = REAL_ROBOTS_TXT): voi
   site.route("/robots.txt", () => ({
     status: 200,
     headers: { "content-type": "text/plain; charset=windows-1251" },
-    body: encodeWindows1251(text)
+    body: encodeWindows1251(text),
   }))
 }
 
@@ -100,7 +104,7 @@ export const routeRobots = (site: TestSite, text: string = REAL_ROBOTS_TXT): voi
 export const startRecipeSite = (
   recipes: ReadonlyArray<RecipeFixture> = RECIPES
 ): Effect.Effect<TestSite, never, Scope.Scope> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const site = yield* startTestSite
     routeRobots(site)
     routeSitemap(site, recipes)
@@ -117,7 +121,11 @@ export interface ConsoleLog {
   readonly errors: Array<string>
 }
 
-export const newConsoleLog = (): ConsoleLog => ({ lines: [], warnings: [], errors: [] })
+export const newConsoleLog = (): ConsoleLog => ({
+  lines: [],
+  warnings: [],
+  errors: [],
+})
 
 /**
  * Run the scraper like the command line does: parse the flags, use the real layers,
@@ -138,7 +146,7 @@ export const scrapeWith = (
     ...globalThis.console,
     log: (...parts: ReadonlyArray<unknown>) => void log.lines.push(parts.join(" ")),
     warn: (...parts: ReadonlyArray<unknown>) => void log.warnings.push(parts.join(" ")),
-    error: (...parts: ReadonlyArray<unknown>) => void log.errors.push(parts.join(" "))
+    error: (...parts: ReadonlyArray<unknown>) => void log.errors.push(parts.join(" ")),
   }
   return scrape(options).pipe(
     Effect.provide(scraperLayer({ ...options, http: fastHttp })),
@@ -146,11 +154,10 @@ export const scrapeWith = (
   )
 }
 
-export const summaryOf = (
-  fetched: number,
-  skipped: number,
-  notFound = 0,
-  errors = 0,
-  deferred = 0
-): ScrapeSummary => ({ fetched, skipped, notFound, errors, deferred })
-
+export const summaryOf = (fetched: number, skipped: number, notFound = 0, errors = 0, deferred = 0): ScrapeSummary => ({
+  fetched,
+  skipped,
+  notFound,
+  errors,
+  deferred,
+})

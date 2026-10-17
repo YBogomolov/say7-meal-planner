@@ -7,24 +7,29 @@ import type {
   BatchItem,
   BatchOutcome,
   LlmCompletion,
-  LlmRequest
+  LlmRequest,
 } from "../../src/enrich/llm-types.ts"
 import type { Enrichment } from "../../src/domain/enriched-recipe.ts"
 
-export const USAGE = { inputTokens: 1000, outputTokens: 800, cacheReadTokens: 3000, cacheCreationTokens: 0 } as const
+export const USAGE = {
+  inputTokens: 1000,
+  outputTokens: 800,
+  cacheReadTokens: 3000,
+  cacheCreationTokens: 0,
+} as const
 
 /** A normal answer: the JSON of `enrichment`, `end_turn`. */
 export const answer = (enrichment: Enrichment, usage = USAGE): LlmCompletion => ({
   text: JSON.stringify(enrichment),
   stopReason: "end_turn",
-  usage
+  usage,
 })
 
 /** Any text with any stop reason. */
 export const rawAnswer = (text: string, stopReason: string | null = "end_turn", usage = USAGE): LlmCompletion => ({
   text,
   stopReason,
-  usage
+  usage,
 })
 
 export const apiError = (kind: LlmApiError["kind"], status: number | null = null, message = "boom"): LlmApiError =>
@@ -78,16 +83,16 @@ export const makeFakeLlm = (options: FakeLlmOptions = {}): FakeLlm => {
     succeeded: 0,
     errored: 0,
     canceled: 0,
-    expired: 0
+    expired: 0,
   })
 
   const layer = Layer.effect(
     Llm,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const calls = yield* Ref.make(0)
       return Llm.of({
         complete: (request) =>
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const call = yield* Ref.getAndUpdate(calls, (n) => n + 1)
             requests.push(request)
             inFlight.value += 1
@@ -96,10 +101,11 @@ export const makeFakeLlm = (options: FakeLlmOptions = {}): FakeLlm => {
               yield* Effect.sleep(options.latencyMs)
             }
             inFlight.value -= 1
-            const reply = options.complete === undefined
-              ? apiError("other", null, "complete must not be called")
-              : options.complete(request, call)
-            return yield* (reply instanceof LlmApiError ? Effect.fail(reply) : Effect.succeed(reply))
+            const reply =
+              options.complete === undefined
+                ? apiError("other", null, "complete must not be called")
+                : options.complete(request, call)
+            return yield* reply instanceof LlmApiError ? Effect.fail(reply) : Effect.succeed(reply)
           }),
 
         createBatch: (entries) => {
@@ -123,7 +129,7 @@ export const makeFakeLlm = (options: FakeLlmOptions = {}): FakeLlm => {
               const outcome = options.batch?.reply(entry, position)
               return outcome === undefined || outcome === "omit" ? [] : [{ customId: entry.customId, outcome }]
             })
-          )
+          ),
       })
     })
   )
@@ -131,11 +137,7 @@ export const makeFakeLlm = (options: FakeLlmOptions = {}): FakeLlm => {
 }
 
 /** `layer` for a batch that a test has not created itself: the results come from `reply` for the given entries. */
-export const batchResultsOnly = (
-  batchId: string,
-  items: ReadonlyArray<BatchItem>,
-  ended = true
-): Layer.Layer<Llm> =>
+export const batchResultsOnly = (batchId: string, items: ReadonlyArray<BatchItem>, ended = true): Layer.Layer<Llm> =>
   Layer.succeed(
     Llm,
     Llm.of({
@@ -149,8 +151,8 @@ export const batchResultsOnly = (
           succeeded: items.length,
           errored: 0,
           canceled: 0,
-          expired: 0
+          expired: 0,
         }),
-      batchResults: () => Stream.fromIterable(items)
+      batchResults: () => Stream.fromIterable(items),
     })
   )

@@ -43,7 +43,11 @@ export type EnrichCliCommand =
   | { readonly _tag: "DryRun"; readonly options: DryRunCliOptions }
 
 const PositiveIntFromString = Schema.String.pipe(
-  Schema.check(Schema.isPattern(/^[1-9]\d*$/, { message: "Expected a whole number above 0" })),
+  Schema.check(
+    Schema.isPattern(/^[1-9]\d*$/, {
+      message: "Expected a whole number above 0",
+    })
+  ),
   Schema.decodeTo(Schema.FiniteFromString),
   Schema.decodeTo(Schema.Int)
 )
@@ -57,7 +61,7 @@ const CliArgs = Schema.Struct({
   "dry-run": Schema.optional(Schema.Boolean),
   help: Schema.optional(Schema.Boolean),
   "data-dir": Schema.optional(Schema.NonEmptyString),
-  "out-dir": Schema.optional(Schema.NonEmptyString)
+  "out-dir": Schema.optional(Schema.NonEmptyString),
 })
 
 const usageError = (message: string) => Result.fail(new CliError({ message }))
@@ -77,12 +81,15 @@ export const parseEnrichCli = (argv: ReadonlyArray<string>): Result.Result<Enric
           "dry-run": { type: "boolean" },
           "data-dir": { type: "string" },
           "out-dir": { type: "string" },
-          help: { type: "boolean", short: "h" }
+          help: { type: "boolean", short: "h" },
         },
         allowPositionals: false,
-        strict: true
+        strict: true,
       }).values,
-    catch: (cause) => new CliError({ message: cause instanceof Error ? cause.message : String(cause) })
+    catch: (cause) =>
+      new CliError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
   }).pipe(
     Result.flatMap((values) =>
       Schema.decodeUnknownResult(CliArgs)(values).pipe(
@@ -95,7 +102,9 @@ export const parseEnrichCli = (argv: ReadonlyArray<string>): Result.Result<Enric
       }
       const retryFailed = args["retry-failed"] === true
       if (retryFailed && (args.ids !== undefined || args.limit !== undefined)) {
-        return usageError("--retry-failed processes all failures of the last report. Do not use it with --ids or --limit.")
+        return usageError(
+          "--retry-failed processes all failures of the last report. Do not use it with --ids or --limit."
+        )
       }
       const dataDir = args["data-dir"] ?? DEFAULT_DATA_DIR
       const common = {
@@ -104,14 +113,20 @@ export const parseEnrichCli = (argv: ReadonlyArray<string>): Result.Result<Enric
         sync: args.sync === true,
         retryFailed,
         dataDir,
-        outDir: args["out-dir"] ?? join(dataDir, "enriched")
+        outDir: args["out-dir"] ?? join(dataDir, "enriched"),
       }
       if (args["dry-run"] === true) {
         return Result.succeed({
           _tag: "DryRun",
-          options: { ...common, models: args.model === undefined ? MODEL_NAMES : [args.model] }
+          options: {
+            ...common,
+            models: args.model === undefined ? MODEL_NAMES : [args.model],
+          },
         })
       }
-      return Result.succeed({ _tag: "Run", options: { ...common, model: args.model ?? DEFAULT_MODEL } })
+      return Result.succeed({
+        _tag: "Run",
+        options: { ...common, model: args.model ?? DEFAULT_MODEL },
+      })
     })
   )

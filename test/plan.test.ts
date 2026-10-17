@@ -24,12 +24,12 @@ const cached = (n: number, overrides: Partial<RawIndexEntry> = {}): RawIndexEntr
   bytes: 100,
   sha256: "0".repeat(64),
   error: null,
-  ...overrides
+  ...overrides,
 })
 
 const indexOf = (...entries: ReadonlyArray<RawIndexEntry>): RawIndex => ({
   version: 1,
-  entries: Object.fromEntries(entries.map((e) => [String(e.id), e]))
+  entries: Object.fromEntries(entries.map((e) => [String(e.id), e])),
 })
 
 const reasonOf = (e: SitemapEntry, known: RawIndexEntry | null, fileExists: boolean, force = false) =>
@@ -72,7 +72,14 @@ describe("decideFetch", () => {
   })
 
   describe("status not_found", () => {
-    const gone = (lastmod: string | null) => cached(1, { status: "not_found", lastmod, httpStatus: 404, bytes: null, sha256: null })
+    const gone = (lastmod: string | null) =>
+      cached(1, {
+        status: "not_found",
+        lastmod,
+        httpStatus: 404,
+        bytes: null,
+        sha256: null,
+      })
 
     it("skips when the sitemap has a lastmod and it is the same as in the index", () => {
       assert.strictEqual(reasonOf(entry(1, "2025-01-01"), gone("2025-01-01"), false), null)
@@ -114,14 +121,17 @@ describe("planFetches", () => {
     existingFiles: new Set([id(1), id(2), id(4)]),
     force: false,
     ids: Option.none<ReadonlySet<RecipeId>>(),
-    limit: Option.none<number>()
+    limit: Option.none<number>(),
   }
   const idsOf = (plan: ReturnType<typeof planFetches>) => plan.toFetch.map((planned) => planned.entry.id)
 
   it("plans the entries that need a fetch, in sitemap order", () => {
     const plan = planFetches(base)
     assert.deepStrictEqual(idsOf(plan), [2, 3])
-    assert.deepStrictEqual(plan.toFetch.map((planned) => planned.reason), ["changed", "new"])
+    assert.deepStrictEqual(
+      plan.toFetch.map((planned) => planned.reason),
+      ["changed", "new"]
+    )
     assert.strictEqual(plan.skipped, 2)
     assert.strictEqual(plan.deferred, 0)
   })
@@ -140,7 +150,10 @@ describe("planFetches", () => {
   })
 
   it("restricts the plan to --ids", () => {
-    const plan = planFetches({ ...base, ids: Option.some(new Set([id(3), id(4)])) })
+    const plan = planFetches({
+      ...base,
+      ids: Option.some(new Set([id(3), id(4)])),
+    })
     assert.deepStrictEqual(idsOf(plan), [3])
     assert.strictEqual(plan.skipped, 1)
   })
@@ -152,16 +165,31 @@ describe("planFetches", () => {
   })
 
   it("reports --ids that the sitemap does not contain", () => {
-    const plan = planFetches({ ...base, ids: Option.some(new Set([id(3), id(99)])) })
+    const plan = planFetches({
+      ...base,
+      ids: Option.some(new Set([id(3), id(99)])),
+    })
     assert.deepStrictEqual(plan.unknownIds, [id(99)])
     assert.deepStrictEqual(idsOf(plan), [3])
   })
 
   it("does not plan a not_found entry with the same lastmod, but plans it after a lastmod change", () => {
-    const missing = cached(3, { status: "not_found", lastmod: "2025-01-01", httpStatus: 404, bytes: null, sha256: null })
-    const withMissing = { ...base, index: indexOf(cached(1), cached(2), missing, cached(4)) }
+    const missing = cached(3, {
+      status: "not_found",
+      lastmod: "2025-01-01",
+      httpStatus: 404,
+      bytes: null,
+      sha256: null,
+    })
+    const withMissing = {
+      ...base,
+      index: indexOf(cached(1), cached(2), missing, cached(4)),
+    }
     assert.deepStrictEqual(idsOf(planFetches(withMissing)), [])
-    const changed = { ...withMissing, entries: [entry(1, "2025-01-01"), entry(2, "2025-01-01"), entry(3, "2025-09-09"), entry(4, null)] }
+    const changed = {
+      ...withMissing,
+      entries: [entry(1, "2025-01-01"), entry(2, "2025-01-01"), entry(3, "2025-09-09"), entry(4, null)],
+    }
     assert.deepStrictEqual(idsOf(planFetches(changed)), [3])
   })
 
@@ -176,7 +204,12 @@ describe("planFetches", () => {
 describe("toIndexEntry", () => {
   const when = "2026-10-12T10:00:00.000Z"
   const e = entry(5, "2025-03-03")
-  const fetched = { _tag: "Fetched", httpStatus: 200, bytes: 12, sha256: "a".repeat(64) } as const
+  const fetched = {
+    _tag: "Fetched",
+    httpStatus: 200,
+    bytes: 12,
+    sha256: "a".repeat(64),
+  } as const
 
   it("records a fetched page", () => {
     const record = toIndexEntry(e, Option.none(), false, fetched, when)
@@ -189,7 +222,7 @@ describe("toIndexEntry", () => {
       httpStatus: 200,
       bytes: 12,
       sha256: "a".repeat(64),
-      error: null
+      error: null,
     })
   })
 
@@ -205,11 +238,17 @@ describe("toIndexEntry", () => {
   })
 
   it("records an error with its message", () => {
-    const record = toIndexEntry(e, Option.none(), false, {
-      _tag: "Failed",
-      httpStatus: Option.some(503),
-      message: "HTTP 503"
-    }, when)
+    const record = toIndexEntry(
+      e,
+      Option.none(),
+      false,
+      {
+        _tag: "Failed",
+        httpStatus: Option.some(503),
+        message: "HTTP 503",
+      },
+      when
+    )
     assert.strictEqual(record.status, "error")
     assert.strictEqual(record.httpStatus, 503)
     assert.strictEqual(record.error, "HTTP 503")
@@ -217,7 +256,11 @@ describe("toIndexEntry", () => {
 
   it("keeps an earlier ok entry when a refetch fails and the file is still there", () => {
     const earlier = cached(5)
-    const failed = { _tag: "Failed", httpStatus: Option.none(), message: "timeout" } as const
+    const failed = {
+      _tag: "Failed",
+      httpStatus: Option.none(),
+      message: "timeout",
+    } as const
     assert.deepStrictEqual(toIndexEntry(e, Option.some(earlier), true, failed, when), earlier)
     assert.strictEqual(toIndexEntry(e, Option.some(earlier), false, failed, when).status, "error")
   })
@@ -233,7 +276,7 @@ describe("classifyResult", () => {
     url: "http://x/",
     status,
     contentType: Option.some("text/html"),
-    body: new TextEncoder().encode(body)
+    body: new TextEncoder().encode(body),
   })
 
   it("marks a response with a body as fetched and hashes the original bytes", () => {
@@ -242,34 +285,52 @@ describe("classifyResult", () => {
       _tag: "Fetched",
       httpStatus: 200,
       bytes: 3,
-      sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+      sha256: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
     })
     assert.isTrue(Option.isSome(page))
   })
 
   it("marks an empty 200 response as failed", () => {
     const { outcome, page } = classifyResult(Result.succeed(response(200, "")))
-    assert.deepStrictEqual(outcome, { _tag: "Failed", httpStatus: Option.some(200), message: "Empty response body" })
+    assert.deepStrictEqual(outcome, {
+      _tag: "Failed",
+      httpStatus: Option.some(200),
+      message: "Empty response body",
+    })
     assert.isTrue(Option.isNone(page))
   })
 
   it("marks a 404 as not found", () => {
-    const failure = new HttpStatusError({ url: "http://x/", status: 404, retryAfter: Option.none() })
-    assert.deepStrictEqual(classifyResult(Result.fail(failure)).outcome, { _tag: "NotFound" })
+    const failure = new HttpStatusError({
+      url: "http://x/",
+      status: 404,
+      retryAfter: Option.none(),
+    })
+    assert.deepStrictEqual(classifyResult(Result.fail(failure)).outcome, {
+      _tag: "NotFound",
+    })
   })
 
   it("marks other HTTP statuses and network errors as failed", () => {
-    const status = new HttpStatusError({ url: "http://x/", status: 503, retryAfter: Option.none() })
+    const status = new HttpStatusError({
+      url: "http://x/",
+      status: 503,
+      retryAfter: Option.none(),
+    })
     assert.deepStrictEqual(classifyResult(Result.fail(status)).outcome, {
       _tag: "Failed",
       httpStatus: Option.some(503),
-      message: "HTTP 503"
+      message: "HTTP 503",
     })
-    const network = new NetworkError({ url: "http://x/", reason: "timeout", message: "Timeout after 30000 ms" })
+    const network = new NetworkError({
+      url: "http://x/",
+      reason: "timeout",
+      message: "Timeout after 30000 ms",
+    })
     assert.deepStrictEqual(classifyResult(Result.fail(network)).outcome, {
       _tag: "Failed",
       httpStatus: Option.none(),
-      message: "Timeout after 30000 ms"
+      message: "Timeout after 30000 ms",
     })
   })
 })

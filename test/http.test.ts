@@ -12,13 +12,17 @@ import {
   parseRetryAfter,
   retryDelay,
   retrySchedule,
-  USER_AGENT
+  USER_AGENT,
 } from "../src/scraper/http.ts"
 import type { HttpFailure } from "../src/scraper/http.ts"
 import { startTestSite } from "./support/site.ts"
 
 const status = (code: number, retryAfterMs: number | null = null) =>
-  new HttpStatusError({ url: "http://x/", status: code, retryAfter: Option.fromNullishOr(retryAfterMs) })
+  new HttpStatusError({
+    url: "http://x/",
+    status: code,
+    retryAfter: Option.fromNullishOr(retryAfterMs),
+  })
 
 const network = (reason: "timeout" | "connection" | "redirect") =>
   new NetworkError({ url: "http://x/", reason, message: reason })
@@ -98,7 +102,7 @@ describe("retrySchedule", () => {
   }
 
   it.effect("retries 3 times, after 2 s, 4 s and 8 s", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { counter, effect } = failing(status(503))
       const fiber = yield* Effect.forkChild(Effect.exit(effect.pipe(Effect.retry(retrySchedule("2 seconds")))))
       yield* Effect.yieldNow
@@ -124,18 +128,20 @@ describe("retrySchedule", () => {
       assert.strictEqual(counter.attempts, 1 + MAX_RETRIES)
       yield* TestClock.adjust(60_000)
       assert.strictEqual(counter.attempts, 1 + MAX_RETRIES)
-    }))
+    })
+  )
 
   it.effect("does not retry a 404", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { counter, effect } = failing(status(404))
       const exit = yield* Effect.exit(effect.pipe(Effect.retry(retrySchedule("2 seconds"))))
       assert.isTrue(Exit.isFailure(exit))
       assert.strictEqual(counter.attempts, 1)
-    }))
+    })
+  )
 
   it.effect("waits for Retry-After when it is longer than the backoff", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { counter, effect } = failing(status(429, 20_000))
       yield* Effect.forkChild(Effect.exit(effect.pipe(Effect.retry(retrySchedule("2 seconds")))))
       yield* Effect.yieldNow
@@ -143,10 +149,11 @@ describe("retrySchedule", () => {
       assert.strictEqual(counter.attempts, 1)
       yield* TestClock.adjust(1)
       assert.strictEqual(counter.attempts, 2)
-    }))
+    })
+  )
 
   it.effect("returns the value of a later success", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const counter = { attempts: 0 }
       const flaky = Effect.suspend(() => {
         counter.attempts += 1
@@ -158,25 +165,37 @@ describe("retrySchedule", () => {
       yield* TestClock.adjust(4000)
       assert.strictEqual(yield* Fiber.join(fiber), "page")
       assert.strictEqual(counter.attempts, 3)
-    }))
+    })
+  )
 })
 
 describe("Http against a local server", () => {
-  const fastConfig = { userAgent: USER_AGENT, timeout: Duration.millis(400), retryBase: Duration.millis(5) }
+  const fastConfig = {
+    userAgent: USER_AGENT,
+    timeout: Duration.millis(400),
+    retryBase: Duration.millis(5),
+  }
 
   it.live("returns the body, the content type and sends the User-Agent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
-      site.route("/ok", () => ({ status: 200, headers: { "content-type": "text/html; charset=windows-1251" }, body: "abc" }))
-      const response = yield* Http.use((http) => http.get(`${site.origin}/ok`)).pipe(Effect.provide(Http.layer(fastConfig)))
+      site.route("/ok", () => ({
+        status: 200,
+        headers: { "content-type": "text/html; charset=windows-1251" },
+        body: "abc",
+      }))
+      const response = yield* Http.use((http) => http.get(`${site.origin}/ok`)).pipe(
+        Effect.provide(Http.layer(fastConfig))
+      )
       assert.strictEqual(response.status, 200)
       assert.strictEqual(Option.getOrNull(response.contentType), "text/html; charset=windows-1251")
       assert.strictEqual(new TextDecoder().decode(response.body), "abc")
       assert.strictEqual(site.requests[0]?.userAgent, "say7-meal-planner/0.1 (personal non-commercial use)")
-    }))
+    })
+  )
 
   it.live("fails with HttpStatusError for 404 and does not retry", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
       const error = yield* Http.use((http) => http.get(`${site.origin}/missing`)).pipe(
         Effect.provide(Http.layer(fastConfig)),
@@ -185,13 +204,20 @@ describe("Http against a local server", () => {
       assert.strictEqual(error._tag, "HttpStatusError")
       assert.strictEqual(error._tag === "HttpStatusError" ? error.status : 0, 404)
       assert.strictEqual(site.hits("/missing"), 1)
-    }))
+    })
+  )
 
   it.live("reads Retry-After from 429 and 503 only", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
-      site.route("/limited", () => ({ status: 429, headers: { "retry-after": "0" } }))
-      site.route("/teapot", () => ({ status: 418, headers: { "retry-after": "7" } }))
+      site.route("/limited", () => ({
+        status: 429,
+        headers: { "retry-after": "0" },
+      }))
+      site.route("/teapot", () => ({
+        status: 418,
+        headers: { "retry-after": "7" },
+      }))
       const run = (path: string) =>
         Http.use((http) => http.get(`${site.origin}${path}`)).pipe(Effect.provide(Http.layer(fastConfig)), Effect.flip)
       const limited = yield* run("/limited")
@@ -200,19 +226,23 @@ describe("Http against a local server", () => {
       assert.strictEqual(teapot._tag === "HttpStatusError" ? Option.getOrNull(teapot.retryAfter) : "x", null)
       assert.strictEqual(site.hits("/limited"), 1 + MAX_RETRIES)
       assert.strictEqual(site.hits("/teapot"), 1)
-    }))
+    })
+  )
 
   it.live("retries a 503 and returns the later 200", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
       site.route("/flaky", (hit) => (hit < 3 ? { status: 503 } : { status: 200, body: "fine" }))
-      const response = yield* Http.use((http) => http.get(`${site.origin}/flaky`)).pipe(Effect.provide(Http.layer(fastConfig)))
+      const response = yield* Http.use((http) => http.get(`${site.origin}/flaky`)).pipe(
+        Effect.provide(Http.layer(fastConfig))
+      )
       assert.strictEqual(new TextDecoder().decode(response.body), "fine")
       assert.strictEqual(site.hits("/flaky"), 3)
-    }))
+    })
+  )
 
   it.live("gives up after 3 retries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
       site.route("/down", () => ({ status: 500 }))
       const error = yield* Http.use((http) => http.get(`${site.origin}/down`)).pipe(
@@ -221,10 +251,11 @@ describe("Http against a local server", () => {
       )
       assert.strictEqual(error._tag, "HttpStatusError")
       assert.strictEqual(site.hits("/down"), 4)
-    }))
+    })
+  )
 
   it.live("times out and retries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
       site.route("/slow", () => ({ status: 200, hang: true }))
       const error = yield* Http.use((http) => http.get(`${site.origin}/slow`)).pipe(
@@ -233,40 +264,49 @@ describe("Http against a local server", () => {
       )
       assert.strictEqual(error._tag === "NetworkError" ? error.reason : null, "timeout")
       assert.strictEqual(site.hits("/slow"), 4)
-    }))
+    })
+  )
 
   it.live("fails with NetworkError when nothing listens, and retries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const closedOrigin = yield* Effect.scoped(startTestSite.pipe(Effect.map((site) => site.origin)))
       const error = yield* Http.use((http) => http.get(`${closedOrigin}/x`)).pipe(
         Effect.provide(Http.layer(fastConfig)),
         Effect.flip
       )
       assert.strictEqual(error._tag === "NetworkError" ? error.reason : null, "connection")
-    }))
+    })
+  )
 
   it.live("stops on a redirect to another origin", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const other = yield* startTestSite
       other.route("/target", () => ({ status: 200, body: "elsewhere" }))
       const site = yield* startTestSite
-      site.route("/jump", () => ({ status: 302, headers: { location: `${other.origin}/target` } }))
+      site.route("/jump", () => ({
+        status: 302,
+        headers: { location: `${other.origin}/target` },
+      }))
       const error = yield* Http.use((http) => http.get(`${site.origin}/jump`)).pipe(
         Effect.provide(Http.layer(fastConfig)),
         Effect.flip
       )
       assert.strictEqual(error._tag === "NetworkError" ? error.reason : null, "redirect")
       assert.strictEqual(site.hits("/jump"), 1)
-    }))
+    })
+  )
 
   it.live("follows a redirect inside the same origin", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const site = yield* startTestSite
       site.route("/old", () => ({ status: 301, headers: { location: "/new" } }))
       site.route("/new", () => ({ status: 200, body: "moved" }))
-      const response = yield* Http.use((http) => http.get(`${site.origin}/old`)).pipe(Effect.provide(Http.layer(fastConfig)))
+      const response = yield* Http.use((http) => http.get(`${site.origin}/old`)).pipe(
+        Effect.provide(Http.layer(fastConfig))
+      )
       assert.strictEqual(new TextDecoder().decode(response.body), "moved")
-    }))
+    })
+  )
 })
 
 describe("defaultHttpConfig", () => {
@@ -276,4 +316,3 @@ describe("defaultHttpConfig", () => {
     assert.strictEqual(MAX_RETRIES, 3)
   })
 })
-

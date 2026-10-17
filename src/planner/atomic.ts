@@ -11,7 +11,7 @@ export const writeTextAtomic = (
   target: string,
   text: string
 ): Effect.Effect<void, StoreError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     const temp = `${target}${TEMP_SUFFIX}`

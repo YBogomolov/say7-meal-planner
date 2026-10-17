@@ -29,14 +29,14 @@ export const FailureKind = Schema.Literals([
   "batch_expired",
   "batch_canceled",
   "batch_missing",
-  "unreadable"
+  "unreadable",
 ])
 export type FailureKind = typeof FailureKind.Type
 
 export const EnrichFailure = Schema.Struct({
   id: RecipeId,
   kind: FailureKind,
-  message: Schema.String
+  message: Schema.String,
 })
 export type EnrichFailure = typeof EnrichFailure.Type
 
@@ -45,7 +45,7 @@ export const PriceTable = Schema.Struct({
   input: NonNegativeNumber,
   output: NonNegativeNumber,
   cacheRead: NonNegativeNumber,
-  cacheCreation: NonNegativeNumber
+  cacheCreation: NonNegativeNumber,
 })
 export type PriceTable = typeof PriceTable.Type
 
@@ -76,7 +76,7 @@ export const EnrichReport = Schema.Struct({
     deferred: Schema.Natural,
     processed: Schema.Natural,
     succeeded: Schema.Natural,
-    failed: Schema.Natural
+    failed: Schema.Natural,
   }),
   failures: Schema.Array(EnrichFailure),
   usage: TokenUsage,
@@ -86,12 +86,14 @@ export const EnrichReport = Schema.Struct({
     mode: RunMode,
     pricePerMillionTokens: PriceTable,
     batchFactor: NonNegativeNumber,
-    estimatedUsd: NonNegativeNumber
-  })
+    estimatedUsd: NonNegativeNumber,
+  }),
 })
 export type EnrichReport = typeof EnrichReport.Type
 
-export const EnrichReportJson = Schema.fromJsonString(EnrichReport, { space: 2 })
+export const EnrichReportJson = Schema.fromJsonString(EnrichReport, {
+  space: 2,
+})
 
 /**
  * `<out-dir>/_batch.json`: the batch that this directory waits for (spec A5).
@@ -109,9 +111,9 @@ export const BatchState = Schema.Struct({
       id: RecipeId,
       inputHash: Sha256Hex,
       /** Number of ingredient lines, for the check of `ingredients[].line`. */
-      lineCount: PositiveInt
+      lineCount: PositiveInt,
     })
-  ).pipe(Schema.check(Schema.isNonEmpty()))
+  ).pipe(Schema.check(Schema.isNonEmpty())),
 })
 export type BatchState = typeof BatchState.Type
 

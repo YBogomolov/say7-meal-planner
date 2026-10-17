@@ -43,9 +43,15 @@ export const findAll = (node: Node, predicate: (element: Element) => boolean): R
 export const findFirst = (node: Node, predicate: (element: Element) => boolean): Element | undefined =>
   descendants(node).find(predicate)
 
-export const byTag = (tagName: string) => (element: Element): boolean => element.tagName === tagName
+export const byTag =
+  (tagName: string) =>
+  (element: Element): boolean =>
+    element.tagName === tagName
 
-export const byId = (id: string) => (element: Element): boolean => attr(element, "id") === id
+export const byId =
+  (id: string) =>
+  (element: Element): boolean =>
+    attr(element, "id") === id
 
 /** True when `node` is `ancestor` or lies inside it. */
 export const isInside = (node: Node, ancestor: Element): boolean => {
@@ -86,8 +92,37 @@ export const siblingsAfter = (heading: Element, isNextHeading: (element: Element
 }
 
 const BLOCK_TAGS: ReadonlySet<string> = new Set([
-  "address", "article", "aside", "blockquote", "dd", "div", "dl", "dt", "figure", "footer", "h1", "h2", "h3", "h4",
-  "h5", "h6", "header", "hr", "li", "main", "nav", "ol", "p", "pre", "section", "table", "tbody", "td", "th", "tr", "ul"
+  "address",
+  "article",
+  "aside",
+  "blockquote",
+  "dd",
+  "div",
+  "dl",
+  "dt",
+  "figure",
+  "footer",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "hr",
+  "li",
+  "main",
+  "nav",
+  "ol",
+  "p",
+  "pre",
+  "section",
+  "table",
+  "tbody",
+  "td",
+  "th",
+  "tr",
+  "ul",
 ])
 
 /** Elements without text for the reader: pictures, scripts, styles. */
@@ -149,11 +184,7 @@ export const textOf = (...nodes: ReadonlyArray<Node>): string => textLines(nodes
  * The first element that has a text node child with exactly this clean text (a trailing `:` does not count),
  * optionally limited to elements with one of the given tag names.
  */
-export const findByOwnText = (
-  root: Node,
-  text: string,
-  tagNames?: ReadonlySet<string>
-): Element | undefined => {
+export const findByOwnText = (root: Node, text: string, tagNames?: ReadonlySet<string>): Element | undefined => {
   for (const node of descendantNodes(root)) {
     if (isText(node) && cleanText(node.value).replace(/:$/, "") === text) {
       const parent = node.parentNode

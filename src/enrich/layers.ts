@@ -20,12 +20,15 @@ export const llmLayer: Layer.Layer<Llm, EnrichRunError> = Layer.unwrap(
     Effect.mapError(
       () =>
         new EnrichRunError({
-          message: `The variable ${API_KEY_VARIABLE} is not set. Put it in the environment or in a .env file.`
+          message: `The variable ${API_KEY_VARIABLE} is not set. Put it in the environment or in a .env file.`,
         })
     ),
     Effect.filterOrFail(
       (key) => Redacted.value(key).trim() !== "",
-      () => new EnrichRunError({ message: `The variable ${API_KEY_VARIABLE} is empty.` })
+      () =>
+        new EnrichRunError({
+          message: `The variable ${API_KEY_VARIABLE} is empty.`,
+        })
     ),
     Effect.map((apiKey) => Llm.layer({ apiKey }))
   )

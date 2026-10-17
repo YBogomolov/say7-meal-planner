@@ -10,7 +10,8 @@ import { costUsd, formatUsd } from "./pricing.ts"
 export const LONG_WAIT_HOURS = 6
 
 /** Lower case, `ё` as `е`, single spaces. Two names are the same if the normal forms are equal. */
-export const normaliseName = (text: string): string => text.toLowerCase().replaceAll("ё", "е").replace(/\s+/g, " ").trim()
+export const normaliseName = (text: string): string =>
+  text.toLowerCase().replaceAll("ё", "е").replace(/\s+/g, " ").trim()
 
 const NO_ENRICHMENT = "(no enrichment)"
 const NO_PARSED = "(no parsed recipe)"
@@ -51,72 +52,101 @@ export interface EntryInput {
  */
 export const scoreEntry = (entry: EntryInput): ReadonlyArray<EvalCheck> => {
   const { gold } = entry
-  const check = (field: EvalField, key: string | null, passed: boolean, expected: string, actual: string): EvalCheck => ({
+  const check = (
+    field: EvalField,
+    key: string | null,
+    passed: boolean,
+    expected: string,
+    actual: string
+  ): EvalCheck => ({
     id: gold.id,
     field,
     key,
     passed,
     expected,
-    actual
+    actual,
   })
 
   const enrichment = Option.getOrNull(entry.enrichment)
   const lines = Option.getOrNull(entry.lines)
 
-  const direct: ReadonlyArray<EvalCheck> = enrichment === null
-    ? (["dishType", "mealFit", "proteinFamilies", "vegetarian", "heat", "activeMinutes", "servings", "longWait"] as const)
-      .map((field) => check(field, null, false, "", NO_ENRICHMENT))
-    : [
-      check("dishType", null, gold.dishType.includes(enrichment.dishType), list(gold.dishType), enrichment.dishType),
-      check("mealFit", null, gold.mealFit.includes(enrichment.mealFit), list(gold.mealFit), enrichment.mealFit),
-      check(
-        "proteinFamilies",
-        null,
-        sameSet(gold.proteinFamilies, enrichment.proteinFamilies),
-        list(gold.proteinFamilies),
-        list(enrichment.proteinFamilies)
-      ),
-      check("vegetarian", null, gold.vegetarian === enrichment.vegetarian, String(gold.vegetarian), String(enrichment.vegetarian)),
-      check(
-        "heat",
-        null,
-        inRange(enrichment.heat, gold.heat.min, gold.heat.max),
-        range(gold.heat.min, gold.heat.max),
-        String(enrichment.heat)
-      ),
-      check(
-        "activeMinutes",
-        null,
-        inRange(enrichment.activeMinutes, gold.activeMinutes.min, gold.activeMinutes.max),
-        range(gold.activeMinutes.min, gold.activeMinutes.max),
-        String(enrichment.activeMinutes)
-      ),
-      (() => {
-        const low = gold.servings.min - gold.servings.tolerance
-        const high = gold.servings.max + gold.servings.tolerance
-        return check(
-          "servings",
-          null,
-          inRange(enrichment.servings.min, low, high) && inRange(enrichment.servings.max, low, high),
-          range(low, high),
-          range(enrichment.servings.min, enrichment.servings.max)
-        )
-      })(),
-      check(
-        "longWait",
-        null,
-        (enrichment.longWaitHours !== null && enrichment.longWaitHours >= LONG_WAIT_HOURS) === gold.longWait,
-        String(gold.longWait),
-        enrichment.longWaitHours === null ? "null" : String(enrichment.longWaitHours)
-      )
-    ]
+  const direct: ReadonlyArray<EvalCheck> =
+    enrichment === null
+      ? (
+          [
+            "dishType",
+            "mealFit",
+            "proteinFamilies",
+            "vegetarian",
+            "heat",
+            "activeMinutes",
+            "servings",
+            "longWait",
+          ] as const
+        ).map((field) => check(field, null, false, "", NO_ENRICHMENT))
+      : [
+          check(
+            "dishType",
+            null,
+            gold.dishType.includes(enrichment.dishType),
+            list(gold.dishType),
+            enrichment.dishType
+          ),
+          check("mealFit", null, gold.mealFit.includes(enrichment.mealFit), list(gold.mealFit), enrichment.mealFit),
+          check(
+            "proteinFamilies",
+            null,
+            sameSet(gold.proteinFamilies, enrichment.proteinFamilies),
+            list(gold.proteinFamilies),
+            list(enrichment.proteinFamilies)
+          ),
+          check(
+            "vegetarian",
+            null,
+            gold.vegetarian === enrichment.vegetarian,
+            String(gold.vegetarian),
+            String(enrichment.vegetarian)
+          ),
+          check(
+            "heat",
+            null,
+            inRange(enrichment.heat, gold.heat.min, gold.heat.max),
+            range(gold.heat.min, gold.heat.max),
+            String(enrichment.heat)
+          ),
+          check(
+            "activeMinutes",
+            null,
+            inRange(enrichment.activeMinutes, gold.activeMinutes.min, gold.activeMinutes.max),
+            range(gold.activeMinutes.min, gold.activeMinutes.max),
+            String(enrichment.activeMinutes)
+          ),
+          (() => {
+            const low = gold.servings.min - gold.servings.tolerance
+            const high = gold.servings.max + gold.servings.tolerance
+            return check(
+              "servings",
+              null,
+              inRange(enrichment.servings.min, low, high) && inRange(enrichment.servings.max, low, high),
+              range(low, high),
+              range(enrichment.servings.min, enrichment.servings.max)
+            )
+          })(),
+          check(
+            "longWait",
+            null,
+            (enrichment.longWaitHours !== null && enrichment.longWaitHours >= LONG_WAIT_HOURS) === gold.longWait,
+            String(gold.longWait),
+            enrichment.longWaitHours === null ? "null" : String(enrichment.longWaitHours)
+          ),
+        ]
 
   const keyChecks = gold.keyLines.flatMap((keyLine): ReadonlyArray<EvalCheck> => {
     const key = keyLine.raw
     const fail = (actual: string): ReadonlyArray<EvalCheck> => [
       check("keyLine.item", key, false, list(keyLine.item), actual),
       check("keyLine.category", key, false, list(keyLine.category), actual),
-      check("keyLine.pantry", key, false, String(keyLine.pantry), actual)
+      check("keyLine.pantry", key, false, String(keyLine.pantry), actual),
     ]
     if (enrichment === null) return fail(NO_ENRICHMENT)
     if (lines === null) return fail(NO_PARSED)
@@ -130,8 +160,14 @@ export const scoreEntry = (entry: EntryInput): ReadonlyArray<EvalCheck> => {
     if (primary === undefined) return fail("(no item for the line)")
     return [
       check("keyLine.item", key, matched !== undefined, list(keyLine.item), list(items.map((item) => item.item))),
-      check("keyLine.category", key, keyLine.category.includes(primary.category), list(keyLine.category), primary.category),
-      check("keyLine.pantry", key, primary.pantry === keyLine.pantry, String(keyLine.pantry), String(primary.pantry))
+      check(
+        "keyLine.category",
+        key,
+        keyLine.category.includes(primary.category),
+        list(keyLine.category),
+        primary.category
+      ),
+      check("keyLine.pantry", key, primary.pantry === keyLine.pantry, String(keyLine.pantry), String(primary.pantry)),
     ]
   })
 
@@ -143,17 +179,31 @@ export const percentOf = (passed: number, total: number): number =>
   total === 0 ? 0 : Math.round((1000 * passed) / total) / 10
 
 /** One score for each field and the total over all checks. */
-export const summariseChecks = (checks: ReadonlyArray<EvalCheck>): {
+export const summariseChecks = (
+  checks: ReadonlyArray<EvalCheck>
+): {
   readonly fields: ReadonlyArray<FieldScore>
   readonly total: EvalReport["total"]
 } => {
   const fields = EvalField.literals.map((field): FieldScore => {
     const own = checks.filter((entry) => entry.field === field)
     const passed = own.filter((entry) => entry.passed).length
-    return { field, passed, total: own.length, percent: percentOf(passed, own.length) }
+    return {
+      field,
+      passed,
+      total: own.length,
+      percent: percentOf(passed, own.length),
+    }
   })
   const passed = checks.filter((entry) => entry.passed).length
-  return { fields, total: { passed, total: checks.length, percent: percentOf(passed, checks.length) } }
+  return {
+    fields,
+    total: {
+      passed,
+      total: checks.length,
+      percent: percentOf(passed, checks.length),
+    },
+  }
 }
 
 export interface StoredEntry extends EntryInput {
@@ -177,7 +227,7 @@ export const buildEvalReport = (entries: ReadonlyArray<StoredEntry>, generatedAt
     total,
     usage: files.reduce((sum, file) => addUsage(sum, file.usage), NO_USAGE),
     estimatedUsd: files.reduce((sum, file) => sum + costUsd(file.usage, file.model, "sync"), 0),
-    checks
+    checks,
   }
 }
 
@@ -195,15 +245,16 @@ export const formatEvalReport = (report: EvalReport): ReadonlyArray<string> => {
     ...(failed.length === 0
       ? ["all checks passed"]
       : [
-        "failed checks:",
-        ...failed.map((entry) =>
-          `  ${entry.id} ${entry.field}${entry.key === null ? "" : ` [${entry.key}]`}: expected ${entry.expected}, got ${entry.actual}`
-        )
-      ]),
+          "failed checks:",
+          ...failed.map(
+            (entry) =>
+              `  ${entry.id} ${entry.field}${entry.key === null ? "" : ` [${entry.key}]`}: expected ${entry.expected}, got ${entry.actual}`
+          ),
+        ]),
     "",
     `models: ${report.models.join(", ") || "-"}; prompt versions: ${report.promptVersions.join(", ") || "-"}`,
     `tokens: input ${report.usage.inputTokens}, output ${report.usage.outputTokens}, ` +
-    `cache read ${report.usage.cacheReadTokens}, cache write ${report.usage.cacheCreationTokens}; ` +
-    `estimated cost ${formatUsd(report.estimatedUsd)} USD (sync prices)`
+      `cache read ${report.usage.cacheReadTokens}, cache write ${report.usage.cacheCreationTokens}; ` +
+      `estimated cost ${formatUsd(report.estimatedUsd)} USD (sync prices)`,
   ]
 }

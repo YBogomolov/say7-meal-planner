@@ -41,7 +41,7 @@ describe("splitSentences", () => {
       "Очень вкусно!",
       "Готовится быстро.",
       "Как это?",
-      "Просто."
+      "Просто.",
     ])
   })
 
@@ -50,11 +50,15 @@ describe("splitSentences", () => {
   })
 
   it("does not split inside an abbreviation or a decimal number", () => {
-    assert.deepStrictEqual(splitSentences("Взять 1.5 ч.л. соли и т.д. по вкусу."), ["Взять 1.5 ч.л. соли и т.д. по вкусу."])
+    assert.deepStrictEqual(splitSentences("Взять 1.5 ч.л. соли и т.д. по вкусу."), [
+      "Взять 1.5 ч.л. соли и т.д. по вкусу.",
+    ])
   })
 
   it("does not split before a lower-case word", () => {
-    assert.deepStrictEqual(splitSentences("Хватит на 4 порции (в т.е. на всех). и ещё"), ["Хватит на 4 порции (в т.е. на всех). и ещё"])
+    assert.deepStrictEqual(splitSentences("Хватит на 4 порции (в т.е. на всех). и ещё"), [
+      "Хватит на 4 порции (в т.е. на всех). и ещё",
+    ])
   })
 
   it("keeps a bracket after the full stop with the next sentence", () => {

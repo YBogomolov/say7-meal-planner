@@ -11,7 +11,9 @@ export type PlanScale = typeof PlanScale.Type
 
 /** A plan day is a real date: `2026-02-30` has the right form but no such day exists. */
 const CalendarDate = IsoDate.pipe(
-  Schema.check(Schema.makeFilter<string>((text) => isCalendarDate(text) || "Expected a day that exists in the calendar"))
+  Schema.check(
+    Schema.makeFilter<string>((text) => isCalendarDate(text) || "Expected a day that exists in the calendar")
+  )
 )
 
 /**
@@ -25,7 +27,7 @@ export type CookingSession = typeof CookingSession.Type
 export const CookingEntry = Schema.Struct({
   session: CookingSession,
   recipeId: RecipeId,
-  scale: PlanScale
+  scale: PlanScale,
 })
 export type CookingEntry = typeof CookingEntry.Type
 
@@ -44,24 +46,31 @@ export const MealEntry = Schema.Struct({
   simpleIds: Schema.Array(SimpleId).pipe(
     Schema.check(Schema.isMaxLength(3), Schema.isUnique()),
     Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))
-  )
+  ),
 }).pipe(
   Schema.check(
-    Schema.makeFilter<{ readonly recipeIds: ReadonlyArray<RecipeId>; readonly simpleIds: ReadonlyArray<string> }>((entry) =>
-      entry.recipeIds.length + entry.simpleIds.length > 0 || "Expected at least 1 recipe in recipeIds or 1 simple breakfast in simpleIds"
+    Schema.makeFilter<{
+      readonly recipeIds: ReadonlyArray<RecipeId>
+      readonly simpleIds: ReadonlyArray<string>
+    }>(
+      (entry) =>
+        entry.recipeIds.length + entry.simpleIds.length > 0 ||
+        "Expected at least 1 recipe in recipeIds or 1 simple breakfast in simpleIds"
     )
   )
 )
 export type MealEntry = typeof MealEntry.Type
 
-const hasUniqueCooking = Schema.makeFilter<ReadonlyArray<CookingEntry>>((entries) =>
-  new Set(entries.map((entry) => entry.recipeId)).size === entries.length ||
-  "A recipe is cooked once per week: expected 1 cooking entry for each recipe ID"
+const hasUniqueCooking = Schema.makeFilter<ReadonlyArray<CookingEntry>>(
+  (entries) =>
+    new Set(entries.map((entry) => entry.recipeId)).size === entries.length ||
+    "A recipe is cooked once per week: expected 1 cooking entry for each recipe ID"
 )
 
-const hasUniqueSlots = Schema.makeFilter<ReadonlyArray<MealEntry>>((entries) =>
-  new Set(entries.map((entry) => `${entry.day}/${entry.meal}`)).size === entries.length ||
-  "Expected each slot (day and meal) once"
+const hasUniqueSlots = Schema.makeFilter<ReadonlyArray<MealEntry>>(
+  (entries) =>
+    new Set(entries.map((entry) => `${entry.day}/${entry.meal}`)).size === entries.length ||
+    "Expected each slot (day and meal) once"
 )
 
 /**
@@ -77,7 +86,7 @@ export const WeekPlan = Schema.Struct({
   weekStart: CalendarDate,
   cooking: Schema.Array(CookingEntry).pipe(Schema.check(hasUniqueCooking)),
   meals: Schema.Array(MealEntry).pipe(Schema.check(hasUniqueSlots)),
-  notes: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null)))
+  notes: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
 })
 export type WeekPlan = typeof WeekPlan.Type
 

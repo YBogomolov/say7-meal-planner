@@ -31,7 +31,7 @@ export const A4_FORBIDDEN_KEYWORDS: ReadonlyArray<string> = [
   "$ref",
   "$defs",
   "definitions",
-  "$dynamicRef"
+  "$dynamicRef",
 ]
 
 export const A4_MAX_UNION_PROPERTIES = 16

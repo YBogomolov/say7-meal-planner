@@ -31,7 +31,7 @@ const PROTEIN_CATEGORIES: ReadonlySet<IngredientCategory> = new Set<IngredientCa
   "dairy",
   "eggs",
   "legume",
-  "nuts"
+  "nuts",
 ])
 
 /** Categories whose lines are never protein-relevant, even with a high table value (spec P7.1.2). */
@@ -65,7 +65,8 @@ const proteinOfLines = (lines: ReadonlyArray<ProteinLine>, portions: number, tab
   let covered = 0
   for (const line of lines) {
     const per100 = table.get(line.item)
-    const isRelevant = !NEVER_RELEVANT_CATEGORIES.has(line.category) &&
+    const isRelevant =
+      !NEVER_RELEVANT_CATEGORIES.has(line.category) &&
       (PROTEIN_CATEGORIES.has(line.category) || (per100 !== undefined && per100 >= RELEVANT_PROTEIN_PER_100G))
     if (isRelevant) {
       relevant += 1
@@ -79,7 +80,7 @@ const proteinOfLines = (lines: ReadonlyArray<ProteinLine>, portions: number, tab
   }
   return {
     grams: portions > 0 ? round1(total / portions) : 0,
-    coverage: relevant === 0 ? 1 : covered / relevant
+    coverage: relevant === 0 ? 1 : covered / relevant,
   }
 }
 
@@ -90,7 +91,11 @@ const proteinOfLines = (lines: ReadonlyArray<ProteinLine>, portions: number, tab
  */
 export const portionProtein = (entry: CatalogueEntry, table: ProteinTable): PortionProtein => {
   const { min, max } = entry.enrichment.servings
-  return proteinOfLines(entry.enrichment.ingredients.filter((ingredient) => !ingredient.optional), (min + max) / 2, table)
+  return proteinOfLines(
+    entry.enrichment.ingredients.filter((ingredient) => !ingredient.optional),
+    (min + max) / 2,
+    table
+  )
 }
 
 /** Protein per portion of a simple breakfast (spec P7.2.3): the amounts of the items are per portion already. */
@@ -106,8 +111,8 @@ export const missingProteinItems = (catalogue: Catalogue): ReadonlyArray<string>
   [
     ...new Set([
       ...catalogue.entries.flatMap((entry) => entry.enrichment.ingredients.map((ingredient) => ingredient.item)),
-      ...catalogue.simpleBreakfasts.flatMap((simple) => simple.items.map((item) => item.item))
-    ])
+      ...catalogue.simpleBreakfasts.flatMap((simple) => simple.items.map((item) => item.item)),
+    ]),
   ]
     .filter((item) => !catalogue.proteinTable.has(item))
     .sort(compareText)

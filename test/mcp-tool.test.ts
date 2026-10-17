@@ -29,21 +29,34 @@ describe("inputJsonSchema", () => {
 
 describe("decodeArguments", () => {
   it("decodes valid arguments, and treats missing arguments as {}", () => {
-    assert.deepStrictEqual(Result.getOrUndefined(decodeArguments("search_recipes", SearchQuery, { text: "суп", limit: 5 })), {
-      text: "суп",
-      limit: 5
-    })
+    assert.deepStrictEqual(
+      Result.getOrUndefined(
+        decodeArguments("search_recipes", SearchQuery, {
+          text: "суп",
+          limit: 5,
+        })
+      ),
+      {
+        text: "суп",
+        limit: 5,
+      }
+    )
     assert.deepStrictEqual(Result.getOrUndefined(decodeArguments("search_recipes", SearchQuery, undefined)), {})
   })
 
   it("fails with a Russian text that names the tool", () => {
-    const result = decodeArguments("search_recipes", SearchQuery, { limit: 101 })
+    const result = decodeArguments("search_recipes", SearchQuery, {
+      limit: 101,
+    })
     assert.isTrue(Result.isFailure(result))
     assert.include(Result.isFailure(result) ? result.failure : "", "Неверные аргументы инструмента search_recipes.")
   })
 
   it("reports every problem in one pass", () => {
-    const result = decodeArguments("search_recipes", SearchQuery, { limit: 0, vegetarian: "yes" })
+    const result = decodeArguments("search_recipes", SearchQuery, {
+      limit: 0,
+      vegetarian: "yes",
+    })
     const text = Result.isFailure(result) ? result.failure : ""
     assert.include(text, "limit")
     assert.include(text, "vegetarian")
@@ -63,7 +76,13 @@ describe("decodeArguments", () => {
 
   it("accepts a plan and rejects a plan with a date that does not exist", () => {
     assert.isTrue(Result.isSuccess(decodeArguments("save_plan", PlanInput, { plan: basePlan() })))
-    assert.isTrue(Result.isFailure(decodeArguments("save_plan", PlanInput, { plan: { ...basePlan(), weekStart: "2026-02-30" } })))
+    assert.isTrue(
+      Result.isFailure(
+        decodeArguments("save_plan", PlanInput, {
+          plan: { ...basePlan(), weekStart: "2026-02-30" },
+        })
+      )
+    )
   })
 })
 
@@ -72,54 +91,93 @@ describe("defineTool", () => {
     name: "demo",
     description: "demo",
     input: GetRecipeInput,
-    run: ({ id }) => id === 1 ? Effect.succeed(["один"]) : id === 2 ? Effect.fail({ message: "нет такого" }) : Effect.die("сбой")
+    run: ({ id }) =>
+      id === 1 ? Effect.succeed(["один"]) : id === 2 ? Effect.fail({ message: "нет такого" }) : Effect.die("сбой"),
   })
 
   it.effect("returns the texts of a successful run", () =>
-    Effect.gen(function*() {
-      assert.deepStrictEqual(yield* tool.call({ id: 1 }), { texts: ["один"], isError: false })
-    }))
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* tool.call({ id: 1 }), {
+        texts: ["один"],
+        isError: false,
+      })
+    })
+  )
 
   it.effect("turns a failure into an error result in Russian", () =>
-    Effect.gen(function*() {
-      assert.deepStrictEqual(yield* tool.call({ id: 2 }), { texts: ["Ошибка инструмента demo: нет такого"], isError: true })
-    }))
+    Effect.gen(function* () {
+      assert.deepStrictEqual(yield* tool.call({ id: 2 }), {
+        texts: ["Ошибка инструмента demo: нет такого"],
+        isError: true,
+      })
+    })
+  )
 
   it.effect("turns a defect into an error result", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* tool.call({ id: 3 })
       assert.isTrue(result.isError)
       assert.include(result.texts[0] ?? "", "Внутренняя ошибка инструмента demo.")
-    }))
+    })
+  )
 
   it.effect("turns a decode failure into an error result", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* tool.call({ id: -1 })
       assert.isTrue(result.isError)
       assert.include(result.texts[0] ?? "", "Неверные аргументы инструмента demo.")
-    }))
+    })
+  )
 })
 
 describe("prompt plan_week", () => {
   it("decodes the arguments and rejects a bad date or family", () => {
-    assert.deepStrictEqual(Result.getOrUndefined(decodePlanWeekArguments({ weekStart: "2026-10-17" })), { weekStart: "2026-10-17" })
+    assert.deepStrictEqual(Result.getOrUndefined(decodePlanWeekArguments({ weekStart: "2026-10-17" })), {
+      weekStart: "2026-10-17",
+    })
     assert.isTrue(Result.isFailure(decodePlanWeekArguments({ weekStart: "2026-02-30" })))
-    assert.isTrue(Result.isFailure(decodePlanWeekArguments({ weekStart: "2026-10-17", proteinFamily: "tofu" })))
+    assert.isTrue(
+      Result.isFailure(
+        decodePlanWeekArguments({
+          weekStart: "2026-10-17",
+          proteinFamily: "tofu",
+        })
+      )
+    )
     assert.isTrue(Result.isFailure(decodePlanWeekArguments({})))
   })
 
   it("names the tools of the method in order", () => {
     const text = planWeekPrompt("2026-10-17", undefined)
-    const order = ["`household`", "`plan_history`", "`search_recipes`", "`evaluate_plan`", "`shopping_list`", "`save_plan`"]
+    const order = [
+      "`household`",
+      "`plan_history`",
+      "`search_recipes`",
+      "`evaluate_plan`",
+      "`shopping_list`",
+      "`save_plan`",
+    ]
     const positions = order.map((name) => text.indexOf(name))
     assert.isTrue(positions.every((position) => position >= 0))
-    assert.deepStrictEqual([...positions].sort((a, b) => a - b), positions)
+    assert.deepStrictEqual(
+      [...positions].sort((a, b) => a - b),
+      positions
+    )
     assert.include(text, "in Russian")
   })
 
   it("covers breakfasts: 2 persons, fresh dishes, simple breakfasts, protein minimums and the fresh time limit", () => {
     const text = planWeekPrompt("2026-10-17", undefined)
-    for (const part of ["2 persons", "`session: \"fresh\"`", "`simple_breakfasts`", "`simpleIds`", "`forMeal: \"breakfast\"`", "`freshMinutesMax`", "`proteinMinGrams`", "21 slots"]) {
+    for (const part of [
+      "2 persons",
+      '`session: "fresh"`',
+      "`simple_breakfasts`",
+      "`simpleIds`",
+      '`forMeal: "breakfast"`',
+      "`freshMinutesMax`",
+      "`proteinMinGrams`",
+      "21 slots",
+    ]) {
       assert.include(text, part)
     }
   })
@@ -137,12 +195,23 @@ describe("resolvePaths", () => {
 
   it("uses <root>/data and <root>/config by default", () => {
     const paths = resolvePaths("/work/recipes", {})
-    assert.deepStrictEqual(Result.getOrUndefined(paths), { root: "/work/recipes", dataDir: "/work/recipes/data", configDir: "/work/recipes/config" })
+    assert.deepStrictEqual(Result.getOrUndefined(paths), {
+      root: "/work/recipes",
+      dataDir: "/work/recipes/data",
+      configDir: "/work/recipes/config",
+    })
   })
 
   it("lets SAY7_DATA_DIR and SAY7_CONFIG_DIR replace them, and rejects an empty value", () => {
-    const paths = resolvePaths("/work/recipes", { SAY7_DATA_DIR: "/tmp/d", SAY7_CONFIG_DIR: "/tmp/c" })
-    assert.deepStrictEqual(Result.getOrUndefined(paths), { root: "/work/recipes", dataDir: "/tmp/d", configDir: "/tmp/c" })
+    const paths = resolvePaths("/work/recipes", {
+      SAY7_DATA_DIR: "/tmp/d",
+      SAY7_CONFIG_DIR: "/tmp/c",
+    })
+    assert.deepStrictEqual(Result.getOrUndefined(paths), {
+      root: "/work/recipes",
+      dataDir: "/tmp/d",
+      configDir: "/tmp/c",
+    })
     assert.isTrue(Result.isFailure(resolvePaths("/work/recipes", { SAY7_DATA_DIR: "" })))
   })
 })

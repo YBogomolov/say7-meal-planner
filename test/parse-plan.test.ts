@@ -15,7 +15,7 @@ const entry = (n: number, status: RawIndexEntry["status"]): RawIndexEntry => ({
   httpStatus: status === "ok" ? 200 : status === "not_found" ? 404 : null,
   bytes: status === "ok" ? 10 : null,
   sha256: status === "ok" ? "f".repeat(64) : null,
-  error: status === "error" ? "boom" : null
+  error: status === "error" ? "boom" : null,
 })
 
 const index: RawIndex = {
@@ -25,8 +25,8 @@ const index: RawIndex = {
     "5": entry(5, "ok"),
     "77": entry(77, "not_found"),
     "88": entry(88, "error"),
-    "100": entry(100, "ok")
-  }
+    "100": entry(100, "ok"),
+  },
 }
 
 const ids = (...numbers: ReadonlyArray<number>) => Option.some(new Set(numbers.map(id)))

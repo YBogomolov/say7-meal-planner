@@ -48,12 +48,15 @@ export const categoryLink = (id: number, slug: string, name: string, kind: "subt
 export const categoryPath = (...links: ReadonlyArray<string>): string =>
   `<nav class="bc"><ul aria-label="Строка навигации">${links.join("")}</ul></nav>`
 
-export const DEFAULT_SUMMARY =
-  `<p>Простой тестовый салат.</p>\n<p>Из указанного количества ингредиентов получается <span class="p-yield">4&ndash;6&nbsp;порций</span>.</p><br />`
+export const DEFAULT_SUMMARY = `<p>Простой тестовый салат.</p>\n<p>Из указанного количества ингредиентов получается <span class="p-yield">4&ndash;6&nbsp;порций</span>.</p><br />`
 
 export const DEFAULT_INGREDIENTS = `<ul>\n${li("200&nbsp;г огурцов")}\n${li("соль")}</ul>`
 
-export const DEFAULT_STEPS = [step(1, "Огурцы нарезать."), step(2, "Посолить.<br />\nПеремешать."), lastPhotoStep(3)].join("\n")
+export const DEFAULT_STEPS = [
+  step(1, "Огурцы нарезать."),
+  step(2, "Посолить.<br />\nПеремешать."),
+  lastPhotoStep(3),
+].join("\n")
 
 export const DEFAULT_BREADCRUMB =
   `<ul aria-label="Строка навигации"><li><a class="subtitle" href="/cook/">Рецепты</a></li>` +
@@ -100,40 +103,50 @@ ${ogUrl === null ? "" : `<meta property="og:url" content="${ogUrl}" />`}
 ${summary === null ? "" : `<div class="p-summary">${summary}</div>`}
 <div class="cl"></div>
 ${
-    ingredients === null ? "" : `<section id="ingredientsbox" aria-labelledby="ingredients-title">
+  ingredients === null
+    ? ""
+    : `<section id="ingredientsbox" aria-labelledby="ingredients-title">
 <h2 id="ingredients-title">Ингредиенты</h2>
 <div class="forstep stepdetailed"><img id="ingrphoto" width="300" height="225" src="https://ist.say7.info/img/i.jpg" alt="" /></div>
 <div class="c8 ingredients">${ingredients}</div>
 </section>`
-  }
+}
 ${
-    steps === null ? "" : `<section id="stp" class="stepbystep instructions e-instructions" aria-labelledby="instructionsh2">
+  steps === null
+    ? ""
+    : `<section id="stp" class="stepbystep instructions e-instructions" aria-labelledby="instructionsh2">
 <h2 id="instructionsh2">Приготовление</h2>
 <div>${steps}
 </div>\t<p class="bonappetit">Приятного аппетита!</p>
 </section>`
-  }
+}
 <div id="sign"><div class="col"><div>Автор: <a href="https://www.say7.info/Anastasia" class="p-author">Анастасия Скрипкина</a></div>
 ${dates === null ? "" : `<div class="recipe-meta recipe-dates" aria-label="Даты рецепта">${dates}</div>`}
 </div></div>
 ${
-    categories === null ? "" : `<section aria-labelledby="categories-title" id="categoriesbox" class="donotprint">
+  categories === null
+    ? ""
+    : `<section aria-labelledby="categories-title" id="categoriesbox" class="donotprint">
 <header id="categories-title">Категории рецепта</header>
 ${categories}</section>`
-  }
+}
 </main>
 ${
-    commentsCount === null ? "" : `<section aria-labelledby="comments" id="comm" class="cl-short donotprint">
+  commentsCount === null
+    ? ""
+    : `<section aria-labelledby="comments" id="comm" class="cl-short donotprint">
 <h2 id="comments">Комментарии (<span id="commcount" class="count">${commentsCount}</span>)</h2>
 <div id="comload"><div id="com437044" class="comment"><b class="reviewer">Гость</b> <time datetime="2026-10-04T14:21:06Z">04.10.2026</time>
 Рецепт добавлен: 01.01.2000. Хватит на 99 порций, варить 7 часов.</div></div>
 </section>`
-  }
+}
 ${
-    similar === null ? "" : `<aside class="simo podium donotprint"><nav aria-label="Похожие рецепты" class="sidebox">
+  similar === null
+    ? ""
+    : `<aside class="simo podium donotprint"><nav aria-label="Похожие рецепты" class="sidebox">
 <header><p>Похожие</p></header>
 <ul>${similar}</ul></nav></aside>`
-  }
+}
 </div>
 <div id="sidebar"><aside><nav aria-label="Категории рецептов"><ul class="menu6">
 <li><a href="https://www.say7.info/cook/kitchen/41-Zakuski-buterbrodyi/"><span>Закуски и&nbsp;бутерброды</span></a></li>

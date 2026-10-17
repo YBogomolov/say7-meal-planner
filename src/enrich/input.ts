@@ -5,7 +5,10 @@ import { sha256Hex } from "../scraper/hash.ts"
 /** One ingredient line with its number over all groups, counted from 0. */
 export type NumberedLine = { readonly line: number; readonly text: string }
 
-export type NumberedGroup = { readonly title: string | null; readonly lines: ReadonlyArray<NumberedLine> }
+export type NumberedGroup = {
+  readonly title: string | null
+  readonly lines: ReadonlyArray<NumberedLine>
+}
 
 /**
  * What the model gets for one recipe (spec P3.3):
@@ -27,7 +30,7 @@ export const numberGroups = (groups: ParsedRecipe["ingredientGroups"]): Readonly
   let next = 0
   return groups.map((group) => ({
     title: group.title,
-    lines: group.items.map((text) => ({ line: next++, text }))
+    lines: group.items.map((text) => ({ line: next++, text })),
   }))
 }
 
@@ -38,7 +41,7 @@ export const buildModelInput = (recipe: ParsedRecipe): ModelInput => ({
   servingsText: recipe.servingsText,
   ingredientGroups: numberGroups(recipe.ingredientGroups),
   steps: recipe.steps,
-  categories: recipe.categories.map((category) => category.name)
+  categories: recipe.categories.map((category) => category.name),
 })
 
 /** Number of ingredient lines, over all groups. */
@@ -81,6 +84,10 @@ export const computeInputHash = (parts: {
 }): string =>
   sha256Hex(
     new TextEncoder().encode(
-      canonicalJson({ input: parts.input, model: parts.model, promptVersion: parts.promptVersion })
+      canonicalJson({
+        input: parts.input,
+        model: parts.model,
+        promptVersion: parts.promptVersion,
+      })
     )
   )

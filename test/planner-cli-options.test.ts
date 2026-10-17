@@ -1,6 +1,13 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Result } from "effect"
-import { ITEMS_REPORT_USAGE, parseItemsReportCli, parsePlanCheckCli, parseShoppingTextCli, PLAN_CHECK_USAGE, SHOPPING_TEXT_USAGE } from "../src/planner/cli-options.ts"
+import {
+  ITEMS_REPORT_USAGE,
+  parseItemsReportCli,
+  parsePlanCheckCli,
+  parseShoppingTextCli,
+  PLAN_CHECK_USAGE,
+  SHOPPING_TEXT_USAGE,
+} from "../src/planner/cli-options.ts"
 import { formatEvaluation } from "../src/planner/report.ts"
 import { evaluatePlan } from "../src/planner/evaluate.ts"
 import { DEFAULT_HOUSEHOLD } from "../src/domain/household.ts"
@@ -11,24 +18,34 @@ describe("parsePlanCheckCli", () => {
   it("takes 1 file and the defaults of the directories", () => {
     assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["plan.json"])), {
       _tag: "Run",
-      options: { file: "plan.json", dataDir: "data", configDir: "config" }
+      options: { file: "plan.json", dataDir: "data", configDir: "config" },
     })
   })
 
   it("takes the directories", () => {
     assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["--data-dir", "d", "p.json", "--config-dir", "c"])), {
       _tag: "Run",
-      options: { file: "p.json", dataDir: "d", configDir: "c" }
+      options: { file: "p.json", dataDir: "d", configDir: "c" },
     })
   })
 
   it("shows the help", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["--help"])), { _tag: "Help" })
-    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["-h"])), { _tag: "Help" })
+    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["--help"])), {
+      _tag: "Help",
+    })
+    assert.deepStrictEqual(Result.getOrThrow(parsePlanCheckCli(["-h"])), {
+      _tag: "Help",
+    })
   })
 
   it("rejects no file, 2 files, an unknown option and an empty directory", () => {
-    for (const argv of [[], ["a.json", "b.json"], ["a.json", "--limit", "3"], ["a.json", "--data-dir", ""], ["a.json", "--data-dir"]]) {
+    for (const argv of [
+      [],
+      ["a.json", "b.json"],
+      ["a.json", "--limit", "3"],
+      ["a.json", "--data-dir", ""],
+      ["a.json", "--data-dir"],
+    ]) {
       const result = parsePlanCheckCli(argv)
       assert.isTrue(Result.isFailure(result), argv.join(" "))
       if (Result.isFailure(result)) {
@@ -44,11 +61,11 @@ describe("parseItemsReportCli", () => {
   it("takes the defaults and the directories", () => {
     assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli([])), {
       _tag: "Run",
-      options: { dataDir: "data", configDir: "config" }
+      options: { dataDir: "data", configDir: "config" },
     })
     assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli(["--data-dir", "x", "--config-dir", "y"])), {
       _tag: "Run",
-      options: { dataDir: "x", configDir: "y" }
+      options: { dataDir: "x", configDir: "y" },
     })
   })
 
@@ -58,7 +75,9 @@ describe("parseItemsReportCli", () => {
   })
 
   it("shows the help", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli(["--help"])), { _tag: "Help" })
+    assert.deepStrictEqual(Result.getOrThrow(parseItemsReportCli(["--help"])), {
+      _tag: "Help",
+    })
   })
 })
 
@@ -66,23 +85,47 @@ describe("parseShoppingTextCli", () => {
   it("takes the week start and the defaults", () => {
     assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["2026-10-17"])), {
       _tag: "Run",
-      options: { weekStart: "2026-10-17", withOptional: false, dataDir: "data", configDir: "config" }
+      options: {
+        weekStart: "2026-10-17",
+        withOptional: false,
+        dataDir: "data",
+        configDir: "config",
+      },
     })
   })
 
   it("takes --with-optional and the directories, in any order", () => {
     assert.deepStrictEqual(
-      Result.getOrThrow(parseShoppingTextCli(["--with-optional", "2026-10-17", "--data-dir", "d", "--config-dir", "c"])),
-      { _tag: "Run", options: { weekStart: "2026-10-17", withOptional: true, dataDir: "d", configDir: "c" } }
+      Result.getOrThrow(
+        parseShoppingTextCli(["--with-optional", "2026-10-17", "--data-dir", "d", "--config-dir", "c"])
+      ),
+      {
+        _tag: "Run",
+        options: {
+          weekStart: "2026-10-17",
+          withOptional: true,
+          dataDir: "d",
+          configDir: "c",
+        },
+      }
     )
   })
 
   it("shows the help", () => {
-    assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["-h"])), { _tag: "Help" })
+    assert.deepStrictEqual(Result.getOrThrow(parseShoppingTextCli(["-h"])), {
+      _tag: "Help",
+    })
   })
 
   it("rejects no date, 2 positionals, a date that is not a real day, and the option of another command", () => {
-    for (const argv of [[], ["2026-10-17", "2026-10-24"], ["2026-02-30"], ["17.10.2026"], ["2026-10-17", "--force"], ["2026-10-17", "--data-dir"]]) {
+    for (const argv of [
+      [],
+      ["2026-10-17", "2026-10-24"],
+      ["2026-02-30"],
+      ["17.10.2026"],
+      ["2026-10-17", "--force"],
+      ["2026-10-17", "--data-dir"],
+    ]) {
       const result = parseShoppingTextCli(argv)
       assert.isTrue(Result.isFailure(result), argv.join(" "))
       if (Result.isFailure(result)) {
@@ -129,13 +172,16 @@ describe("formatEvaluation", () => {
         "  - белок: курица",
         "  - белок на порцию по приёмам пищи: обед 0–0 г; ужин 0–0 г",
         "  - активное время: сессия A — 80 мин.; сессия B — 60 мин.",
-        ""
+        "",
       ].join("\n")
     )
   })
 
   it("lists the errors and the warnings with their codes", () => {
-    const plan = planOf({ cooking: BASE_COOKING.filter((entry) => entry.recipeId !== 4), meals: BASE_MEALS.slice(0, 13) })
+    const plan = planOf({
+      cooking: BASE_COOKING.filter((entry) => entry.recipeId !== 4),
+      meals: BASE_MEALS.slice(0, 13),
+    })
     const catalogue = baseCatalogue({ 2: { enrichment: { heat: 2 } } })
     const text = formatEvaluation(plan.weekStart, evaluatePlan(plan, catalogue, DEFAULT_HOUSEHOLD, []))
     assert.include(text, "ошибок: 2, предупреждений: 1.")

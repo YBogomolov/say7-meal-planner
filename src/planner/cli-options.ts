@@ -70,22 +70,18 @@ export interface ShoppingTextOptions extends ItemsReportOptions {
 }
 
 export type ShoppingTextCommand =
-  | { readonly _tag: "Help" }
-  | { readonly _tag: "Run"; readonly options: ShoppingTextOptions }
+  { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly options: ShoppingTextOptions }
 
 export type ItemsReportCommand =
-  | { readonly _tag: "Help" }
-  | { readonly _tag: "Run"; readonly options: ItemsReportOptions }
+  { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly options: ItemsReportOptions }
 
-export type PlanCheckCommand =
-  | { readonly _tag: "Help" }
-  | { readonly _tag: "Run"; readonly options: PlanCheckOptions }
+export type PlanCheckCommand = { readonly _tag: "Help" } | { readonly _tag: "Run"; readonly options: PlanCheckOptions }
 
 const CliArgs = Schema.Struct({
   help: Schema.optional(Schema.Boolean),
   "with-optional": Schema.optional(Schema.Boolean),
   "data-dir": Schema.optional(Schema.NonEmptyString),
-  "config-dir": Schema.optional(Schema.NonEmptyString)
+  "config-dir": Schema.optional(Schema.NonEmptyString),
 })
 
 const readArgs = (argv: ReadonlyArray<string>, allowPositionals: boolean, withOptional = false) =>
@@ -97,12 +93,15 @@ const readArgs = (argv: ReadonlyArray<string>, allowPositionals: boolean, withOp
           "data-dir": { type: "string" },
           "config-dir": { type: "string" },
           help: { type: "boolean", short: "h" },
-          ...(withOptional ? { "with-optional": { type: "boolean" as const } } : {})
+          ...(withOptional ? { "with-optional": { type: "boolean" as const } } : {}),
         },
         allowPositionals,
-        strict: true
+        strict: true,
       }),
-    catch: (cause) => new CliError({ message: cause instanceof Error ? cause.message : String(cause) })
+    catch: (cause) =>
+      new CliError({
+        message: cause instanceof Error ? cause.message : String(cause),
+      }),
   }).pipe(
     Result.flatMap((parsed) =>
       Schema.decodeUnknownResult(CliArgs)(parsed.values).pipe(
@@ -116,10 +115,15 @@ const readArgs = (argv: ReadonlyArray<string>, allowPositionals: boolean, withOp
 export const parseItemsReportCli = (argv: ReadonlyArray<string>): Result.Result<ItemsReportCommand, CliError> =>
   readArgs(argv, false).pipe(
     Result.map(({ args }): ItemsReportCommand =>
-      args.help === true ? { _tag: "Help" } : {
-        _tag: "Run",
-        options: { dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR, configDir: args["config-dir"] ?? DEFAULT_CONFIG_DIR }
-      }
+      args.help === true
+        ? { _tag: "Help" }
+        : {
+            _tag: "Run",
+            options: {
+              dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR,
+              configDir: args["config-dir"] ?? DEFAULT_CONFIG_DIR,
+            },
+          }
     )
   )
 
@@ -139,7 +143,11 @@ export const parsePlanCheckCli = (argv: ReadonlyArray<string>): Result.Result<Pl
       }
       return Result.succeed({
         _tag: "Run",
-        options: { file, dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR, configDir: args["config-dir"] ?? DEFAULT_CONFIG_DIR }
+        options: {
+          file,
+          dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR,
+          configDir: args["config-dir"] ?? DEFAULT_CONFIG_DIR,
+        },
       })
     })
   )
@@ -153,10 +161,18 @@ export const parseShoppingTextCli = (argv: ReadonlyArray<string>): Result.Result
       }
       const [weekStart, ...rest] = positionals
       if (weekStart === undefined || rest.length > 0) {
-        return Result.fail(new CliError({ message: "Укажите ровно одну дату начала недели в формате ГГГГ-ММ-ДД." }))
+        return Result.fail(
+          new CliError({
+            message: "Укажите ровно одну дату начала недели в формате ГГГГ-ММ-ДД.",
+          })
+        )
       }
       if (!isCalendarDate(weekStart)) {
-        return Result.fail(new CliError({ message: `Дата ${weekStart} не подходит: нужна дата в формате ГГГГ-ММ-ДД, например 2026-10-17.` }))
+        return Result.fail(
+          new CliError({
+            message: `Дата ${weekStart} не подходит: нужна дата в формате ГГГГ-ММ-ДД, например 2026-10-17.`,
+          })
+        )
       }
       return Result.succeed({
         _tag: "Run",
@@ -164,8 +180,8 @@ export const parseShoppingTextCli = (argv: ReadonlyArray<string>): Result.Result
           weekStart,
           withOptional: args["with-optional"] === true,
           dataDir: args["data-dir"] ?? DEFAULT_DATA_DIR,
-          configDir: args["config-dir"] ?? DEFAULT_CONFIG_DIR
-        }
+          configDir: args["config-dir"] ?? DEFAULT_CONFIG_DIR,
+        },
       })
     })
   )

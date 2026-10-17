@@ -11,7 +11,7 @@ const GoldKeyLine = Schema.Struct({
   item: Schema.Array(Schema.NonEmptyString).pipe(Schema.check(Schema.isNonEmpty())),
   /** Accepted values of `category`. */
   category: Schema.Array(IngredientCategory).pipe(Schema.check(Schema.isNonEmpty())),
-  pantry: Schema.Boolean
+  pantry: Schema.Boolean,
 })
 export type GoldKeyLine = typeof GoldKeyLine.Type
 
@@ -28,12 +28,16 @@ export const GoldEntry = Schema.Struct({
   vegetarian: Schema.Boolean,
   heat: Range,
   /** The evaluation widens the range by `tolerance` portions at both ends. */
-  servings: Schema.Struct({ min: Schema.Finite, max: Schema.Finite, tolerance: Schema.Natural }),
+  servings: Schema.Struct({
+    min: Schema.Finite,
+    max: Schema.Finite,
+    tolerance: Schema.Natural,
+  }),
   activeMinutes: Range,
   /** True if the recipe needs a wait of 6 hours or more. */
   longWait: Schema.Boolean,
   keyLines: Schema.Array(GoldKeyLine).pipe(Schema.check(Schema.isNonEmpty())),
-  note: Schema.String
+  note: Schema.String,
 })
 export type GoldEntry = typeof GoldEntry.Type
 

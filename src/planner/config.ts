@@ -16,26 +16,32 @@ export const DEFAULT_DATA_DIR = "data"
 /** A file of `config/` exists but cannot be read, or it is not valid. */
 export class ConfigError extends Schema.TaggedError<ConfigError>()("ConfigError", {
   path: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /** The text of a config file, or `undefined` if the file does not exist. */
 const readOptional = (target: string): Effect.Effect<string | undefined, ConfigError, FileSystem.FileSystem> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     if (!(yield* fs.exists(target))) {
       return undefined
     }
     return yield* fs.readFileString(target)
   }).pipe(
-    Effect.mapError((error) => new ConfigError({ path: target, message: `Файл ${target} не читается: ${error.message}` }))
+    Effect.mapError(
+      (error) =>
+        new ConfigError({
+          path: target,
+          message: `Файл ${target} не читается: ${error.message}`,
+        })
+    )
   )
 
 /** `<configDir>/household.json` (spec P4.1). A missing file gives the defaults of the spec. */
 export const loadHousehold = (
   configDir: string = DEFAULT_CONFIG_DIR
 ): Effect.Effect<Household, ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const path = yield* Path.Path
     const target = path.join(configDir, "household.json")
     const text = yield* readOptional(target)
@@ -43,8 +49,12 @@ export const loadHousehold = (
       return DEFAULT_HOUSEHOLD
     }
     return yield* Schema.decodeUnknownEffect(HouseholdJson)(text, DECODE_OPTIONS).pipe(
-      Effect.mapError((error) =>
-        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      Effect.mapError(
+        (error) =>
+          new ConfigError({
+            path: target,
+            message: `Файл ${target} не прошёл проверку: ${error.message}`,
+          })
       )
     )
   })
@@ -53,7 +63,7 @@ export const loadHousehold = (
 export const loadAliases = (
   configDir: string = DEFAULT_CONFIG_DIR
 ): Effect.Effect<Aliases, ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const path = yield* Path.Path
     const target = path.join(configDir, "item-aliases.json")
     const text = yield* readOptional(target)
@@ -62,8 +72,12 @@ export const loadAliases = (
     }
     return yield* Schema.decodeUnknownEffect(AliasesJson)(text).pipe(
       Effect.map(makeAliases),
-      Effect.mapError((error) =>
-        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      Effect.mapError(
+        (error) =>
+          new ConfigError({
+            path: target,
+            message: `Файл ${target} не прошёл проверку: ${error.message}`,
+          })
       )
     )
   })
@@ -72,7 +86,7 @@ export const loadAliases = (
 export const loadServingsOverrides = (
   configDir: string = DEFAULT_CONFIG_DIR
 ): Effect.Effect<ServingsOverrides, ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const path = yield* Path.Path
     const target = path.join(configDir, "servings-overrides.json")
     const text = yield* readOptional(target)
@@ -81,8 +95,12 @@ export const loadServingsOverrides = (
     }
     return yield* Schema.decodeUnknownEffect(ServingsOverridesJson)(text).pipe(
       Effect.map(makeServingsOverrides),
-      Effect.mapError((error) =>
-        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      Effect.mapError(
+        (error) =>
+          new ConfigError({
+            path: target,
+            message: `Файл ${target} не прошёл проверку: ${error.message}`,
+          })
       )
     )
   })
@@ -95,7 +113,7 @@ export const loadItemProtein = (
   configDir: string = DEFAULT_CONFIG_DIR,
   aliases: Aliases = NO_ALIASES
 ): Effect.Effect<ProteinTable, ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const path = yield* Path.Path
     const target = path.join(configDir, "item-protein.json")
     const text = yield* readOptional(target)
@@ -104,8 +122,12 @@ export const loadItemProtein = (
     }
     return yield* Schema.decodeUnknownEffect(ItemProteinJson)(text).pipe(
       Effect.map((record) => makeProteinTable(record, aliases)),
-      Effect.mapError((error) =>
-        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      Effect.mapError(
+        (error) =>
+          new ConfigError({
+            path: target,
+            message: `Файл ${target} не прошёл проверку: ${error.message}`,
+          })
       )
     )
   })
@@ -118,7 +140,7 @@ export const loadSimpleBreakfasts = (
   configDir: string = DEFAULT_CONFIG_DIR,
   aliases: Aliases = NO_ALIASES
 ): Effect.Effect<ReadonlyArray<SimpleBreakfast>, ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const path = yield* Path.Path
     const target = path.join(configDir, "simple-breakfasts.json")
     const text = yield* readOptional(target)
@@ -127,8 +149,12 @@ export const loadSimpleBreakfasts = (
     }
     return yield* Schema.decodeUnknownEffect(SimpleBreakfastsJson)(text).pipe(
       Effect.map((records) => makeSimpleBreakfasts(records, aliases)),
-      Effect.mapError((error) =>
-        new ConfigError({ path: target, message: `Файл ${target} не прошёл проверку: ${error.message}` })
+      Effect.mapError(
+        (error) =>
+          new ConfigError({
+            path: target,
+            message: `Файл ${target} не прошёл проверку: ${error.message}`,
+          })
       )
     )
   })
@@ -138,7 +164,7 @@ export const loadCatalogueExtras = (
   configDir: string = DEFAULT_CONFIG_DIR,
   aliases: Aliases = NO_ALIASES
 ): Effect.Effect<CatalogueExtras, ConfigError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const [household, simpleBreakfasts] = yield* Effect.all(
       [loadHousehold(configDir), loadSimpleBreakfasts(configDir, aliases)],
       { concurrency: "unbounded" }
@@ -159,11 +185,10 @@ export const loadPlannerConfig = (
   ConfigError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.gen(function*() {
-    const [aliases, overrides] = yield* Effect.all(
-      [loadAliases(configDir), loadServingsOverrides(configDir)],
-      { concurrency: "unbounded" }
-    )
+  Effect.gen(function* () {
+    const [aliases, overrides] = yield* Effect.all([loadAliases(configDir), loadServingsOverrides(configDir)], {
+      concurrency: "unbounded",
+    })
     const [proteinTable, extras] = yield* Effect.all(
       [loadItemProtein(configDir, aliases), loadCatalogueExtras(configDir, aliases)],
       { concurrency: "unbounded" }

@@ -12,26 +12,32 @@ export const PLAN_WEEK_DESCRIPTION =
 /** The arguments of the prompt. MCP sends every prompt argument as a string. */
 export const PlanWeekArguments = Schema.Struct({
   weekStart: IsoDate.pipe(
-    Schema.check(Schema.makeFilter<string>((text) => isCalendarDate(text) || "Expected a day that exists in the calendar"))
+    Schema.check(
+      Schema.makeFilter<string>((text) => isCalendarDate(text) || "Expected a day that exists in the calendar")
+    )
   ),
-  proteinFamily: Schema.optionalKey(ProteinFamily)
+  proteinFamily: Schema.optionalKey(ProteinFamily),
 })
 export type PlanWeekArguments = typeof PlanWeekArguments.Type
 
 export const PLAN_WEEK_ARGUMENTS = [
-  { name: "weekStart", description: "Day 0 of the week, the shopping day and the day of session A, as YYYY-MM-DD.", required: true },
+  {
+    name: "weekStart",
+    description: "Day 0 of the week, the shopping day and the day of session A, as YYYY-MM-DD.",
+    required: true,
+  },
   {
     name: "proteinFamily",
     description: `Optional. The protein family to use this week: ${ProteinFamily.literals.join(", ")}.`,
-    required: false
-  }
+    required: false,
+  },
 ] as const
 
 /** Decode the arguments of the prompt. The failure is a Russian text. */
 export const decodePlanWeekArguments = (raw: unknown): Result.Result<PlanWeekArguments, string> =>
-  Schema.decodeUnknownResult(PlanWeekArguments)(raw ?? {}, { errors: "all" }).pipe(
-    Result.mapError((error) => `Неверные аргументы промпта ${PLAN_WEEK_PROMPT}.\n${error.message}`)
-  )
+  Schema.decodeUnknownResult(PlanWeekArguments)(raw ?? {}, {
+    errors: "all",
+  }).pipe(Result.mapError((error) => `Неверные аргументы промпта ${PLAN_WEEK_PROMPT}.\n${error.message}`))
 
 /**
  * The text of the prompt `plan_week` (handoff T4.5): the method for the model.
@@ -52,9 +58,9 @@ export const planWeekPrompt = (weekStart: IsoDateType, proteinFamily: string | u
     "5. Build the WeekPlan: `weekStart`, `cooking` (session, recipeId, scale), `meals` (day, meal, recipeIds and simpleIds for all 21 slots: breakfast, lunch, dinner). Each dish is cooked once. Each dish is eaten on at most 3 days.",
     "6. Breakfast (a slot with `meal: breakfast`, 2 persons) has 3 kinds of dish. Use the kind that fits the day:",
     "   - A simple breakfast: call `simple_breakfasts`, put its `id` in `simpleIds` of the slot. It has no cooking entry and no recipe. A slot can have `recipeIds` and `simpleIds` together, and at least one of the two. Simple breakfasts are only for breakfast slots (else the error `simple_not_breakfast`). An unknown ID is the error `unknown_simple`.",
-    "   - A fresh dish: a cooking entry with `session: \"fresh\"`. The household cooks it in the morning of each day that it is eaten, so `scale` is for one cooking day and the shopping list multiplies the quantities by the number of days. Choose a quick dish: the active time of the fresh dishes of one day must stay within `freshMinutesMax` (the warning `fresh_time`). Fresh dishes are only for breakfast slots (else the error `fresh_not_breakfast`). Fresh dishes have no freshness limit and no share of the session minutes.",
+    '   - A fresh dish: a cooking entry with `session: "fresh"`. The household cooks it in the morning of each day that it is eaten, so `scale` is for one cooking day and the shopping list multiplies the quantities by the number of days. Choose a quick dish: the active time of the fresh dishes of one day must stay within `freshMinutesMax` (the warning `fresh_time`). Fresh dishes are only for breakfast slots (else the error `fresh_not_breakfast`). Fresh dishes have no freshness limit and no share of the session minutes.',
     "   - A dish of a session (leftovers) can also stand in a breakfast slot, with the usual rules of the fridge.",
-    "   To find breakfast recipes, call `search_recipes` with `forMeal: \"breakfast\"` (pancakes, egg dishes, sandwiches, casseroles, cottage cheese bakes). A recipe with `mealFit: not_a_meal` is valid only in a breakfast slot (the error `breakfast_only_recipe`). Breakfast slots are not checked by `slot_not_a_meal`.",
+    '   To find breakfast recipes, call `search_recipes` with `forMeal: "breakfast"` (pancakes, egg dishes, sandwiches, casseroles, cottage cheese bakes). A recipe with `mealFit: not_a_meal` is valid only in a breakfast slot (the error `breakfast_only_recipe`). Breakfast slots are not checked by `slot_not_a_meal`.',
     "7. Protein: every slot needs protein per portion of at least `proteinMinGrams` from `household` (breakfast 15 g, lunch 20 g, dinner 20 g). `evaluate_plan` gives `proteinPerSlot` and the warning `low_protein`. Add a dish or a simple breakfast with more protein when a slot is low.",
     "8. Call `evaluate_plan`. Fix every error and change the plan until `ok` is true. Read the warnings and remove them when you can.",
     "9. Lower `buyItemCount` (it counts the products of the simple breakfasts too): replace dishes with dishes that share products with the other dishes of the week. Call `evaluate_plan` after each change.",
@@ -69,5 +75,5 @@ export const planWeekPrompt = (weekStart: IsoDateType, proteinFamily: string | u
     "- The schedule of the 2 cooking sessions (dishes, scale, active minutes) and the fresh dishes of the mornings.",
     "- The value of `buyItemCount`, the protein families and the remaining warnings.",
     "- The shopping list (from `shopping_list`, `markdown`).",
-    "- The paths of the saved files."
+    "- The paths of the saved files.",
   ].join("\n")

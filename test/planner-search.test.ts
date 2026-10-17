@@ -12,48 +12,90 @@ const dishes: Readonly<Record<number, DishOptions>> = {
   1: {
     title: "Суп Альфа",
     commentsCount: 50,
-    enrichment: { dishType: "soup", proteinFamilies: ["chicken"], vegetarian: false, activeMinutes: 20, totalMinutes: 50, equipment: ["hob"] },
+    enrichment: {
+      dishType: "soup",
+      proteinFamilies: ["chicken"],
+      vegetarian: false,
+      activeMinutes: 20,
+      totalMinutes: 50,
+      equipment: ["hob"],
+    },
     ingredients: [
       inGrams("Куриное филе", 500, { category: "poultry" }),
       inGrams("картошка", 400, { category: "vegetable" }),
       ing("лук репчатый", { category: "vegetable" }),
       ing("соль", { pantry: true }),
-      ing("укроп", { optional: true, category: "herb" })
-    ]
+      ing("укроп", { optional: true, category: "herb" }),
+    ],
   },
   2: {
     title: "Рагу Браво",
     commentsCount: 10,
     enrichment: {
-      dishType: "main", proteinFamilies: ["pork"], vegetarian: false, heat: 2, activeMinutes: 40, totalMinutes: 90, difficulty: 2,
-      equipment: ["hob", "oven"]
+      dishType: "main",
+      proteinFamilies: ["pork"],
+      vegetarian: false,
+      heat: 2,
+      activeMinutes: 40,
+      totalMinutes: 90,
+      difficulty: 2,
+      equipment: ["hob", "oven"],
     },
-    ingredients: [inGrams("свинина", 600), ing("морковь"), ing("лук репчатый")]
+    ingredients: [inGrams("свинина", 600), ing("морковь"), ing("лук репчатый")],
   },
   3: {
     title: "Плов Чарли",
     commentsCount: 80,
-    enrichment: { dishType: "main", vegetarian: true, difficulty: 2, activeMinutes: 30, totalMinutes: 60, equipment: ["hob"] },
-    ingredients: [inGrams("рис", 300), ing("морковь"), ing("лук репчатый")]
+    enrichment: {
+      dishType: "main",
+      vegetarian: true,
+      difficulty: 2,
+      activeMinutes: 30,
+      totalMinutes: 60,
+      equipment: ["hob"],
+    },
+    ingredients: [inGrams("рис", 300), ing("морковь"), ing("лук репчатый")],
   },
   4: {
     title: "Салат Дельта",
     commentsCount: 5,
-    enrichment: { dishType: "salad", mealFit: "side_only", vegetarian: true, activeMinutes: 10, totalMinutes: 10, equipment: [] },
-    ingredients: [ing("огурцы"), ing("помидоры"), ing("укроп"), ing("мёд")]
+    enrichment: {
+      dishType: "salad",
+      mealFit: "side_only",
+      vegetarian: true,
+      activeMinutes: 10,
+      totalMinutes: 10,
+      equipment: [],
+    },
+    ingredients: [ing("огурцы"), ing("помидоры"), ing("укроп"), ing("мёд")],
   },
   5: {
     title: "Запеканка Эхо",
     commentsCount: null,
-    enrichment: { dishType: "savory_bake", mealFit: "needs_side", vegetarian: true, activeMinutes: 15, totalMinutes: 60, equipment: ["oven", "mixer"], heat: 1 },
-    ingredients: [inGrams("творог", 500), ing("яйца"), ing("луковица")]
+    enrichment: {
+      dishType: "savory_bake",
+      mealFit: "needs_side",
+      vegetarian: true,
+      activeMinutes: 15,
+      totalMinutes: 60,
+      equipment: ["oven", "mixer"],
+      heat: 1,
+    },
+    ingredients: [inGrams("творог", 500), ing("яйца"), ing("луковица")],
   },
   6: {
     title: "Уха Фокстрот",
     commentsCount: 50,
-    enrichment: { dishType: "soup", proteinFamilies: ["fish"], vegetarian: false, activeMinutes: 25, totalMinutes: 55, equipment: ["hob"] },
-    ingredients: [inGrams("окунь", 700, { category: "fish" }), ing("картофель"), ing("лук репчатый")]
-  }
+    enrichment: {
+      dishType: "soup",
+      proteinFamilies: ["fish"],
+      vegetarian: false,
+      activeMinutes: 25,
+      totalMinutes: 55,
+      equipment: ["hob"],
+    },
+    ingredients: [inGrams("окунь", 700, { category: "fish" }), ing("картофель"), ing("лук репчатый")],
+  },
 }
 
 const catalogue = catalogueOf(
@@ -61,7 +103,8 @@ const catalogue = catalogueOf(
   aliases
 )
 
-const found = (query: SearchQuery): ReadonlyArray<number> => searchRecipes(catalogue, query).map((row) => Number(row.id))
+const found = (query: SearchQuery): ReadonlyArray<number> =>
+  searchRecipes(catalogue, query).map((row) => Number(row.id))
 
 describe("searchRecipes: sort and limit", () => {
   it("sorts by comments, most first, and by ID for a tie (a missing count is 0)", () => {
@@ -71,9 +114,17 @@ describe("searchRecipes: sort and limit", () => {
 
   it("sorts by the number of items to buy, fewest first, then by comments", () => {
     // Items to buy: 1 has 3 (the salt is pantry, the dill is optional), 2 has 3, 3 has 3, 4 has 4, 5 has 3, 6 has 3.
-    assert.deepStrictEqual(searchRecipes(catalogue, { sort: "fewest_items" }).map((row) => [Number(row.id), row.buyItems.length]), [
-      [3, 3], [1, 3], [6, 3], [2, 3], [5, 3], [4, 4]
-    ])
+    assert.deepStrictEqual(
+      searchRecipes(catalogue, { sort: "fewest_items" }).map((row) => [Number(row.id), row.buyItems.length]),
+      [
+        [3, 3],
+        [1, 3],
+        [6, 3],
+        [2, 3],
+        [5, 3],
+        [4, 4],
+      ]
+    )
   })
 
   it("cuts the result at limit, with 20 as the default and 100 as the maximum", () => {
@@ -190,7 +241,15 @@ describe("searchRecipes: filters", () => {
   })
 
   it("combines the filters", () => {
-    assert.deepStrictEqual(found({ vegetarian: false, maxHeat: 1, dishTypes: ["soup"], text: "картофель" }), [1, 6])
+    assert.deepStrictEqual(
+      found({
+        vegetarian: false,
+        maxHeat: 1,
+        dishTypes: ["soup"],
+        text: "картофель",
+      }),
+      [1, 6]
+    )
     assert.deepStrictEqual(found({ vegetarian: false, maxHeat: 1, proteinFamilies: ["pork"] }), [])
   })
 })
@@ -200,9 +259,27 @@ describe("searchRecipes: the row", () => {
 
   it("has the compact fields of spec P4.2.4 and nothing more", () => {
     assert.deepStrictEqual(Object.keys(row ?? {}).sort(), [
-      "activeMinutes", "breakfastEligible", "buyItems", "commentsCount", "difficulty", "dishType", "freezable", "fridgeDays", "heat", "id",
-      "longWaitHours", "mealFit", "proteinFamilies", "proteinPerPortion", "reheats", "servings", "sideHint", "title", "totalMinutes", "url",
-      "vegetarian"
+      "activeMinutes",
+      "breakfastEligible",
+      "buyItems",
+      "commentsCount",
+      "difficulty",
+      "dishType",
+      "freezable",
+      "fridgeDays",
+      "heat",
+      "id",
+      "longWaitHours",
+      "mealFit",
+      "proteinFamilies",
+      "proteinPerPortion",
+      "reheats",
+      "servings",
+      "sideHint",
+      "title",
+      "totalMinutes",
+      "url",
+      "vegetarian",
     ])
   })
 

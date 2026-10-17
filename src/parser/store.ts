@@ -16,24 +16,27 @@ const TEMP_SUFFIX = ".tmp"
  * The store never changes `data/raw/`. The scraper can run at the same time.
  * Every write goes to a temporary file in the same directory first, then a rename puts it in place.
  */
-export class ParseStore extends Context.Service<ParseStore, {
-  /** Create `data/parsed/` and remove the temporary files of an interrupted write. */
-  readonly prepare: Effect.Effect<void, StoreError>
-  /** Read `data/raw/index.json`. */
-  readonly readIndex: Effect.Effect<RawIndex, StoreError | IndexInvalidError>
-  /** Read `data/raw/<id>.html` as UTF-8 text. */
-  readonly readPage: (id: RecipeId) => Effect.Effect<string, StoreError>
-  /** Write `data/parsed/<id>.json`. */
-  readonly writeParsed: (recipe: ParsedRecipe) => Effect.Effect<void, StoreError>
-  /** Remove `data/parsed/<id>.json`, for example the result of an older run. No error when the file does not exist. */
-  readonly removeParsed: (id: RecipeId) => Effect.Effect<void, StoreError>
-  /** Write `data/parsed/_report.json`. */
-  readonly writeReport: (report: ParseReport) => Effect.Effect<void, StoreError>
-}>()("say7/parser/ParseStore") {
+export class ParseStore extends Context.Service<
+  ParseStore,
+  {
+    /** Create `data/parsed/` and remove the temporary files of an interrupted write. */
+    readonly prepare: Effect.Effect<void, StoreError>
+    /** Read `data/raw/index.json`. */
+    readonly readIndex: Effect.Effect<RawIndex, StoreError | IndexInvalidError>
+    /** Read `data/raw/<id>.html` as UTF-8 text. */
+    readonly readPage: (id: RecipeId) => Effect.Effect<string, StoreError>
+    /** Write `data/parsed/<id>.json`. */
+    readonly writeParsed: (recipe: ParsedRecipe) => Effect.Effect<void, StoreError>
+    /** Remove `data/parsed/<id>.json`, for example the result of an older run. No error when the file does not exist. */
+    readonly removeParsed: (id: RecipeId) => Effect.Effect<void, StoreError>
+    /** Write `data/parsed/_report.json`. */
+    readonly writeReport: (report: ParseReport) => Effect.Effect<void, StoreError>
+  }
+>()("say7/parser/ParseStore") {
   static readonly layer = (dataDir: string): Layer.Layer<ParseStore, never, FileSystem.FileSystem | Path.Path> =>
     Layer.effect(
       ParseStore,
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
 
@@ -60,7 +63,7 @@ export class ParseStore extends Context.Service<ParseStore, {
           )
         }
 
-        const prepare = Effect.gen(function*() {
+        const prepare = Effect.gen(function* () {
           yield* io(parsedDir, fs.makeDirectory(parsedDir, { recursive: true }))
           const names = yield* io(parsedDir, fs.readDirectory(parsedDir))
           yield* Effect.forEach(
@@ -70,17 +73,23 @@ export class ParseStore extends Context.Service<ParseStore, {
           )
         })
 
-        const readIndex = Effect.gen(function*() {
+        const readIndex = Effect.gen(function* () {
           const present = yield* io(indexPath, fs.exists(indexPath))
           if (!present) {
             return yield* new StoreError({
               path: indexPath,
-              message: "The file does not exist. Run `npm run scrape` first."
+              message: "The file does not exist. Run `npm run scrape` first.",
             })
           }
           const text = yield* io(indexPath, fs.readFileString(indexPath))
           return yield* Schema.decodeUnknownEffect(RawIndexJson)(text).pipe(
-            Effect.mapError((error) => new IndexInvalidError({ path: indexPath, message: error.message }))
+            Effect.mapError(
+              (error) =>
+                new IndexInvalidError({
+                  path: indexPath,
+                  message: error.message,
+                })
+            )
           )
         })
 
@@ -98,7 +107,7 @@ export class ParseStore extends Context.Service<ParseStore, {
           readPage,
           writeParsed: (recipe) => writeJson(parsedPath(recipe.id), ParsedRecipeJson, recipe),
           removeParsed: (id) => io(parsedPath(id), fs.remove(parsedPath(id), { force: true })),
-          writeReport: (report) => writeJson(reportPath, ParseReportJson, report)
+          writeReport: (report) => writeJson(reportPath, ParseReportJson, report),
         })
       })
     )

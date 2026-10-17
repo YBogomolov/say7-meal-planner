@@ -24,7 +24,7 @@ export interface FakeReply {
 export const jsonReply = (value: unknown, status = 200): FakeReply => ({
   status,
   headers: { "content-type": "application/json" },
-  body: JSON.stringify(value)
+  body: JSON.stringify(value),
 })
 
 export interface FakeAnthropic {
@@ -70,14 +70,18 @@ export const startFakeAnthropic: Effect.Effect<FakeAnthropic, never, Scope.Scope
               url,
               headers: request.headers,
               text,
-              json: parseJson(text)
+              json: parseJson(text),
             }
             seen.push(entry)
             const path = url.split("?")[0] ?? url
             const handler = handlers.get(`${entry.method} ${path}`)
-            const reply: FakeReply = handler === undefined
-              ? { status: 404, body: `{"type":"error","error":{"type":"not_found_error","message":"no route ${entry.method} ${path}"}}` }
-              : handler(entry)
+            const reply: FakeReply =
+              handler === undefined
+                ? {
+                    status: 404,
+                    body: `{"type":"error","error":{"type":"not_found_error","message":"no route ${entry.method} ${path}"}}`,
+                  }
+                : handler(entry)
             response.writeHead(reply.status ?? 200, { ...reply.headers })
             response.end(reply.body)
           })
@@ -96,7 +100,7 @@ export const startFakeAnthropic: Effect.Effect<FakeAnthropic, never, Scope.Scope
               new Promise<void>((done) => {
                 server.closeAllConnections()
                 server.close(() => done())
-              })
+              }),
           })
         })
       })

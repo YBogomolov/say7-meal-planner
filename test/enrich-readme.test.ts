@@ -22,8 +22,7 @@ const commands = (script: "enrich" | "enrich:eval"): ReadonlyArray<ReadonlyArray
     return text.startsWith(prefix) ? [text.slice(prefix.length).split(/\s+/)] : []
   })
 
-const flagsOf = (usage: string): ReadonlyArray<string> =>
-  [...new Set(usage.match(/--[a-z][a-z-]*/g) ?? [])]
+const flagsOf = (usage: string): ReadonlyArray<string> => [...new Set(usage.match(/--[a-z][a-z-]*/g) ?? [])]
 
 describe("README section Enrichment", () => {
   it("exists", () => {

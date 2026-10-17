@@ -12,16 +12,20 @@ const usage = (inputTokens: number, outputTokens: number, cacheReadTokens = 0, c
   inputTokens,
   outputTokens,
   cacheReadTokens,
-  cacheCreationTokens
+  cacheCreationTokens,
 })
 
-const stored = (n: number, tokens = usage(1000, 500)): RecipeOutcome => ({ _tag: "Stored", id: id(n), usage: tokens })
+const stored = (n: number, tokens = usage(1000, 500)): RecipeOutcome => ({
+  _tag: "Stored",
+  id: id(n),
+  usage: tokens,
+})
 const failed = (n: number, kind: EnrichFailure["kind"], tokens = usage(1000, 500)): RecipeOutcome => ({
   _tag: "Failed",
   id: id(n),
   kind,
   message: `${kind} problem`,
-  usage: tokens
+  usage: tokens,
 })
 
 const parts = (overrides: Partial<ReportParts> = {}): ReportParts => ({
@@ -36,7 +40,7 @@ const parts = (overrides: Partial<ReportParts> = {}): ReportParts => ({
   deferred: 3,
   unreadable: [{ id: id(9), kind: "unreadable", message: "bad file" }],
   outcomes: [stored(1), failed(4, "decode"), stored(2)],
-  ...overrides
+  ...overrides,
 })
 
 describe("buildReport", () => {
@@ -51,14 +55,14 @@ describe("buildReport", () => {
       deferred: 3,
       processed: 3,
       succeeded: 2,
-      failed: 2
+      failed: 2,
     })
   })
 
   it("lists the failures in ascending order of ID, the unreadable files included", () => {
     assert.deepStrictEqual(report.failures, [
       { id: id(4), kind: "decode", message: "decode problem" },
-      { id: id(9), kind: "unreadable", message: "bad file" }
+      { id: id(9), kind: "unreadable", message: "bad file" },
     ])
   })
 
@@ -105,7 +109,7 @@ describe("buildReport", () => {
       deferred: 0,
       processed: 0,
       succeeded: 0,
-      failed: 0
+      failed: 0,
     })
     assert.deepStrictEqual(empty.usage, NO_USAGE)
     assert.strictEqual(empty.cost.estimatedUsd, 0)
@@ -118,10 +122,19 @@ describe("buildReport", () => {
   it("is a valid _report.json: it passes the schema after the round trip", () => {
     const text = Schema.encodeSync(EnrichReportJson)(report)
     assert.deepStrictEqual(Schema.decodeUnknownSync(EnrichReportJson)(text), report)
-    assert.deepStrictEqual(
-      Object.keys(JSON.parse(text)),
-      ["version", "generatedAt", "model", "promptVersion", "mode", "retryFailed", "batchId", "totals", "failures", "usage", "cost"]
-    )
+    assert.deepStrictEqual(Object.keys(JSON.parse(text)), [
+      "version",
+      "generatedAt",
+      "model",
+      "promptVersion",
+      "mode",
+      "retryFailed",
+      "batchId",
+      "totals",
+      "failures",
+      "usage",
+      "cost",
+    ])
   })
 })
 
@@ -134,7 +147,16 @@ describe("formatTotals and formatUsage", () => {
       "processed 3, succeeded 2, failed 2, cached 1, out of scope 2, not processed because of --limit 3"
     )
     assert.strictEqual(
-      formatTotals(buildReport(parts({ outOfScope: 0, deferred: 0, unreadable: [], outcomes: [stored(1)] }))),
+      formatTotals(
+        buildReport(
+          parts({
+            outOfScope: 0,
+            deferred: 0,
+            unreadable: [],
+            outcomes: [stored(1)],
+          })
+        )
+      ),
       "processed 1, succeeded 1, failed 0, cached 1"
     )
   })

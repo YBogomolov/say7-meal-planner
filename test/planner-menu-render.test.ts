@@ -7,7 +7,16 @@ import { evaluatePlan } from "../src/planner/evaluate.ts"
 import { renderMenu } from "../src/planner/menu-render.ts"
 import { shoppingList } from "../src/planner/shopping.ts"
 import { renderShoppingList, renderShoppingText } from "../src/planner/shopping-render.ts"
-import { baseEntries, baseCatalogue, BASE_COOKING, BASE_MEALS, catalogueOf, entryOf, inGrams, planOf } from "./support/planner.ts"
+import {
+  baseEntries,
+  baseCatalogue,
+  BASE_COOKING,
+  BASE_MEALS,
+  catalogueOf,
+  entryOf,
+  inGrams,
+  planOf,
+} from "./support/planner.ts"
 
 /** The menu of the synthetic week of test/support/planner.ts. Dish 3 is cooked at scale 1,5. */
 const menuOf = (
@@ -16,9 +25,9 @@ const menuOf = (
   overrides: Parameters<typeof baseCatalogue>[0] = {}
 ): string => {
   const plan = planOf({
-    cooking: BASE_COOKING.map((entry) => entry.recipeId === 3 ? { ...entry, scale: 1.5 } : entry),
+    cooking: BASE_COOKING.map((entry) => (entry.recipeId === 3 ? { ...entry, scale: 1.5 } : entry)),
     meals,
-    notes
+    notes,
   })
   const catalogue = baseCatalogue(overrides)
   return renderMenu({
@@ -26,7 +35,7 @@ const menuOf = (
     catalogue,
     household: DEFAULT_HOUSEHOLD,
     evaluation: evaluatePlan(plan, catalogue, DEFAULT_HOUSEHOLD),
-    list: shoppingList(plan, catalogue, DEFAULT_HOUSEHOLD)
+    list: shoppingList(plan, catalogue, DEFAULT_HOUSEHOLD),
   })
 }
 
@@ -47,12 +56,10 @@ describe("renderMenu: golden week", () => {
   it("has 1 H1 and the sections in order", () => {
     const lines = rendered.split("\n")
     assert.strictEqual(lines.filter((text) => text.startsWith("# ")).length, 1)
-    assert.deepStrictEqual(lines.filter((text) => text.startsWith("## ")), [
-      "## Меню по дням",
-      "## Сессии готовки",
-      "## Оценка плана",
-      "## Список покупок: неделя с 2026-10-17"
-    ])
+    assert.deepStrictEqual(
+      lines.filter((text) => text.startsWith("## ")),
+      ["## Меню по дням", "## Сессии готовки", "## Оценка плана", "## Список покупок: неделя с 2026-10-17"]
+    )
   })
 })
 
@@ -69,7 +76,9 @@ describe("renderMenu: details", () => {
   })
 
   it("escapes a pipe and brackets in a title", () => {
-    const rendered = menuOf(null, BASE_MEALS, { 1: { title: "Суп | [особый]" } })
+    const rendered = menuOf(null, BASE_MEALS, {
+      1: { title: "Суп | [особый]" },
+    })
     assert.include(rendered, "[Суп \\| \\[особый\\]](")
   })
 
@@ -79,31 +88,48 @@ describe("renderMenu: details", () => {
 })
 
 describe("renderMenu: breakfast (spec P7.2)", () => {
-  const household: Household = { ...DEFAULT_HOUSEHOLD, meals: ["breakfast", "lunch", "dinner"], mealPersons: { breakfast: 2 } }
+  const household: Household = {
+    ...DEFAULT_HOUSEHOLD,
+    meals: ["breakfast", "lunch", "dinner"],
+    mealPersons: { breakfast: 2 },
+  }
   const yogurt: SimpleBreakfast = {
     id: "yogurt",
     title: "Йогурт с бананом",
     items: [
-      { item: "греческий йогурт", grams: 200, category: "dairy", pantry: false },
-      { item: "мед", grams: 15, category: "sweet", pantry: true }
-    ]
+      {
+        item: "греческий йогурт",
+        grams: 200,
+        category: "dairy",
+        pantry: false,
+      },
+      { item: "мед", grams: 15, category: "sweet", pantry: true },
+    ],
   }
   const toast: SimpleBreakfast = {
     id: "toast",
     title: "Тост | с брынзой",
     items: [
       { item: "хлеб", grams: 60, category: "bakery", pantry: false },
-      { item: "брынза", grams: 30, category: "dairy", pantry: false }
-    ]
+      { item: "брынза", grams: 30, category: "dairy", pantry: false },
+    ],
   }
   const syrniki = entryOf(8, {
     title: "Сырники Гольф",
-    enrichment: { mealFit: "full_meal", servings: { min: 2, max: 4, source: "page" }, activeMinutes: 15, fridgeDays: 1 },
-    ingredients: [inGrams("творог", 400, { category: "dairy" }), inGrams("яйца", 110, { category: "eggs" })]
+    enrichment: {
+      mealFit: "full_meal",
+      servings: { min: 2, max: 4, source: "page" },
+      activeMinutes: 15,
+      fridgeDays: 1,
+    },
+    ingredients: [inGrams("творог", 400, { category: "dairy" }), inGrams("яйца", 110, { category: "eggs" })],
   })
   const catalogue = catalogueOf([...baseEntries(), syrniki], undefined, undefined, [yogurt, toast])
   const plan = planOf({
-    cooking: [...BASE_COOKING.map((entry) => entry.recipeId === 3 ? { ...entry, scale: 1.5 as const } : entry), { session: "fresh", recipeId: 8 }],
+    cooking: [
+      ...BASE_COOKING.map((entry) => (entry.recipeId === 3 ? { ...entry, scale: 1.5 as const } : entry)),
+      { session: "fresh", recipeId: 8 },
+    ],
     meals: [
       ...BASE_MEALS,
       { day: 0, meal: "breakfast", recipeIds: [8], simpleIds: [] },
@@ -112,9 +138,9 @@ describe("renderMenu: breakfast (spec P7.2)", () => {
       { day: 3, meal: "breakfast", recipeIds: [], simpleIds: ["toast"] },
       { day: 4, meal: "breakfast", recipeIds: [8], simpleIds: [] },
       { day: 5, meal: "breakfast", recipeIds: [], simpleIds: ["toast"] },
-      { day: 6, meal: "breakfast", recipeIds: [], simpleIds: ["yogurt"] }
+      { day: 6, meal: "breakfast", recipeIds: [], simpleIds: ["yogurt"] },
     ],
-    notes: "Неделя с завтраками."
+    notes: "Неделя с завтраками.",
   })
   const evaluation = evaluatePlan(plan, catalogue, household)
   const list = shoppingList(plan, catalogue, household)
@@ -143,7 +169,10 @@ describe("renderMenu: breakfast (spec P7.2)", () => {
   it("lists the fresh dishes apart from the sessions, under the heading «Утром»", () => {
     const lines = rendered.split("\n")
     const fresh = lines.findIndex((text) => text === "### Утром (свежие блюда)")
-    assert.isAbove(fresh, lines.findIndex((text) => text.startsWith("### Сессия B")))
+    assert.isAbove(
+      fresh,
+      lines.findIndex((text) => text.startsWith("### Сессия B"))
+    )
     assert.include(lines[fresh + 2] ?? "", "Сырники Гольф")
     assert.include(lines[fresh + 2] ?? "", "дни 0, 2, 4")
   })

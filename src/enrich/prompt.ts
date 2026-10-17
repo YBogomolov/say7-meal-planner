@@ -28,16 +28,16 @@ export const EXAMPLE_INPUT: ModelInput = {
         { line: 5, text: "2 ст. л. оливкового масла" },
         { line: 6, text: "щепотка мускатного ореха" },
         { line: 7, text: "соль, перец" },
-        { line: 8, text: "тыквенные семечки (для подачи)" }
-      ]
-    }
+        { line: 8, text: "тыквенные семечки (для подачи)" },
+      ],
+    },
   ],
   steps: [
     "Тыкву и лук нарезать кубиками.",
     "Обжарить лук и чеснок в масле 5 минут, добавить тыкву и воду, варить 20 минут до мягкости.",
-    "Пробить блендером, добавить сливки и специи, прогреть 3 минуты."
+    "Пробить блендером, добавить сливки и специи, прогреть 3 минуты.",
   ],
-  categories: ["Первые блюда"]
+  categories: ["Первые блюда"],
 }
 
 type ExampleItem = Enrichment["ingredients"][number]
@@ -51,22 +51,102 @@ const staple = (line: number, item: string, category: ExampleItem["category"]): 
   quantity: null,
   unit: null,
   grams: null,
-  optional: false
+  optional: false,
 })
 
 /** The answer for `EXAMPLE_INPUT`. The keys are in the order of the JSON Schema. */
 export const EXAMPLE_OUTPUT: Enrichment = {
   ingredients: [
-    { line: 0, item: "тыква", detail: null, category: "vegetable", pantry: false, quantity: 600, unit: "g", grams: 600, optional: false },
-    { line: 1, item: "лук репчатый", detail: null, category: "vegetable", pantry: false, quantity: 1, unit: "pcs", grams: 100, optional: false },
-    { line: 2, item: "чеснок", detail: null, category: "vegetable", pantry: false, quantity: 2, unit: "clove", grams: 8, optional: false },
-    { line: 3, item: "вода", detail: null, category: "other", pantry: true, quantity: 500, unit: "ml", grams: 500, optional: false },
-    { line: 4, item: "сливки", detail: "10–20%", category: "dairy", pantry: false, quantity: 200, unit: "ml", grams: 200, optional: false },
-    { line: 5, item: "оливковое масло", detail: null, category: "oil", pantry: true, quantity: 2, unit: "tbsp", grams: 30, optional: false },
-    { line: 6, item: "мускатный орех", detail: null, category: "spice", pantry: true, quantity: 1, unit: "pinch", grams: 0.5, optional: false },
+    {
+      line: 0,
+      item: "тыква",
+      detail: null,
+      category: "vegetable",
+      pantry: false,
+      quantity: 600,
+      unit: "g",
+      grams: 600,
+      optional: false,
+    },
+    {
+      line: 1,
+      item: "лук репчатый",
+      detail: null,
+      category: "vegetable",
+      pantry: false,
+      quantity: 1,
+      unit: "pcs",
+      grams: 100,
+      optional: false,
+    },
+    {
+      line: 2,
+      item: "чеснок",
+      detail: null,
+      category: "vegetable",
+      pantry: false,
+      quantity: 2,
+      unit: "clove",
+      grams: 8,
+      optional: false,
+    },
+    {
+      line: 3,
+      item: "вода",
+      detail: null,
+      category: "other",
+      pantry: true,
+      quantity: 500,
+      unit: "ml",
+      grams: 500,
+      optional: false,
+    },
+    {
+      line: 4,
+      item: "сливки",
+      detail: "10–20%",
+      category: "dairy",
+      pantry: false,
+      quantity: 200,
+      unit: "ml",
+      grams: 200,
+      optional: false,
+    },
+    {
+      line: 5,
+      item: "оливковое масло",
+      detail: null,
+      category: "oil",
+      pantry: true,
+      quantity: 2,
+      unit: "tbsp",
+      grams: 30,
+      optional: false,
+    },
+    {
+      line: 6,
+      item: "мускатный орех",
+      detail: null,
+      category: "spice",
+      pantry: true,
+      quantity: 1,
+      unit: "pinch",
+      grams: 0.5,
+      optional: false,
+    },
     staple(7, "соль", "spice"),
     staple(7, "перец", "spice"),
-    { line: 8, item: "тыквенные семечки", detail: null, category: "nuts", pantry: false, quantity: null, unit: null, grams: null, optional: true }
+    {
+      line: 8,
+      item: "тыквенные семечки",
+      detail: null,
+      category: "nuts",
+      pantry: false,
+      quantity: null,
+      unit: null,
+      grams: null,
+      optional: true,
+    },
   ],
   proteinFamilies: [],
   vegetarian: true,
@@ -82,7 +162,7 @@ export const EXAMPLE_OUTPUT: Enrichment = {
   equipment: ["hob", "immersion_blender"],
   fridgeDays: 3,
   freezable: true,
-  reheats: "well"
+  reheats: "well",
 }
 
 export const SYSTEM_PROMPT = `You read one Russian recipe page and return structured facts about the dish. A household meal planner uses your answer.

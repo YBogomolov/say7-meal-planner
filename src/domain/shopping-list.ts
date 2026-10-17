@@ -26,7 +26,7 @@ export const SHOP_ORDER = [
   "sweet",
   "spice",
   "oil",
-  "other"
+  "other",
 ] as const satisfies ReadonlyArray<IngredientCategory>
 
 /** The categories of raw animal products that the freeze rule covers (spec P4.5.5). */
@@ -35,7 +35,7 @@ export const RAW_PROTEIN_CATEGORIES: ReadonlyArray<IngredientCategory> = ["poult
 /** One quantity: grams, millilitres or a count. `value` is rounded: whole numbers for `g` and `ml`, 2 decimals for the rest. */
 export const ShoppingAmount = Schema.Struct({
   unit: IngredientUnit,
-  value: Schema.Finite
+  value: Schema.Finite,
 })
 export type ShoppingAmount = typeof ShoppingAmount.Type
 
@@ -59,14 +59,14 @@ export const ShoppingItem = Schema.Struct({
   amounts: Schema.Array(ShoppingAmount),
   approximate: Schema.Boolean,
   recipeIds: Schema.Array(RecipeId),
-  simpleIds: Schema.Array(Schema.String)
+  simpleIds: Schema.Array(Schema.String),
 })
 export type ShoppingItem = typeof ShoppingItem.Type
 
 /** The items of one department, sorted by name. */
 export const ShoppingCategory = Schema.Struct({
   category: IngredientCategory,
-  items: Schema.Array(ShoppingItem)
+  items: Schema.Array(ShoppingItem),
 })
 export type ShoppingCategory = typeof ShoppingCategory.Type
 
@@ -81,7 +81,7 @@ export const FreezeAction = Schema.Struct({
   session: SessionId,
   amounts: Schema.Array(ShoppingAmount),
   recipeIds: Schema.Array(RecipeId),
-  text: Schema.NonEmptyString
+  text: Schema.NonEmptyString,
 })
 export type FreezeAction = typeof FreezeAction.Type
 
@@ -97,7 +97,7 @@ export const ShoppingDish = Schema.Struct({
   session: CookingSession,
   sessionDay: Schema.NullOr(DayIndex),
   freshDays: Schema.Array(DayIndex),
-  scale: PlanScale
+  scale: PlanScale,
 })
 export type ShoppingDish = typeof ShoppingDish.Type
 
@@ -106,7 +106,7 @@ export const ShoppingSimple = Schema.Struct({
   id: Schema.NonEmptyString,
   title: Schema.NonEmptyString,
   portions: Schema.Natural,
-  days: Schema.Array(DayIndex)
+  days: Schema.Array(DayIndex),
 })
 export type ShoppingSimple = typeof ShoppingSimple.Type
 
@@ -131,6 +131,6 @@ export const ShoppingList = Schema.Struct({
   unknownRecipeIds: Schema.Array(RecipeId),
   extras: Schema.Array(WeeklyExtra),
   simpleBreakfasts: Schema.Array(ShoppingSimple),
-  unknownSimpleIds: Schema.Array(Schema.String)
+  unknownSimpleIds: Schema.Array(Schema.String),
 })
 export type ShoppingList = typeof ShoppingList.Type

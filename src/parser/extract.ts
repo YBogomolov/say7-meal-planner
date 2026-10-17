@@ -13,7 +13,7 @@ import {
   isElement,
   siblingsAfter,
   textLines,
-  textOf
+  textOf,
 } from "./dom.ts"
 import type { Element, Node } from "./dom.ts"
 
@@ -55,10 +55,12 @@ export const extractTitle = (document: Node): string => {
 
 /** The canonical URL of the page: `<link rel="canonical">`, or else `<meta property="og:url">`. */
 export const extractUrl = (document: Node): Option.Option<string> => {
-  const canonical = findAll(document, byTag("link"))
-    .find((element) => attr(element, "rel")?.toLowerCase() === "canonical")
+  const canonical = findAll(document, byTag("link")).find(
+    (element) => attr(element, "rel")?.toLowerCase() === "canonical"
+  )
   const ogUrl = findAll(document, byTag("meta")).find((element) => attr(element, "property") === "og:url")
-  const url = (canonical === undefined ? undefined : attr(canonical, "href")) ??
+  const url =
+    (canonical === undefined ? undefined : attr(canonical, "href")) ??
     (ogUrl === undefined ? undefined : attr(ogUrl, "content"))
   return Option.fromNullishOr(url?.trim()).pipe(Option.filter((value) => value !== ""))
 }
@@ -78,9 +80,9 @@ export const extractIntro = (root: Node): ReadonlyArray<string> => {
   return summary === undefined
     ? []
     : findAll(summary, byTag("p"))
-      .filter((paragraph) => !hasAncestor(paragraph, isQuote))
-      .map((paragraph) => textOf(paragraph))
-      .filter((text) => text !== "")
+        .filter((paragraph) => !hasAncestor(paragraph, isQuote))
+        .map((paragraph) => textOf(paragraph))
+        .filter((text) => text !== "")
 }
 
 /**
@@ -189,9 +191,10 @@ const RECIPE_LINK = /\/cook\/recipe\/(\d+)-/
 export const extractSimilarIds = (document: Node): ReadonlyArray<number> => {
   const label = findByOwnText(document, "Похожие", new Set(["p"]))
   const header = label?.parentNode
-  const block = header !== null && header !== undefined && isElement(header) && header.tagName === "header"
-    ? header.parentNode
-    : null
+  const block =
+    header !== null && header !== undefined && isElement(header) && header.tagName === "header"
+      ? header.parentNode
+      : null
   if (block === null) {
     return []
   }

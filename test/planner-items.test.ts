@@ -1,6 +1,15 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Result, Schema } from "effect"
-import { AliasesJson, buyItemsOf, cleanItemName, isBuyIngredient, itemsReport, makeAliases, normaliseItem, NO_ALIASES } from "../src/planner/items.ts"
+import {
+  AliasesJson,
+  buyItemsOf,
+  cleanItemName,
+  isBuyIngredient,
+  itemsReport,
+  makeAliases,
+  normaliseItem,
+  NO_ALIASES,
+} from "../src/planner/items.ts"
 import { baseCatalogue, catalogueOf, entryOf, ing, inGrams } from "./support/planner.ts"
 
 describe("normaliseItem", () => {
@@ -16,14 +25,20 @@ describe("normaliseItem", () => {
   })
 
   it("replaces a variant through the alias map, after the cleaning", () => {
-    const aliases = makeAliases({ "репчатый лук": "лук репчатый", "Томаты": "помидоры" })
+    const aliases = makeAliases({
+      "репчатый лук": "лук репчатый",
+      Томаты: "помидоры",
+    })
     assert.strictEqual(normaliseItem("Репчатый  лук", aliases), "лук репчатый")
     assert.strictEqual(normaliseItem("томаты", aliases), "помидоры")
     assert.strictEqual(normaliseItem("помидоры", aliases), "помидоры")
   })
 
   it("cleans the keys and the values of the alias map", () => {
-    const aliases = makeAliases({ "  Кинза ": "Кинза (зелень)", "Сметана 20%": "сметана" })
+    const aliases = makeAliases({
+      "  Кинза ": "Кинза (зелень)",
+      "Сметана 20%": "сметана",
+    })
     assert.strictEqual(normaliseItem("кинза", aliases), "кинза (зелень)")
     assert.strictEqual(normaliseItem("СМЕТАНА 20%", aliases), "сметана")
   })
@@ -58,8 +73,8 @@ describe("buy items", () => {
       ing("морковь"),
       ing("Соль", { pantry: true }),
       ing("Укроп", { optional: true }),
-      ing("Рис")
-    ]
+      ing("Рис"),
+    ],
   })
 
   it("tells which ingredient is bought", () => {
@@ -76,16 +91,26 @@ describe("itemsReport", () => {
     const aliases = makeAliases({ "репчатый лук": "лук репчатый" })
     const catalogue = catalogueOf(
       [
-        entryOf(1, { aliases, ingredients: [inGrams("Лук репчатый", 100), inGrams("Морковь", 100), ing("Соль", { pantry: true })] }),
-        entryOf(2, { aliases, ingredients: [inGrams("репчатый лук", 100), inGrams("лук репчатый", 50), inGrams("лук репчатый", 20)] }),
-        entryOf(3, { aliases, ingredients: [inGrams("Морковь", 100)] })
+        entryOf(1, {
+          aliases,
+          ingredients: [inGrams("Лук репчатый", 100), inGrams("Морковь", 100), ing("Соль", { pantry: true })],
+        }),
+        entryOf(2, {
+          aliases,
+          ingredients: [inGrams("репчатый лук", 100), inGrams("лук репчатый", 50), inGrams("лук репчатый", 20)],
+        }),
+        entryOf(3, { aliases, ingredients: [inGrams("Морковь", 100)] }),
       ],
       aliases
     )
     assert.deepStrictEqual(itemsReport(catalogue), [
-      { item: "лук репчатый", recipes: 2, variants: ["Лук репчатый", "лук репчатый", "репчатый лук"] },
+      {
+        item: "лук репчатый",
+        recipes: 2,
+        variants: ["Лук репчатый", "лук репчатый", "репчатый лук"],
+      },
       { item: "морковь", recipes: 2, variants: ["Морковь"] },
-      { item: "соль", recipes: 1, variants: ["Соль"] }
+      { item: "соль", recipes: 1, variants: ["Соль"] },
     ])
   })
 
@@ -99,7 +124,10 @@ describe("itemsReport", () => {
     assert.strictEqual(rows[0]?.item, "лук репчатый")
     assert.strictEqual(rows[0]?.recipes, 3)
     const counts = rows.map((row) => row.recipes)
-    assert.deepStrictEqual(counts, [...counts].sort((a, b) => b - a))
+    assert.deepStrictEqual(
+      counts,
+      [...counts].sort((a, b) => b - a)
+    )
   })
 
   it("is empty for an empty catalogue", () => {

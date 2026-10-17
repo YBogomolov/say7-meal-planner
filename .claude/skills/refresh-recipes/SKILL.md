@@ -8,6 +8,7 @@ description: Update the local say7.info recipe base of this project: download ne
 The base is updated by hand every 1–2 months. Every step is incremental: the scraper fetches only new pages and pages whose `lastmod` changed, the enrichment calls the API only for recipes without a current result. Talk to the user in Russian.
 
 Rules that come from the site and the API (see `CLAUDE.md` and `docs/SPEC.md` D1–D4):
+
 - Fetch say7.info only with `npm run scrape`. It obeys robots.txt and waits 2.5 s between requests. Do not use curl, WebFetch or a browser for the site.
 - The enrichment costs money. Show the estimate and get a "yes" from the user before the real run.
 - Never print `ANTHROPIC_API_KEY` or the contents of `.env`.

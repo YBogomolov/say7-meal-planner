@@ -48,7 +48,7 @@ export const buildRequests = (model: ModelName, recipes: ReadonlyArray<DryRunRec
     id: recipe.id,
     input: recipe.input,
     customId: customIdOf(recipe.id),
-    params: buildMessageParams(requestFor(model, recipe))
+    params: buildMessageParams(requestFor(model, recipe)),
   }))
 
 /**
@@ -174,7 +174,11 @@ export interface CharStats {
   /** The output schema of one request. It is the same in all requests. */
   readonly schemaEach: number
   /** The user message (the recipe): the shortest, the longest and the average. */
-  readonly recipe: { readonly min: number; readonly max: number; readonly average: number }
+  readonly recipe: {
+    readonly min: number
+    readonly max: number
+    readonly average: number
+  }
 }
 
 export const charStats = (requests: ReadonlyArray<BuiltRequest>): CharStats => {
@@ -184,7 +188,8 @@ export const charStats = (requests: ReadonlyArray<BuiltRequest>): CharStats => {
   const systemEach = first === undefined ? 0 : systemCharsOf(first.params)
   const schemaEach = first === undefined ? 0 : schemaCharsOf(first.params)
   const total = requests.reduce(
-    (sum, request, position) => sum + systemCharsOf(request.params) + schemaCharsOf(request.params) + (users[position] ?? 0),
+    (sum, request, position) =>
+      sum + systemCharsOf(request.params) + schemaCharsOf(request.params) + (users[position] ?? 0),
     0
   )
   const userTotal = users.reduce((sum, value) => sum + value, 0)
@@ -197,8 +202,8 @@ export const charStats = (requests: ReadonlyArray<BuiltRequest>): CharStats => {
     recipe: {
       min: count === 0 ? 0 : Math.min(...users),
       max: count === 0 ? 0 : Math.max(...users),
-      average: count === 0 ? 0 : userTotal / count
-    }
+      average: count === 0 ? 0 : userTotal / count,
+    },
   }
 }
 
@@ -223,21 +228,22 @@ export const estimateModel = (model: ModelName, stats: CharStats): ModelEstimate
   const plain: TokenUsage = { ...NO_USAGE, inputTokens, outputTokens }
 
   const systemTokens = Math.ceil(stats.systemEach / CHARS_PER_TOKEN)
-  const cached: TokenUsage = stats.requests === 0
-    ? plain
-    : {
-      inputTokens: Math.max(0, inputTokens - stats.requests * systemTokens),
-      outputTokens,
-      cacheReadTokens: (stats.requests - 1) * systemTokens,
-      cacheCreationTokens: systemTokens
-    }
+  const cached: TokenUsage =
+    stats.requests === 0
+      ? plain
+      : {
+          inputTokens: Math.max(0, inputTokens - stats.requests * systemTokens),
+          outputTokens,
+          cacheReadTokens: (stats.requests - 1) * systemTokens,
+          cacheCreationTokens: systemTokens,
+        }
   return {
     model,
     inputTokens,
     outputTokens,
     batchUsd: costUsd(plain, model, "batch"),
     syncUsd: costUsd(plain, model, "sync"),
-    batchUsdCached: costUsd(cached, model, "batch")
+    batchUsdCached: costUsd(cached, model, "batch"),
   }
 }
 
@@ -274,9 +280,12 @@ export const summariseDryRun = (parts: {
 }): DryRunSummary => {
   const selected = Option.match(parts.limit, {
     onNone: () => parts.inScope,
-    onSome: (limit) => parts.inScope.slice(0, limit)
+    onSome: (limit) => parts.inScope.slice(0, limit),
   })
-  const built = parts.models.map((model) => ({ model, requests: buildRequests(model, selected) }))
+  const built = parts.models.map((model) => ({
+    model,
+    requests: buildRequests(model, selected),
+  }))
   const stats = charStats(built[0]?.requests ?? [])
   return {
     files: parts.files,
@@ -284,12 +293,16 @@ export const summariseDryRun = (parts: {
     outOfScope: parts.outOfScope,
     inScope: parts.inScope.length,
     requests: selected.length,
-    mode: chooseMode({ count: selected.length, sync: parts.sync, retryFailed: parts.retryFailed }),
+    mode: chooseMode({
+      count: selected.length,
+      sync: parts.sync,
+      retryFailed: parts.retryFailed,
+    }),
     stats,
     problems: built.flatMap(({ model, requests }) =>
       validateRequests(requests).map((problem) => `${model}: ${problem}`)
     ),
-    estimates: built.map(({ model, requests }) => estimateModel(model, charStats(requests)))
+    estimates: built.map(({ model, requests }) => estimateModel(model, charStats(requests))),
   }
 }
 
@@ -316,7 +329,7 @@ export const formatDryRun = (summary: DryRunSummary): ReadonlyArray<string> => {
     `requests: ${summary.requests} (a real run uses ${summary.mode} mode)`,
     `input characters: ${grouped(stats.total)} in all, ${grouped(stats.average)} for each request on average`,
     `  each request: system prompt ${grouped(stats.systemEach)}, output schema ${grouped(stats.schemaEach)}, ` +
-    `recipe ${grouped(stats.recipe.min)} to ${grouped(stats.recipe.max)} (average ${grouped(stats.recipe.average)})`,
+      `recipe ${grouped(stats.recipe.min)} to ${grouped(stats.recipe.max)} (average ${grouped(stats.recipe.average)})`,
     summary.problems.length === 0
       ? `validation: ${summary.requests} requests for ${checked} ${checked === 1 ? "model" : "models"}, no problem`
       : `validation: ${summary.problems.length} problems`,
@@ -334,6 +347,6 @@ export const formatDryRun = (summary: DryRunSummary): ReadonlyArray<string> => {
         formatUsd(estimate.batchUsdCached)
       )
     ),
-    "batch is 50 % of the sync price. batch+cache assumes that every request but the first reads the system prompt from the cache."
+    "batch is 50 % of the sync price. batch+cache assumes that every request but the first reads the system prompt from the cache.",
   ]
 }

@@ -16,7 +16,7 @@ import { EXAMPLE_INPUT, EXAMPLE_OUTPUT, PROMPT_VERSION, retryMessage, SYSTEM_PRO
  */
 const FINGERPRINTS: Readonly<Record<number, string>> = {
   1: "20b2176f355b1321c2f6c129818044ff01083d1f1da60393c940c75c9e1c4f8b",
-  2: "82c8e2a030f42faa307426a419889e36df455e7b2deb2b0ec823bfcfff93f404"
+  2: "82c8e2a030f42faa307426a419889e36df455e7b2deb2b0ec823bfcfff93f404",
 }
 
 describe("PROMPT_VERSION", () => {
@@ -46,7 +46,9 @@ describe("the worked example", () => {
   })
 
   it("has at least 1 item for each line, and 2 items for the line with 2 products", () => {
-    const counts = allLines(EXAMPLE_INPUT).map((line) => EXAMPLE_OUTPUT.ingredients.filter((item) => item.line === line.line).length)
+    const counts = allLines(EXAMPLE_INPUT).map(
+      (line) => EXAMPLE_OUTPUT.ingredients.filter((item) => item.line === line.line).length
+    )
     assert.isTrue(counts.every((count) => count >= 1))
     assert.strictEqual(counts[7], 2)
   })
@@ -57,7 +59,9 @@ describe("the worked example", () => {
   })
 
   it("is not a page of the site: it has no gold recipe", () => {
-    const gold = Schema.decodeUnknownSync(GoldJson)(readFileSync(new URL("./fixtures/gold.json", import.meta.url), "utf8"))
+    const gold = Schema.decodeUnknownSync(GoldJson)(
+      readFileSync(new URL("./fixtures/gold.json", import.meta.url), "utf8")
+    )
     for (const entry of gold) {
       assert.notInclude(SYSTEM_PROMPT, entry.title)
     }
@@ -67,7 +71,9 @@ describe("the worked example", () => {
 describe("SYSTEM_PROMPT", () => {
   it("does not contain a long line of the gold set", () => {
     // A short line such as "мука" is a common word and can appear in the rules.
-    const gold = Schema.decodeUnknownSync(GoldJson)(readFileSync(new URL("./fixtures/gold.json", import.meta.url), "utf8"))
+    const gold = Schema.decodeUnknownSync(GoldJson)(
+      readFileSync(new URL("./fixtures/gold.json", import.meta.url), "utf8")
+    )
     const lines = gold.flatMap((entry) => entry.keyLines.map((line) => line.raw)).filter((raw) => raw.length >= 10)
     assert.isAbove(lines.length, 10)
     for (const raw of lines) {
@@ -76,7 +82,15 @@ describe("SYSTEM_PROMPT", () => {
   })
 
   it("lists the equipment of the household (spec section 2, H7)", () => {
-    for (const word of ["hob", "oven", "microwave", "air fryer", "food processor", "immersion blender", "side-by-side fridge"]) {
+    for (const word of [
+      "hob",
+      "oven",
+      "microwave",
+      "air fryer",
+      "food processor",
+      "immersion blender",
+      "side-by-side fridge",
+    ]) {
       assert.include(SYSTEM_PROMPT, word)
     }
   })
@@ -110,7 +124,10 @@ describe("SYSTEM_PROMPT", () => {
   it("names every value of the enums", () => {
     const text = JSON.stringify(ENRICHMENT_JSON_SCHEMA.properties)
     const values = [...text.matchAll(/"enum":\[([^\]]*)\]/g)].flatMap((match) =>
-      (match[1] ?? "").split(",").map((value) => value.replaceAll('"', "")).filter((value) => /^[a-z_]+$/.test(value))
+      (match[1] ?? "")
+        .split(",")
+        .map((value) => value.replaceAll('"', ""))
+        .filter((value) => /^[a-z_]+$/.test(value))
     )
     assert.isAbove(values.length, 40)
     for (const value of new Set(values)) {

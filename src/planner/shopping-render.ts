@@ -24,7 +24,7 @@ const amountsText = (amounts: ReadonlyArray<ShoppingAmount>, approximate: boolea
 const recipesText = (item: ShoppingItem): string => {
   const parts = [
     ...(item.recipeIds.length === 0 ? [] : [`блюда: ${item.recipeIds.join(", ")}`]),
-    ...(item.simpleIds.length === 0 ? [] : [`завтраки: ${item.simpleIds.join(", ")}`])
+    ...(item.simpleIds.length === 0 ? [] : [`завтраки: ${item.simpleIds.join(", ")}`]),
   ]
   return ` (${parts.join("; ")})`
 }
@@ -35,42 +35,51 @@ export const escapeLinkText = (text: string): string => text.replace(/[\\[\]]/g,
 const buySection = (list: ShoppingList): ReadonlyArray<string> => [
   "## Купить",
   "",
-  ...(list.buy.length === 0 ? ["Покупать нечего.", ""] : list.buy.flatMap(({ category, items }) => [
-    `### ${CATEGORY_HEADINGS[category]}`,
-    "",
-    ...items.map((item) => `- [ ] ${item.item}${amountsText(item.amounts, item.approximate)}${recipesText(item)}`),
-    ""
-  ]))
+  ...(list.buy.length === 0
+    ? ["Покупать нечего.", ""]
+    : list.buy.flatMap(({ category, items }) => [
+        `### ${CATEGORY_HEADINGS[category]}`,
+        "",
+        ...items.map((item) => `- [ ] ${item.item}${amountsText(item.amounts, item.approximate)}${recipesText(item)}`),
+        "",
+      ])),
 ]
 
 const freezeSection = (list: ShoppingList): ReadonlyArray<string> =>
-  list.actions.length === 0 ? [] : [
-    "## Заморозка",
-    "",
-    ...list.actions.map((action) =>
-      `- **${action.item}**${amountsText(action.amounts, false)} для сессии ${action.session} (блюда: ${action.recipeIds.join(", ")}): ${action.text}.`
-    ),
-    ""
-  ]
+  list.actions.length === 0
+    ? []
+    : [
+        "## Заморозка",
+        "",
+        ...list.actions.map(
+          (action) =>
+            `- **${action.item}**${amountsText(action.amounts, false)} для сессии ${action.session} (блюда: ${action.recipeIds.join(", ")}): ${action.text}.`
+        ),
+        "",
+      ]
 
-const plainSection = (heading: string, items: ReadonlyArray<ShoppingItem>, withRecipes: boolean): ReadonlyArray<string> =>
-  items.length === 0 ? [] : [
-    `## ${heading}`,
-    "",
-    ...items.map((item) => `- ${item.item}${amountsText(item.amounts, item.approximate)}${withRecipes ? recipesText(item) : ""}`),
-    ""
-  ]
+const plainSection = (
+  heading: string,
+  items: ReadonlyArray<ShoppingItem>,
+  withRecipes: boolean
+): ReadonlyArray<string> =>
+  items.length === 0
+    ? []
+    : [
+        `## ${heading}`,
+        "",
+        ...items.map(
+          (item) =>
+            `- ${item.item}${amountsText(item.amounts, item.approximate)}${withRecipes ? recipesText(item) : ""}`
+        ),
+        "",
+      ]
 
 const extraLine = (extra: WeeklyExtra): string => `${extra.item} — ${extra.amount} (${extra.note})`
 
 /** The products of every week (spec P7.3), after the departments. */
 const extrasSection = (list: ShoppingList): ReadonlyArray<string> =>
-  list.extras.length === 0 ? [] : [
-    "## Каждую неделю",
-    "",
-    ...list.extras.map((extra) => `- ${extraLine(extra)}`),
-    ""
-  ]
+  list.extras.length === 0 ? [] : ["## Каждую неделю", "", ...list.extras.map((extra) => `- ${extraLine(extra)}`), ""]
 
 const dishLine = (dish: ShoppingDish): string =>
   `- [${escapeLinkText(dish.title)}](${dish.url}) (${dish.recipeId})${dish.scale === 1 ? "" : `, масштаб ×${formatNumber(dish.scale)}`}`
@@ -78,51 +87,59 @@ const dishLine = (dish: ShoppingDish): string =>
 /** Fresh dishes (spec P7.2.2): the days of cooking, and the scale of one day. */
 const freshDishes = (list: ShoppingList): ReadonlyArray<string> => {
   const dishes = list.dishes.filter((dish) => dish.session === "fresh")
-  return dishes.length === 0 ? [] : [
-    "Свежие блюда, утром в день еды:",
-    "",
-    ...dishes.map((dish) => `${dishLine(dish)}, дни ${dish.freshDays.join(", ")}`),
-    ""
-  ]
+  return dishes.length === 0
+    ? []
+    : [
+        "Свежие блюда, утром в день еды:",
+        "",
+        ...dishes.map((dish) => `${dishLine(dish)}, дни ${dish.freshDays.join(", ")}`),
+        "",
+      ]
 }
 
 /** Simple breakfasts (spec P7.2.3): the title, the portions and the days. */
 const simpleSection = (list: ShoppingList): ReadonlyArray<string> =>
-  list.simpleBreakfasts.length === 0 ? [] : [
-    "## Простые завтраки",
-    "",
-    ...list.simpleBreakfasts.map((simple) =>
-      `- ${simple.title} (${simple.id}): ${formatNumber(simple.portions)} порц., дни ${simple.days.join(", ")}`
-    ),
-    ""
-  ]
+  list.simpleBreakfasts.length === 0
+    ? []
+    : [
+        "## Простые завтраки",
+        "",
+        ...list.simpleBreakfasts.map(
+          (simple) =>
+            `- ${simple.title} (${simple.id}): ${formatNumber(simple.portions)} порц., дни ${simple.days.join(", ")}`
+        ),
+        "",
+      ]
 
 const dishesSection = (list: ShoppingList): ReadonlyArray<string> =>
-  list.dishes.length === 0 ? [] : [
-    "## Блюда",
-    "",
-    ...SESSION_IDS.flatMap((session) => {
-      const dishes = list.dishes.filter((dish) => dish.session === session)
-      const first = dishes[0]
-      return first === undefined || first.sessionDay === null ? [] : [
-        `Сессия ${session}, ${dateLabel(list.weekStart, first.sessionDay)}:`,
+  list.dishes.length === 0
+    ? []
+    : [
+        "## Блюда",
         "",
-        ...dishes.map(dishLine),
-        ""
+        ...SESSION_IDS.flatMap((session) => {
+          const dishes = list.dishes.filter((dish) => dish.session === session)
+          const first = dishes[0]
+          return first === undefined || first.sessionDay === null
+            ? []
+            : [`Сессия ${session}, ${dateLabel(list.weekStart, first.sessionDay)}:`, "", ...dishes.map(dishLine), ""]
+        }),
+        ...freshDishes(list),
       ]
-    }),
-    ...freshDishes(list)
-  ]
 
 const unknownSection = (list: ShoppingList): ReadonlyArray<string> => [
-  ...(list.unknownRecipeIds.length === 0 ? [] : [
-    `**Внимание:** рецептов ${list.unknownRecipeIds.join(", ")} нет в каталоге. Их продукты не вошли в список.`,
-    ""
-  ]),
-  ...(list.unknownSimpleIds.length === 0 ? [] : [
-    `**Внимание:** простых завтраков ${list.unknownSimpleIds.join(", ")} нет в config/simple-breakfasts.json. Их продукты не вошли в список.`,
-    ""
-  ])
+  ...(list.unknownRecipeIds.length === 0
+    ? []
+    : [
+        `**Внимание:** рецептов ${list.unknownRecipeIds.join(", ")} нет в каталоге. Их продукты не вошли в список.`,
+        "",
+      ]),
+  ...(list.unknownSimpleIds.length === 0
+    ? []
+    : [
+        `**Внимание:** простых завтраков ${list.unknownSimpleIds.join(", ")} нет в config/simple-breakfasts.json. Их продукты не вошли в список.`,
+        "",
+      ]),
 ]
 
 /**
@@ -142,8 +159,10 @@ export const renderShoppingList = (list: ShoppingList): string =>
     ...plainSection("По желанию", list.optional, true),
     ...plainSection("Проверить дома", list.check_at_home, false),
     ...dishesSection(list),
-    ...simpleSection(list)
-  ].join("\n").replace(/\n*$/, "\n")
+    ...simpleSection(list),
+  ]
+    .join("\n")
+    .replace(/\n*$/, "\n")
 
 const textLine = (item: ShoppingItem): string => `${item.item}${amountsText(item.amounts, item.approximate)}\n`
 
@@ -155,5 +174,5 @@ export const renderShoppingText = (list: ShoppingList, options: { readonly withO
   [
     ...list.buy.flatMap(({ items }) => items.map(textLine)),
     ...list.extras.map((extra) => `${extraLine(extra)}\n`),
-    ...(options.withOptional ? list.optional.map(textLine) : [])
+    ...(options.withOptional ? list.optional.map(textLine) : []),
   ].join("")

@@ -83,9 +83,7 @@ export const decideFetch = (
 
 export const planFetches = (input: PlanInput): FetchPlan => {
   const wanted = input.ids
-  const inScope = Option.isSome(wanted)
-    ? input.entries.filter((entry) => wanted.value.has(entry.id))
-    : input.entries
+  const inScope = Option.isSome(wanted) ? input.entries.filter((entry) => wanted.value.has(entry.id)) : input.entries
 
   const needed: Array<PlannedFetch> = []
   let skipped = 0
@@ -103,5 +101,10 @@ export const planFetches = (input: PlanInput): FetchPlan => {
   const inSitemap = new Set(input.entries.map((entry) => entry.id))
   const unknownIds = Option.isSome(wanted) ? [...wanted.value].filter((id) => !inSitemap.has(id)) : []
 
-  return { toFetch, skipped, deferred: needed.length - toFetch.length, unknownIds }
+  return {
+    toFetch,
+    skipped,
+    deferred: needed.length - toFetch.length,
+    unknownIds,
+  }
 }

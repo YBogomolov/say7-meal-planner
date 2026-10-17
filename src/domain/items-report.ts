@@ -5,7 +5,7 @@ import { IsoTimestamp } from "./recipe.ts"
 export const ItemsReportRow = Schema.Struct({
   item: Schema.NonEmptyString,
   recipes: Schema.Natural,
-  variants: Schema.Array(Schema.String)
+  variants: Schema.Array(Schema.String),
 })
 export type ItemsReportRow = typeof ItemsReportRow.Type
 
@@ -19,7 +19,7 @@ export const ItemsReport = Schema.Struct({
   recipes: Schema.Natural,
   items: Schema.Array(ItemsReportRow),
   /** P7.1. Normalised items of the catalogue without an entry in `config/item-protein.json`, sorted. */
-  missingProtein: Schema.Array(Schema.String)
+  missingProtein: Schema.Array(Schema.String),
 })
 export type ItemsReport = typeof ItemsReport.Type
 

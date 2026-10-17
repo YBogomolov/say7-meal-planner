@@ -50,7 +50,11 @@ export interface BatchInfo {
 
 export type BatchOutcome =
   | { readonly _tag: "Succeeded"; readonly completion: LlmCompletion }
-  | { readonly _tag: "Errored"; readonly errorType: string; readonly message: string }
+  | {
+      readonly _tag: "Errored"
+      readonly errorType: string
+      readonly message: string
+    }
   | { readonly _tag: "Canceled" }
   | { readonly _tag: "Expired" }
 
@@ -69,7 +73,7 @@ export const LlmErrorKind = Schema.Literals([
   "timeout",
   "invalid_request",
   "protocol",
-  "other"
+  "other",
 ])
 export type LlmErrorKind = typeof LlmErrorKind.Type
 
@@ -77,7 +81,7 @@ export type LlmErrorKind = typeof LlmErrorKind.Type
 export class LlmApiError extends Schema.TaggedError<LlmApiError>()("LlmApiError", {
   kind: LlmErrorKind,
   status: Schema.NullOr(Schema.Int),
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /**

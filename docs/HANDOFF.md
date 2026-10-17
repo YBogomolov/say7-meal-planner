@@ -10,14 +10,14 @@ Date: 2026-10-12. From: the coordinator session (cloud sandbox). To: a Claude Co
 
 ## 2. State
 
-| Phase | Status | Evidence |
-|-------|--------|----------|
-| P1 scraper | Done | Full run on the Mac: 1578 pages, all `ok`, about 73 min. `data/raw/`. |
-| P2 parser | Done | Full cache: 1578 of 1578 parse, 0 failures. Warnings: no servings 524 (mostly sweet bakes in pieces), no durations 202. |
-| P3 enrichment | Done | Full run 2026-10-13 (T1): 1076 of 1076 valid, 0.255 USD. Gold set 99.4 %. SPEC P3.5.6. |
-| P4 plan rules | Done (T3 aliases 2026-10-13: 369 non-pantry items) | 18 rule codes, shopping list, `plan:check`, `items:report`. Tested on a synthetic catalogue only. |
-| P5 MCP server | Done | T4 2026-10-13: 7 tools, prompt `plan_week`, `.mcp.json`; `claude mcp list` shows `say7` connected. |
-| P6 first menu | Done, feedback open | Week 2026-10-17 approved. Baseline and feedback: SPEC P6. Rules from the feedback: T5.3 open. |
+| Phase         | Status                                             | Evidence                                                                                                                |
+| ------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| P1 scraper    | Done                                               | Full run on the Mac: 1578 pages, all `ok`, about 73 min. `data/raw/`.                                                   |
+| P2 parser     | Done                                               | Full cache: 1578 of 1578 parse, 0 failures. Warnings: no servings 524 (mostly sweet bakes in pieces), no durations 202. |
+| P3 enrichment | Done                                               | Full run 2026-10-13 (T1): 1076 of 1076 valid, 0.255 USD. Gold set 99.4 %. SPEC P3.5.6.                                  |
+| P4 plan rules | Done (T3 aliases 2026-10-13: 369 non-pantry items) | 18 rule codes, shopping list, `plan:check`, `items:report`. Tested on a synthetic catalogue only.                       |
+| P5 MCP server | Done                                               | T4 2026-10-13: 7 tools, prompt `plan_week`, `.mcp.json`; `claude mcp list` shows `say7` connected.                      |
+| P6 first menu | Done, feedback open                                | Week 2026-10-17 approved. Baseline and feedback: SPEC P6. Rules from the feedback: T5.3 open.                           |
 
 Tests: 57 files, 1218 tests, all pass on macOS (2026-10-13).
 
@@ -25,21 +25,21 @@ Tests: 57 files, 1218 tests, all pass on macOS (2026-10-13).
 
 The previous work ran in a cloud sandbox. Now the work runs on the Mac. This changes some facts:
 
-| Before (sandbox) | Now (Mac) |
-|------------------|-----------|
-| say7.info was blocked. | say7.info is reachable. Obey D1–D4 (robots.txt, 1 request every 2.5 s). Use `npm run scrape`; do not fetch pages by other means. |
-| No API key. | `ANTHROPIC_API_KEY` is in the shell or in `.env`. Never print it. Never commit `.env`. |
-| Code was delivered as git bundles in `.sync/`. | Not necessary. Work in the repo directly. The user can delete `.sync/`. |
-| Real data was copied into the sandbox. | Real data is in `data/` (git-ignored). Keep it out of git (D6). |
+| Before (sandbox)                               | Now (Mac)                                                                                                                        |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| say7.info was blocked.                         | say7.info is reachable. Obey D1–D4 (robots.txt, 1 request every 2.5 s). Use `npm run scrape`; do not fetch pages by other means. |
+| No API key.                                    | `ANTHROPIC_API_KEY` is in the shell or in `.env`. Never print it. Never commit `.env`.                                           |
+| Code was delivered as git bundles in `.sync/`. | Not necessary. Work in the repo directly. The user can delete `.sync/`.                                                          |
+| Real data was copied into the sandbox.         | Real data is in `data/` (git-ignored). Keep it out of git (D6).                                                                  |
 
 ## 4. Decisions on record
 
-| ID | Decision | Reason |
-|----|----------|--------|
-| R1 | Default enrichment model: `claude-haiku-5-5`, batch mode. | Gold set: 338/340 (Haiku) vs 339/340 (Sonnet). Pilot cost: 0.013 USD vs 0.25 USD (×19). Full run estimate with Haiku in batch mode: 0.4–0.6 USD. |
-| R2 | No database. The catalogue is loaded into memory. | About 1100 recipes, a few MB. FTS5 without Russian stemming gives no benefit. |
-| R3 | The LLM selects dishes. Code checks rules and makes the shopping list. | The LLM is not reliable with counts and sums. |
-| R4 | Menus show titles, links and own notes only. | The site forbids re-publication (D6). |
+| ID  | Decision                                                               | Reason                                                                                                                                           |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| R1  | Default enrichment model: `claude-haiku-5-5`, batch mode.              | Gold set: 338/340 (Haiku) vs 339/340 (Sonnet). Pilot cost: 0.013 USD vs 0.25 USD (×19). Full run estimate with Haiku in batch mode: 0.4–0.6 USD. |
+| R2  | No database. The catalogue is loaded into memory.                      | About 1100 recipes, a few MB. FTS5 without Russian stemming gives no benefit.                                                                    |
+| R3  | The LLM selects dishes. Code checks rules and makes the shopping list. | The LLM is not reliable with counts and sums.                                                                                                    |
+| R4  | Menus show titles, links and own notes only.                           | The site forbids re-publication (D6).                                                                                                            |
 
 Pilot failures (for T2 and T3):
 
@@ -108,7 +108,11 @@ Implement SPEC.md P5. Details that the spec does not state:
 7. Tests: e2e with the SDK client over stdio against a synthetic data directory (invented recipes, CLAUDE.md rule 12); unit tests for input decoding and the menu renderer.
 8. Registration (Claude Code docs, checked 2026-10-12): `claude mcp add [options] <name> -- <command> [args...]`; `--scope project` writes `.mcp.json`; an entry without `type` is a stdio server; Claude Code asks for approval of project servers. Recommended `.mcp.json`:
    ```json
-   { "mcpServers": { "say7": { "command": "npx", "args": ["tsx", "src/mcp/server.ts"] } } }
+   {
+     "mcpServers": {
+       "say7": { "command": "npx", "args": ["tsx", "src/mcp/server.ts"] }
+     }
+   }
    ```
    Verify that Claude Code starts it with the project root as the working directory (`claude mcp list` shows it connected). If not, use absolute paths. For Claude Desktop, document `claude_desktop_config.json` with the absolute path of `node` (`command -v node`), the tsx CLI file in `node_modules/tsx` (see its `package.json` `bin`) and `src/mcp/server.ts`.
 

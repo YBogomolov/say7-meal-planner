@@ -17,7 +17,11 @@ export interface ParseOptions {
 }
 
 /** `[k/n] <id> ok`, or `[k/n] <id> ok (warnings: …)`, or `[k/n] <id> failed <reason> (<message>)`. */
-export const formatPageLine = (line: { readonly k: number; readonly n: number; readonly result: PageResult }): string => {
+export const formatPageLine = (line: {
+  readonly k: number
+  readonly n: number
+  readonly result: PageResult
+}): string => {
   const { k, n, result } = line
   const prefix = `[${k}/${n}] ${result.id}`
   if (result._tag === "Failed") {
@@ -38,7 +42,7 @@ const failedResult = (id: RecipeId, reason: FailureReason, message: string): Pag
   _tag: "Failed",
   id,
   reason,
-  message
+  message,
 })
 
 /**
@@ -47,7 +51,7 @@ const failedResult = (id: RecipeId, reason: FailureReason, message: string): Pag
  * A write error of the store is an error of the run.
  */
 const parsePage = (id: RecipeId): Effect.Effect<PageResult, StoreError, ParseStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const store = yield* ParseStore
     const read = yield* Effect.result(store.readPage(id))
     if (Result.isFailure(read)) {
@@ -68,7 +72,7 @@ const parsePage = (id: RecipeId): Effect.Effect<PageResult, StoreError, ParseSto
  * Only a problem with the store (no index, a file that cannot be written) stops the run.
  */
 export const parseAll = (options: ParseOptions): Effect.Effect<ParseReport, ParseRunError, ParseStore> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const store = yield* ParseStore
     yield* store.prepare
     const index = yield* store.readIndex
@@ -84,9 +88,8 @@ export const parseAll = (options: ParseOptions): Effect.Effect<ParseReport, Pars
     yield* Console.log(`index.json: ${Object.keys(index.entries).length} entries; ${n} to parse`)
 
     const results = yield* Effect.forEach(plan.toParse, (id, position) =>
-      parsePage(id).pipe(
-        Effect.tap((result) => Console.log(formatPageLine({ k: position + 1, n, result })))
-      ))
+      parsePage(id).pipe(Effect.tap((result) => Console.log(formatPageLine({ k: position + 1, n, result }))))
+    )
 
     const generatedAt = DateTime.formatIso(yield* DateTime.now)
     const report = buildReport(results, generatedAt)

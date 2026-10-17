@@ -23,7 +23,7 @@ export type ThinkingSetting = { readonly type: "disabled" } | { readonly type: "
  */
 export const THINKING_BY_MODEL: Readonly<Record<ModelName, ThinkingSetting>> = {
   "claude-haiku-5-5": { type: "disabled" },
-  "claude-sonnet-5-5": { type: "between_tools" }
+  "claude-sonnet-5-5": { type: "between_tools" },
 }
 
 export const DishType = Schema.Literals([
@@ -35,7 +35,7 @@ export const DishType = Schema.Literals([
   "savory_bake",
   "pancakes",
   "sauce",
-  "other"
+  "other",
 ])
 export type DishType = typeof DishType.Type
 
@@ -53,7 +53,7 @@ export const ProteinFamily = Schema.Literals([
   "lamb",
   "rabbit",
   "fish",
-  "seafood"
+  "seafood",
 ])
 export type ProteinFamily = typeof ProteinFamily.Type
 
@@ -78,11 +78,22 @@ export const IngredientCategory = Schema.Literals([
   "oil",
   "sweet",
   "nuts",
-  "other"
+  "other",
 ])
 export type IngredientCategory = typeof IngredientCategory.Type
 
-export const IngredientUnit = Schema.Literals(["g", "ml", "pcs", "tbsp", "tsp", "pinch", "bunch", "clove", "slice", "pack"])
+export const IngredientUnit = Schema.Literals([
+  "g",
+  "ml",
+  "pcs",
+  "tbsp",
+  "tsp",
+  "pinch",
+  "bunch",
+  "clove",
+  "slice",
+  "pack",
+])
 export type IngredientUnit = typeof IngredientUnit.Type
 
 /** `special` is equipment that the household of spec H7 does not have. */
@@ -98,7 +109,7 @@ export const Equipment = Schema.Literals([
   "grill",
   "slow_cooker",
   "deep_fryer",
-  "special"
+  "special",
 ])
 export type Equipment = typeof Equipment.Type
 
@@ -132,18 +143,19 @@ export const IngredientItem = Schema.Struct({
   unit: Schema.NullOr(IngredientUnit),
   /** Estimated mass in g (or volume in ml) for the shopping list. */
   grams: Schema.NullOr(NonNegativeNumber),
-  optional: Schema.Boolean
+  optional: Schema.Boolean,
 })
 export type IngredientItem = typeof IngredientItem.Type
 
-const minNotAboveMax = Schema.makeFilter<{ readonly min: number; readonly max: number }>(
-  (range) => range.min <= range.max || "Expected min to be less than or equal to max"
-)
+const minNotAboveMax = Schema.makeFilter<{
+  readonly min: number
+  readonly max: number
+}>((range) => range.min <= range.max || "Expected min to be less than or equal to max")
 
 export const EnrichedServings = Schema.Struct({
   min: PositiveInt,
   max: PositiveInt,
-  source: ServingsSource
+  source: ServingsSource,
 }).pipe(Schema.check(minNotAboveMax))
 export type EnrichedServings = typeof EnrichedServings.Type
 
@@ -178,7 +190,7 @@ export const Enrichment = Schema.Struct({
   /** Days that the cooked dish keeps in the fridge. */
   fridgeDays: Schema.Int.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: MAX_FRIDGE_DAYS }))),
   freezable: Schema.Boolean,
-  reheats: Reheats
+  reheats: Reheats,
 })
 export type Enrichment = typeof Enrichment.Type
 
@@ -213,17 +225,22 @@ export const TokenUsage = Schema.Struct({
   inputTokens: Schema.Natural,
   outputTokens: Schema.Natural,
   cacheReadTokens: Schema.Natural,
-  cacheCreationTokens: Schema.Natural
+  cacheCreationTokens: Schema.Natural,
 })
 export type TokenUsage = typeof TokenUsage.Type
 
-export const NO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0 }
+export const NO_USAGE: TokenUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
+}
 
 export const addUsage = (a: TokenUsage, b: TokenUsage): TokenUsage => ({
   inputTokens: a.inputTokens + b.inputTokens,
   outputTokens: a.outputTokens + b.outputTokens,
   cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
-  cacheCreationTokens: a.cacheCreationTokens + b.cacheCreationTokens
+  cacheCreationTokens: a.cacheCreationTokens + b.cacheCreationTokens,
 })
 
 export const Sha256Hex = Schema.String.pipe(Schema.check(Schema.isPattern(/^[0-9a-f]{64}$/)))
@@ -243,9 +260,11 @@ export const EnrichedRecipe = Schema.Struct({
   inputHash: Sha256Hex,
   createdAt: IsoTimestamp,
   usage: TokenUsage,
-  enrichment: Enrichment
+  enrichment: Enrichment,
 })
 export type EnrichedRecipe = typeof EnrichedRecipe.Type
 
 /** JSON text codec for `data/enriched/<id>.json`. */
-export const EnrichedRecipeJson = Schema.fromJsonString(EnrichedRecipe, { space: 2 })
+export const EnrichedRecipeJson = Schema.fromJsonString(EnrichedRecipe, {
+  space: 2,
+})

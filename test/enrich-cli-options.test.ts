@@ -61,8 +61,17 @@ describe("parseEnrichCli", () => {
 
   it("reads all options", () => {
     const options = run(
-      "--model", "claude-sonnet-5-5", "--ids", "38, 61,246", "--limit", "5", "--sync",
-      "--data-dir", "/tmp/d", "--out-dir", "/tmp/o"
+      "--model",
+      "claude-sonnet-5-5",
+      "--ids",
+      "38, 61,246",
+      "--limit",
+      "5",
+      "--sync",
+      "--data-dir",
+      "/tmp/d",
+      "--out-dir",
+      "/tmp/o"
     )
     assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [38, 61, 246])
     assert.deepStrictEqual(options.limit, Option.some(5))
@@ -95,7 +104,7 @@ describe("parseEnrichCli", () => {
     [["--data-dir", ""]],
     [["--out-dir", ""]],
     [["--force"]],
-    [["extra"]]
+    [["extra"]],
   ])("rejects %j", (extra) => {
     assert.isTrue(Result.isFailure(parseEnrichCli(["--model", "claude-haiku-5-5", ...extra])))
   })
@@ -129,7 +138,18 @@ describe("parseEnrichCli", () => {
       assert.strictEqual(defaults.dataDir, "data")
       assert.strictEqual(defaults.outDir, "data/enriched")
 
-      const options = dry("--dry-run", "--ids", "38,61", "--limit", "5", "--sync", "--data-dir", "/tmp/d", "--out-dir", "/tmp/o")
+      const options = dry(
+        "--dry-run",
+        "--ids",
+        "38,61",
+        "--limit",
+        "5",
+        "--sync",
+        "--data-dir",
+        "/tmp/d",
+        "--out-dir",
+        "/tmp/o"
+      )
       assert.deepStrictEqual([...Option.getOrElse(options.ids, () => new Set())], [38, 61])
       assert.deepStrictEqual(options.limit, Option.some(5))
       assert.isTrue(options.sync)
@@ -148,7 +168,17 @@ describe("parseEnrichCli", () => {
   })
 
   it("describes every option in the usage text", () => {
-    for (const flag of ["--model", "--ids", "--limit", "--sync", "--retry-failed", "--data-dir", "--out-dir", "--dry-run", "--help"]) {
+    for (const flag of [
+      "--model",
+      "--ids",
+      "--limit",
+      "--sync",
+      "--retry-failed",
+      "--data-dir",
+      "--out-dir",
+      "--dry-run",
+      "--help",
+    ]) {
       assert.include(USAGE, flag)
     }
     assert.include(USAGE, "ANTHROPIC_API_KEY")
@@ -165,7 +195,11 @@ describe("parseEvalCli", () => {
   }
 
   it("uses the defaults", () => {
-    assert.deepStrictEqual(options(), { dataDir: "data", outDir: "data/enriched", goldFile: DEFAULT_GOLD_FILE })
+    assert.deepStrictEqual(options(), {
+      dataDir: "data",
+      outDir: "data/enriched",
+      goldFile: DEFAULT_GOLD_FILE,
+    })
     assert.match(DEFAULT_GOLD_FILE, /test\/fixtures\/gold\.json$/)
   })
 
@@ -173,7 +207,7 @@ describe("parseEvalCli", () => {
     assert.deepStrictEqual(options("--out-dir", "o", "--data-dir", "d", "--gold", "g.json"), {
       dataDir: "d",
       outDir: "o",
-      goldFile: "g.json"
+      goldFile: "g.json",
     })
   })
 

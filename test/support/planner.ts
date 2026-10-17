@@ -30,7 +30,7 @@ export const ing = (item: string, overrides: Partial<Omit<IngredientSpec, "item"
   unit: null,
   grams: null,
   optional: false,
-  ...overrides
+  ...overrides,
 })
 
 /** A quantity in grams: `quantity`, `unit: "g"` and `grams` are the same number. */
@@ -53,7 +53,10 @@ export interface DishOptions {
 }
 
 /** The enriched recipe of a file `data/enriched/<n>.json`, with test defaults. */
-export const enrichedRecipe = (n: number, options: Pick<DishOptions, "ingredients" | "enrichment"> = {}): EnrichedRecipe => {
+export const enrichedRecipe = (
+  n: number,
+  options: Pick<DishOptions, "ingredients" | "enrichment"> = {}
+): EnrichedRecipe => {
   const specs = options.ingredients ?? [inGrams("продукт", 100)]
   const base = enrichmentFor(specs.length, options.enrichment)
   return {
@@ -64,7 +67,10 @@ export const enrichedRecipe = (n: number, options: Pick<DishOptions, "ingredient
     inputHash: "a".repeat(64),
     createdAt: "2026-10-12T00:00:00.000Z",
     usage: NO_USAGE,
-    enrichment: { ...base, ingredients: specs.map((spec, line) => ({ ...spec, line })) }
+    enrichment: {
+      ...base,
+      ingredients: specs.map((spec, line) => ({ ...spec, line })),
+    },
   }
 }
 
@@ -72,8 +78,11 @@ export const enrichedRecipe = (n: number, options: Pick<DishOptions, "ingredient
 export const entryOf = (n: number, options: DishOptions & { readonly aliases?: Aliases } = {}): CatalogueEntry =>
   toCatalogueEntry(
     {
-      ...parsedRecipe(n, { title: options.title ?? `Тестовое блюдо ${n}`, ...(options.categories === undefined ? {} : { categories: options.categories }) }),
-      commentsCount: options.commentsCount === undefined ? 3 : options.commentsCount
+      ...parsedRecipe(n, {
+        title: options.title ?? `Тестовое блюдо ${n}`,
+        ...(options.categories === undefined ? {} : { categories: options.categories }),
+      }),
+      commentsCount: options.commentsCount === undefined ? 3 : options.commentsCount,
     },
     enrichedRecipe(n, options),
     options.aliases ?? NO_ALIASES
@@ -87,11 +96,19 @@ export const catalogueOf = (
 ): Catalogue => makeCatalogue(entries, aliases, undefined, proteinTable, simpleBreakfasts)
 
 /** The category 50 of the site: a breakfast candidate (spec P7.2.4). */
-export const PANCAKES = { id: 50, slug: "blini", name: "Блины, оладьи, сырники" } as const
+export const PANCAKES = {
+  id: 50,
+  slug: "blini",
+  name: "Блины, оладьи, сырники",
+} as const
 
 export interface PlanSpec {
   readonly weekStart?: string
-  readonly cooking: ReadonlyArray<{ readonly session: CookingSession; readonly recipeId: number; readonly scale?: PlanScale }>
+  readonly cooking: ReadonlyArray<{
+    readonly session: CookingSession
+    readonly recipeId: number
+    readonly scale?: PlanScale
+  }>
   readonly meals: ReadonlyArray<{
     readonly day: number
     readonly meal: MealName
@@ -105,9 +122,13 @@ export interface PlanSpec {
 export const planOf = (spec: PlanSpec): WeekPlan =>
   Schema.decodeUnknownSync(WeekPlan)({
     weekStart: spec.weekStart ?? "2026-10-17",
-    cooking: spec.cooking.map((entry) => ({ session: entry.session, recipeId: entry.recipeId, scale: entry.scale ?? 1 })),
+    cooking: spec.cooking.map((entry) => ({
+      session: entry.session,
+      recipeId: entry.recipeId,
+      scale: entry.scale ?? 1,
+    })),
     meals: spec.meals,
-    notes: spec.notes ?? null
+    notes: spec.notes ?? null,
   })
 
 /**
@@ -122,7 +143,7 @@ export const BASE_COOKING: PlanSpec["cooking"] = [
   { session: "A", recipeId: 4 },
   { session: "B", recipeId: 5 },
   { session: "B", recipeId: 6 },
-  { session: "B", recipeId: 7 }
+  { session: "B", recipeId: 7 },
 ]
 
 export const BASE_MEALS: PlanSpec["meals"] = [
@@ -139,7 +160,7 @@ export const BASE_MEALS: PlanSpec["meals"] = [
   { day: 5, meal: "lunch", recipeIds: [6] },
   { day: 5, meal: "dinner", recipeIds: [5] },
   { day: 6, meal: "lunch", recipeIds: [7] },
-  { day: 6, meal: "dinner", recipeIds: [6] }
+  { day: 6, meal: "dinner", recipeIds: [6] },
 ]
 
 export const basePlan = (): WeekPlan => planOf({ cooking: BASE_COOKING, meals: BASE_MEALS })
@@ -148,23 +169,46 @@ export const basePlan = (): WeekPlan => planOf({ cooking: BASE_COOKING, meals: B
 const BASE_DISHES: Readonly<Record<number, DishOptions>> = {
   1: {
     title: "Суп Альфа",
-    enrichment: { dishType: "soup", proteinFamilies: ["chicken"], vegetarian: false },
+    enrichment: {
+      dishType: "soup",
+      proteinFamilies: ["chicken"],
+      vegetarian: false,
+    },
     ingredients: [
       inGrams("куриное филе", 500, { category: "poultry" }),
       inGrams("картофель", 400, { category: "vegetable" }),
-      ing("лук репчатый", { category: "vegetable", quantity: 2, unit: "pcs", grams: 200 }),
-      ing("соль", { category: "spice", pantry: true })
-    ]
+      ing("лук репчатый", {
+        category: "vegetable",
+        quantity: 2,
+        unit: "pcs",
+        grams: 200,
+      }),
+      ing("соль", { category: "spice", pantry: true }),
+    ],
   },
   2: {
     title: "Рагу Браво",
-    enrichment: { dishType: "main", proteinFamilies: ["chicken"], vegetarian: false },
+    enrichment: {
+      dishType: "main",
+      proteinFamilies: ["chicken"],
+      vegetarian: false,
+    },
     ingredients: [
       inGrams("куриные бёдра", 800, { category: "poultry" }),
-      ing("лук репчатый", { category: "vegetable", quantity: 1, unit: "pcs", grams: 100 }),
-      ing("сметана", { category: "dairy", quantity: 2, unit: "tbsp", grams: 40 }),
-      ing("перец чёрный", { category: "spice", pantry: true })
-    ]
+      ing("лук репчатый", {
+        category: "vegetable",
+        quantity: 1,
+        unit: "pcs",
+        grams: 100,
+      }),
+      ing("сметана", {
+        category: "dairy",
+        quantity: 2,
+        unit: "tbsp",
+        grams: 40,
+      }),
+      ing("перец чёрный", { category: "spice", pantry: true }),
+    ],
   },
   3: {
     title: "Плов Чарли",
@@ -172,19 +216,40 @@ const BASE_DISHES: Readonly<Record<number, DishOptions>> = {
     ingredients: [
       inGrams("рис", 300, { category: "grain" }),
       ing("морковь", { category: "vegetable", quantity: 3, unit: "pcs" }),
-      ing("лук репчатый", { category: "vegetable", quantity: 1, unit: "pcs", grams: 100 }),
-      ing("масло подсолнечное", { category: "oil", pantry: true, quantity: 3, unit: "tbsp", grams: 45 })
-    ]
+      ing("лук репчатый", {
+        category: "vegetable",
+        quantity: 1,
+        unit: "pcs",
+        grams: 100,
+      }),
+      ing("масло подсолнечное", {
+        category: "oil",
+        pantry: true,
+        quantity: 3,
+        unit: "tbsp",
+        grams: 45,
+      }),
+    ],
   },
   4: {
     title: "Салат Дельта",
     enrichment: { dishType: "salad", vegetarian: true },
     ingredients: [
       ing("яйца", { category: "eggs", quantity: 4, unit: "pcs", grams: 200 }),
-      ing("огурцы", { category: "vegetable", quantity: 3, unit: "pcs", grams: 300 }),
+      ing("огурцы", {
+        category: "vegetable",
+        quantity: 3,
+        unit: "pcs",
+        grams: 300,
+      }),
       ing("укроп", { category: "herb", quantity: 1, unit: "bunch", grams: 30 }),
-      ing("сметана", { category: "dairy", quantity: 3, unit: "tbsp", grams: 60 })
-    ]
+      ing("сметана", {
+        category: "dairy",
+        quantity: 3,
+        unit: "tbsp",
+        grams: 60,
+      }),
+    ],
   },
   5: {
     title: "Запеканка Эхо",
@@ -193,42 +258,69 @@ const BASE_DISHES: Readonly<Record<number, DishOptions>> = {
       inGrams("творог", 500, { category: "dairy" }),
       ing("яйца", { category: "eggs", quantity: 2, unit: "pcs", grams: 100 }),
       ing("мука", { category: "grain", pantry: true }),
-      ing("ванилин", { category: "sweet", optional: true, quantity: 1, unit: "pinch" })
-    ]
+      ing("ванилин", {
+        category: "sweet",
+        optional: true,
+        quantity: 1,
+        unit: "pinch",
+      }),
+    ],
   },
   6: {
     title: "Паста Фокстрот",
     enrichment: { dishType: "main", vegetarian: true },
     ingredients: [
       inGrams("макароны", 400, { category: "pasta" }),
-      ing("томатная паста", { category: "sauce", quantity: 2, unit: "tbsp", grams: 40 }),
-      inGrams("сыр", 100, { category: "dairy", optional: true })
-    ]
+      ing("томатная паста", {
+        category: "sauce",
+        quantity: 2,
+        unit: "tbsp",
+        grams: 40,
+      }),
+      inGrams("сыр", 100, { category: "dairy", optional: true }),
+    ],
   },
   7: {
     title: "Жаркое Гольф",
-    enrichment: { dishType: "main", proteinFamilies: ["chicken"], vegetarian: false },
+    enrichment: {
+      dishType: "main",
+      proteinFamilies: ["chicken"],
+      vegetarian: false,
+    },
     ingredients: [
       inGrams("куриное филе", 400, { category: "poultry" }),
       inGrams("кабачки", 600, { category: "vegetable" }),
       inGrams("морковь", 200, { category: "vegetable" }),
-      ing("укроп", { category: "herb", optional: true, quantity: 1, unit: "bunch" })
-    ]
-  }
+      ing("укроп", {
+        category: "herb",
+        optional: true,
+        quantity: 1,
+        unit: "bunch",
+      }),
+    ],
+  },
 }
 
 const BASE_ENRICHMENT: EnrichmentChange = {
   mealFit: "full_meal",
   servings: { min: 6, max: 8, source: "page" },
   activeMinutes: 20,
-  fridgeDays: 3
+  fridgeDays: 3,
 }
 
 /** The options of dish `n` of the base week, with the changes of `overrides` (the enrichment merges). */
 const baseDish = (n: number, overrides: Readonly<Record<number, DishOptions>> = {}): DishOptions => {
   const dish = BASE_DISHES[n]
   const change = overrides[n]
-  return { ...dish, ...change, enrichment: { ...BASE_ENRICHMENT, ...dish?.enrichment, ...change?.enrichment } }
+  return {
+    ...dish,
+    ...change,
+    enrichment: {
+      ...BASE_ENRICHMENT,
+      ...dish?.enrichment,
+      ...change?.enrichment,
+    },
+  }
 }
 
 const BASE_IDS: ReadonlyArray<number> = [1, 2, 3, 4, 5, 6, 7]
@@ -244,20 +336,20 @@ export const baseFiles = (): Readonly<Record<string, string>> =>
   Object.fromEntries(
     BASE_IDS.flatMap((n) => [
       [`data/parsed/${n}.json`, parsedJson(n, { title: baseDish(n).title ?? `Блюдо ${n}` })],
-      [`data/enriched/${n}.json`, enrichedJson(n, baseDish(n))]
+      [`data/enriched/${n}.json`, enrichedJson(n, baseDish(n))],
     ])
   )
 
-export const baseCatalogue = (overrides: Readonly<Record<number, DishOptions>> = {}, aliases: Aliases = NO_ALIASES): Catalogue =>
-  catalogueOf(baseEntries(overrides, aliases), aliases)
+export const baseCatalogue = (
+  overrides: Readonly<Record<number, DishOptions>> = {},
+  aliases: Aliases = NO_ALIASES
+): Catalogue => catalogueOf(baseEntries(overrides, aliases), aliases)
 
 const platform = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer)
 
 /** A temporary directory for the test. It is removed at the end. */
-export const withTempDir = <A, E>(
-  use: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>
-) =>
-  Effect.gen(function*() {
+export const withTempDir = <A, E>(use: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const root = yield* fs.makeTempDirectoryScoped({ prefix: "say7-planner-" })
     return yield* use(root)
@@ -265,7 +357,7 @@ export const withTempDir = <A, E>(
 
 /** Write the files `{ "<relative path>": "<text>" }` under `root`, with their directories. */
 export const writeFiles = (root: string, files: Readonly<Record<string, string>>) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const path = yield* Path.Path
     for (const [relative, text] of Object.entries(files)) {

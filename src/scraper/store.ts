@@ -5,13 +5,13 @@ import { RecipeId } from "../domain/recipe.ts"
 
 export class StoreError extends Schema.TaggedError<StoreError>()("StoreError", {
   path: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /** `index.json` exists but is not valid. The scraper never overwrites it. */
 export class IndexInvalidError extends Schema.TaggedError<IndexInvalidError>()("IndexInvalidError", {
   path: Schema.String,
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 export interface StoreContents {
@@ -24,18 +24,21 @@ const PAGE_FILE = /^(\d+)\.html$/
 const TEMP_SUFFIX = ".tmp"
 
 /** `data/raw/`: one UTF-8 HTML file per recipe, plus `index.json`. */
-export class RawStore extends Context.Service<RawStore, {
-  /** Create the directory, remove leftovers of an interrupted write, and read the index and the file list. */
-  readonly load: Effect.Effect<StoreContents, StoreError | IndexInvalidError>
-  /** Write `<id>.html` atomically. */
-  readonly savePage: (id: RecipeId, html: string) => Effect.Effect<void, StoreError>
-  /** Write `index.json` atomically. */
-  readonly saveIndex: (index: RawIndex) => Effect.Effect<void, StoreError>
-}>()("say7/scraper/RawStore") {
+export class RawStore extends Context.Service<
+  RawStore,
+  {
+    /** Create the directory, remove leftovers of an interrupted write, and read the index and the file list. */
+    readonly load: Effect.Effect<StoreContents, StoreError | IndexInvalidError>
+    /** Write `<id>.html` atomically. */
+    readonly savePage: (id: RecipeId, html: string) => Effect.Effect<void, StoreError>
+    /** Write `index.json` atomically. */
+    readonly saveIndex: (index: RawIndex) => Effect.Effect<void, StoreError>
+  }
+>()("say7/scraper/RawStore") {
   static readonly layer = (dataDir: string): Layer.Layer<RawStore, never, FileSystem.FileSystem | Path.Path> =>
     Layer.effect(
       RawStore,
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem
         const path = yield* Path.Path
 
@@ -59,23 +62,24 @@ export class RawStore extends Context.Service<RawStore, {
           )
         }
 
-        const readIndex = Effect.gen(function*() {
+        const readIndex = Effect.gen(function* () {
           const present = yield* io(indexPath, fs.exists(indexPath))
           if (!present) {
             return emptyRawIndex
           }
           const text = yield* io(indexPath, fs.readFileString(indexPath))
           return yield* Schema.decodeUnknownEffect(RawIndexJson)(text).pipe(
-            Effect.mapError((error) =>
-              new IndexInvalidError({
-                path: indexPath,
-                message: `${error.message}\nFix the file or move it away, then run again.`
-              })
+            Effect.mapError(
+              (error) =>
+                new IndexInvalidError({
+                  path: indexPath,
+                  message: `${error.message}\nFix the file or move it away, then run again.`,
+                })
             )
           )
         })
 
-        const load = Effect.gen(function*() {
+        const load = Effect.gen(function* () {
           yield* io(rawDir, fs.makeDirectory(rawDir, { recursive: true }))
           const names = yield* io(rawDir, fs.readDirectory(rawDir))
           yield* Effect.forEach(

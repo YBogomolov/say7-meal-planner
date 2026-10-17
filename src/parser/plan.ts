@@ -32,6 +32,6 @@ export const planParse = (index: RawIndex, ids: Option.Option<ReadonlySet<Recipe
   return {
     toParse: ok.filter((id) => wanted.has(id)),
     unknownIds: requested.filter((id) => !known.has(id)),
-    notOkIds: requested.filter((id) => known.has(id) && !okSet.has(id))
+    notOkIds: requested.filter((id) => known.has(id) && !okSet.has(id)),
   }
 }

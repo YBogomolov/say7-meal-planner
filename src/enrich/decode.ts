@@ -11,11 +11,19 @@ export type AnswerFailureKind = Extract<FailureKind, "decode" | "max_tokens" | "
 
 export type Verdict =
   | { readonly _tag: "Valid"; readonly enrichment: Enrichment }
-  | { readonly _tag: "Invalid"; readonly kind: AnswerFailureKind; readonly message: string }
+  | {
+      readonly _tag: "Invalid"
+      readonly kind: AnswerFailureKind
+      readonly message: string
+    }
 
 export type InvalidVerdict = Extract<Verdict, { readonly _tag: "Invalid" }>
 
-const invalid = (kind: AnswerFailureKind, message: string): InvalidVerdict => ({ _tag: "Invalid", kind, message })
+const invalid = (kind: AnswerFailureKind, message: string): InvalidVerdict => ({
+  _tag: "Invalid",
+  kind,
+  message,
+})
 
 const decodeAnswer = Schema.decodeUnknownResult(EnrichmentJson)
 
@@ -49,9 +57,7 @@ export const judgeCompletion = (completion: LlmCompletion, lineCount: number): V
     return invalid("decode", decoded.failure.message)
   }
   const problems = [...checkLineRange(decoded.success, lineCount), ...checkLineCoverage(decoded.success, lineCount)]
-  return problems.length > 0
-    ? invalid("decode", problems.join("\n"))
-    : { _tag: "Valid", enrichment: decoded.success }
+  return problems.length > 0 ? invalid("decode", problems.join("\n")) : { _tag: "Valid", enrichment: decoded.success }
 }
 
 /**
@@ -72,13 +78,13 @@ export const retryRequest = (
       return completion.text.trim() === ""
         ? request
         : {
-          ...request,
-          messages: [
-            ...request.messages,
-            { role: "assistant", content: completion.text },
-            { role: "user", content: retryMessage(failure.message) }
-          ]
-        }
+            ...request,
+            messages: [
+              ...request.messages,
+              { role: "assistant", content: completion.text },
+              { role: "user", content: retryMessage(failure.message) },
+            ],
+          }
     case "max_tokens": {
       const maxTokens = Math.min(request.maxTokens * 2, MAX_OUTPUT_TOKENS_RETRY)
       return maxTokens > request.maxTokens ? { ...request, maxTokens } : null

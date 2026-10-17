@@ -3,7 +3,7 @@ import {
   CallToolRequestSchema,
   GetPromptRequestSchema,
   ListPromptsRequestSchema,
-  ListToolsRequestSchema
+  ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js"
 import { Effect, Result } from "effect"
 import { plannerLayer } from "../planner/layers.ts"
@@ -12,7 +12,7 @@ import {
   PLAN_WEEK_ARGUMENTS,
   PLAN_WEEK_DESCRIPTION,
   PLAN_WEEK_PROMPT,
-  planWeekPrompt
+  planWeekPrompt,
 } from "./prompt.ts"
 import { makeTools } from "./tools.ts"
 import type { World } from "./tools.ts"
@@ -33,30 +33,46 @@ export const createServer = (world: World, log: (message: string) => void): McpS
     {
       capabilities: { tools: {}, prompts: {} },
       instructions:
-        "Планировщик меню на неделю по рецептам say7.info. Начните с промпта plan_week или с инструментов household и plan_history. Инструменты возвращают названия, ссылки и факты, без текстов рецептов."
+        "Планировщик меню на неделю по рецептам say7.info. Начните с промпта plan_week или с инструментов household и plan_history. Инструменты возвращают названия, ссылки и факты, без текстов рецептов.",
     }
   )
   const { server } = mcpServer
 
   server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }))
+    tools: tools.map(({ name, description, inputSchema }) => ({
+      name,
+      description,
+      inputSchema,
+    })),
   }))
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: raw } = request.params
     const tool = tools.find((candidate) => candidate.name === name)
     if (tool === undefined) {
-      return { content: [{ type: "text", text: `Неизвестный инструмент: ${name}.` }], isError: true }
+      return {
+        content: [{ type: "text", text: `Неизвестный инструмент: ${name}.` }],
+        isError: true,
+      }
     }
     const result = await Effect.runPromise(tool.call(raw).pipe(Effect.provide(plannerLayer)))
     if (result.isError) {
       log(`инструмент ${name}: ошибка`)
     }
-    return { content: result.texts.map((text) => ({ type: "text", text })), isError: result.isError }
+    return {
+      content: result.texts.map((text) => ({ type: "text", text })),
+      isError: result.isError,
+    }
   })
 
   server.setRequestHandler(ListPromptsRequestSchema, () => ({
-    prompts: [{ name: PLAN_WEEK_PROMPT, description: PLAN_WEEK_DESCRIPTION, arguments: [...PLAN_WEEK_ARGUMENTS] }]
+    prompts: [
+      {
+        name: PLAN_WEEK_PROMPT,
+        description: PLAN_WEEK_DESCRIPTION,
+        arguments: [...PLAN_WEEK_ARGUMENTS],
+      },
+    ],
   }))
 
   server.setRequestHandler(GetPromptRequestSchema, (request) => {
@@ -70,7 +86,15 @@ export const createServer = (world: World, log: (message: string) => void): McpS
     const { weekStart, proteinFamily } = decoded.success
     return {
       description: PLAN_WEEK_DESCRIPTION,
-      messages: [{ role: "user", content: { type: "text", text: planWeekPrompt(weekStart, proteinFamily) } }]
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: planWeekPrompt(weekStart, proteinFamily),
+          },
+        },
+      ],
     }
   })
 

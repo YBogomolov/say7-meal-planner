@@ -2,7 +2,7 @@ import { Option, Result, Schema } from "effect"
 import { IsoDate, SitemapEntry } from "../domain/recipe.ts"
 
 export class SitemapError extends Schema.TaggedError<SitemapError>()("SitemapError", {
-  message: Schema.String
+  message: Schema.String,
 }) {}
 
 /** Path of a recipe page: `/cook/recipe/<id>-<slug>.html`. No query string, no fragment. */
@@ -12,8 +12,8 @@ const XML_ENTITIES: Readonly<Record<string, string>> = {
   amp: "&",
   lt: "<",
   gt: ">",
-  quot: "\"",
-  apos: "'"
+  quot: '"',
+  apos: "'",
 }
 
 const xmlText = (raw: string): string => {
@@ -50,7 +50,7 @@ export const toSitemapEntry = (loc: string, lastmod: Option.Option<string>): Opt
     id: Number(digits),
     url: url.href,
     slug,
-    lastmod: lastmod.pipe(Option.flatMap((text) => Schema.decodeUnknownOption(IsoDate)(text)))
+    lastmod: lastmod.pipe(Option.flatMap((text) => Schema.decodeUnknownOption(IsoDate)(text))),
   }
   return Result.getSuccess(Schema.decodeUnknownResult(SitemapEntry)(entry))
 }
@@ -68,9 +68,7 @@ export const parseSitemap = (xml: string): Result.Result<ReadonlyArray<SitemapEn
   const entries: Array<SitemapEntry> = []
   for (const block of xml.matchAll(/<url(?:\s[^>]*)?>([\s\S]*?)<\/url>/g)) {
     const body = block[1] ?? ""
-    const entry = childText(body, "loc").pipe(
-      Option.flatMap((loc) => toSitemapEntry(loc, childText(body, "lastmod")))
-    )
+    const entry = childText(body, "loc").pipe(Option.flatMap((loc) => toSitemapEntry(loc, childText(body, "lastmod"))))
     if (Option.isSome(entry) && !seen.has(entry.value.id)) {
       seen.add(entry.value.id)
       entries.push(entry.value)
