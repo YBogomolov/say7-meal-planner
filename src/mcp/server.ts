@@ -16,12 +16,13 @@ const log = (message: string): void => {
 }
 
 /** The environment variables are wrong. The message is logged as it is. */
-class EnvironmentError extends Schema.TaggedError<EnvironmentError>()("EnvironmentError", {
-  message: Schema.String,
-}) {}
+class EnvironmentError extends Schema.TaggedError<EnvironmentError, { readonly brand: unique symbol }>()(
+  "EnvironmentError",
+  { message: Schema.String }
+) {}
 
 /** The server did not start: the data did not load or the transport did not connect. */
-class StartupError extends Schema.TaggedError<StartupError>()("StartupError", {
+class StartupError extends Schema.TaggedError<StartupError, { readonly brand: unique symbol }>()("StartupError", {
   message: Schema.String,
 }) {}
 

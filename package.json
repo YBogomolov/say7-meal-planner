@@ -18,7 +18,8 @@
     "items:report": "tsx src/planner/items-cli.ts",
     "servings:report": "tsx src/planner/servings-cli.ts",
     "plan:check": "tsx src/planner/plan-cli.ts",
-    "shopping:text": "tsx src/planner/shopping-text-cli.ts"
+    "shopping:text": "tsx src/planner/shopping-text-cli.ts",
+    "prepare": "effect-tsgo patch --typescript --no-oxlint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.133.0",
@@ -32,6 +33,7 @@
     "@types/node": "22.20.5",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.4"
+    "vitest": "5.0.4",
+    "@effect/tsgo": "0.53.4"
   }
 }

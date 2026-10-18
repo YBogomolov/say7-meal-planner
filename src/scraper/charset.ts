@@ -1,9 +1,9 @@
 import { Option, Result, Schema } from "effect"
 
-export class CharsetError extends Schema.TaggedError<CharsetError>()("CharsetError", {
-  label: Schema.String,
-  message: Schema.String,
-}) {}
+export class CharsetError extends Schema.TaggedError<CharsetError, { readonly brand: unique symbol }>()(
+  "CharsetError",
+  { label: Schema.String, message: Schema.String }
+) {}
 
 export type CharsetSource = "header" | "meta" | "default"
 
