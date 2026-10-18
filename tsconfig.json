@@ -60,10 +60,11 @@
           "schemaSyncInEffect": "warning",
           "strictEffectProvide": "warning",
           "tryCatchInEffectGen": "warning",
-          "unsafeEffectTypeAssertion": "warning"
-        }
-      }
-    ]
+          "unsafeEffectTypeAssertion": "warning",
+          "unstableApiUsage": "off",
+        },
+      },
+    ],
   },
-  "include": ["src", "test", "vitest.config.ts"]
+  "include": ["src", "test", "vitest.config.ts"],
 }
