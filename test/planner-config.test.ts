@@ -90,12 +90,15 @@ describe("Household", () => {
       decoded.weeklyExtras.map((extra) => extra.item),
       ["вафли", "яйца"]
     )
+    // Fewer dishes, each on 3–4 days (spec P4.1, 2026-10-30).
+    assert.strictEqual(decoded.maxDaysPerDish, 4)
     assert.deepStrictEqual(
       {
         ...decoded,
         preferences: DEFAULT_HOUSEHOLD.preferences,
         meals: DEFAULT_HOUSEHOLD.meals,
         mealPersons: {},
+        maxDaysPerDish: DEFAULT_HOUSEHOLD.maxDaysPerDish,
         lightDinnerIds: [],
         weeklyExtras: [],
       },
