@@ -115,16 +115,36 @@
     ]
   },
   {
-    "id": "banitsa-kiselo-mlyako",
-    "title": "Баница с сиренете (покупная, запечь) и кисело мляко",
+    "id": "banitsa-yogurt",
+    "title": "Баница с сиренете (покупная, запечь) и греческий йогурт",
     "items": [
       { "item": "баница", "grams": 150, "category": "bakery", "pantry": false },
-      {
-        "item": "кисело мляко",
-        "grams": 200,
-        "category": "dairy",
-        "pantry": false
-      }
+      { "item": "греческий йогурт", "grams": 150, "category": "dairy", "pantry": false }
+    ]
+  },
+  {
+    "id": "kifla-yaytsa",
+    "title": "Козуначена кифла и варёные яйца",
+    "items": [
+      { "item": "козуначена кифла", "grams": 90, "category": "bakery", "pantry": false },
+      { "item": "яйца", "grams": 110, "category": "eggs", "pantry": false }
+    ]
+  },
+  {
+    "id": "kifla-yogurt",
+    "title": "Козуначена кифла с греческим йогуртом",
+    "items": [
+      { "item": "козуначена кифла", "grams": 90, "category": "bakery", "pantry": false },
+      { "item": "греческий йогурт", "grams": 150, "category": "dairy", "pantry": false }
+    ]
+  },
+  {
+    "id": "vafli-yogurt-frukty",
+    "title": "Вафли с греческим йогуртом и фруктами",
+    "items": [
+      { "item": "вафли", "grams": 40, "category": "sweet", "pantry": false },
+      { "item": "греческий йогурт", "grams": 200, "category": "dairy", "pantry": false },
+      { "item": "фрукты", "grams": 100, "category": "fruit", "pantry": false }
     ]
   },
   {
